@@ -68,6 +68,8 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 h1{font-family:var(--font-d);font-size:28px;font-weight:700;letter-spacing:-.022em}
 h2{font-family:var(--font-d);font-size:17px;font-weight:600;letter-spacing:-.014em;margin-bottom:12px}
 .sub{color:var(--t3);font-size:13px}
+.mnav{display:inline-flex;align-items:center}
+.mnav b{color:var(--text);font-size:13.5px;font-weight:600}
 /* ---- buttons ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 18px;border-radius:999px;font-weight:500;font-size:14px;border:1px solid transparent;transition:background .15s,border-color .15s,transform .1s;min-height:38px}
 .btn:active{transform:scale(.96)}
@@ -341,7 +343,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     </div>
     <div class="section grid grid-2">
       <div class="card"><h2>Ближайшие платежи</h2><div id="dash-upcoming"></div></div>
-      <div class="card"><h2>Расходы месяца по категориям</h2><canvas id="dash-donut" height="200" style="max-width:100%"></canvas><div id="dash-cats"></div></div>
+      <div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Расходы по категориям<span class="chips" id="dash-cat-toggle" style="margin:0"><button class="chip active" onclick="setDashCatMode('fact',this)">Этот месяц</button><button class="chip" onclick="setDashCatMode('plan',this)">План на след.</button></span></h2><canvas id="dash-donut" height="200" style="max-width:100%"></canvas><div id="dash-cats"></div></div>
     </div>
     <div class="section card"><h2>Последние операции</h2><div id="dash-recent"></div></div>
   </section>
@@ -363,6 +365,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page" id="page-credits">
     <div class="page-head"><h1>Кредиты</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" onclick="openCreditModal()">+ Кредит</button></div></div>
     <div class="grid grid-4" id="credit-stats"></div>
+    <div class="section card" id="credit-month-progress" style="display:none"></div>
     <div class="section" id="credit-list"></div>
   </section>
 
@@ -536,7 +539,7 @@ function seedState() {
     { id: uid(), categoryId: "c_auto", limit: 5000 },
   ];
   const goals = [
-    { id: uid(), name: "Подушка безопасности", icon: "����️", target: 150000, saved: 0, deadline: "2026-12-31" },
+    { id: uid(), name: "Подушка безопасности", icon: "🛡️", target: 150000, saved: 0, deadline: "2026-12-31" },
   ];
   return {
     accounts: [
@@ -547,7 +550,7 @@ function seedState() {
     transactions: [],
     credits, recurring, budgets, goals,
     tasks: [], links: [],
-    settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {} },
+    settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {}, lastCat: {} },
     updatedAt: Date.now(),
   };
 }
@@ -563,6 +566,7 @@ if (!["t9", "t10", "t1", "t3", "t4", "t5"].includes(S.settings.theme)) S.setting
 if (typeof S.settings.reminderDays !== "number") S.settings.reminderDays = 3;
 if (!S.settings.dismissed || typeof S.settings.dismissed !== "object") S.settings.dismissed = {};
 if (!S.settings.viewMode || typeof S.settings.viewMode !== "object") S.settings.viewMode = {};
+if (!S.settings.lastCat || typeof S.settings.lastCat !== "object") S.settings.lastCat = {};
 
 let saveTimer = null;
 function save() {
@@ -805,7 +809,7 @@ function renderDash() {
   const planInc = planIncomeMonth();
   const incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
   const _stat = {
-    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">бала��с ${money(bal)} − долги</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
+    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
     income: `<div class="card stat" data-sid="income"><div class="lbl">Доход за ${MONTHS[now.getMonth()]}</div><div class="val pos">+${money(inc)}</div><div class="hint">${incHint}</div></div>`,
     expense: `<div class="card stat" data-sid="expense"><div class="lbl">Расход за ${MONTHS[now.getMonth()]}</div><div class="val neg">−${money(exp)}</div><div class="hint ${exp && paceOver ? "warn" : ""}">${paceTxt}</div></div>`,
     debt: `<div class="card stat" data-sid="debt"><div class="lbl">Долг по кредитам</div><div class="val warn">${money(debt)}</div><div class="hint">${S.credits.filter((c) => c.status === "active").length} активных</div></div>`,
@@ -835,23 +839,36 @@ function renderDash() {
     const soon = days <= 5;
     const icon = u.kind === "credit" ? "🏦" : u.kind === "recur-inc" ? "💰" : "📌";
     const whoTag = u.who ? WHO_ICON[u.who] + " " : "";
-    const flag = u.overdue ? ' <span class="badge amber">про���рочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
+    const flag = u.overdue ? ' <span class="badge amber">просрочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
     const amt = u.kind === "recur-inc" ? `<span class="pos">+${money(u.amount)}</span>` : money(u.amount);
     return `<div class="row"><div class="ic">${icon}</div><div class="rmain"><div class="rt">${whoTag}${esc(u.name)}${flag}</div><div class="rs ${soon && u.kind !== "recur-inc" ? "warn" : ""}">${u.date.getDate()} ${MONTHS_GEN[u.date.getMonth()]}${soon ? " · через " + (days <= 0 ? "сегодня" : days + " дн.").replace("через сегодня","сегодня") : ""}</div></div><div class="ramt">${amt}</div></div>`;
   }).join("") : '<div class="empty"><div class="big">✅</div>Ближайших платежей нет</div>';
-  // categories of month
-  const byCat = {};
-  tx.filter((t) => t.type === "expense").forEach((t) => { byCat[t.categoryId] = (byCat[t.categoryId] || 0) + +t.amount; });
-  const catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => [(cat(cid) || { name: "—" }).name, sum]), exp, "расходы " + MONTHS_GEN[now.getMonth()]);
+  // categories of month (факт) или план на следующий месяц
+  let catRows, catTotal, donutLabel, isPlanCats = false;
+  if (dashCatMode === "plan") {
+    isPlanCats = true;
+    const byCatPlan = {};
+    S.recurring.filter((r) => r.type === "expense").forEach((r) => { byCatPlan[r.categoryId] = (byCatPlan[r.categoryId] || 0) + +r.amount; });
+    for (const c of S.credits.filter((c) => c.status === "active")) { byCatPlan["c_credit"] = (byCatPlan["c_credit"] || 0) + currentPayment(c).amount; }
+    catRows = Object.entries(byCatPlan).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    catTotal = catRows.reduce((s, [, v]) => s + v, 0);
+    donutLabel = "план на " + MONTHS_GEN[(now.getMonth() + 1) % 12];
+  } else {
+    const byCat = {};
+    tx.filter((t) => t.type === "expense").forEach((t) => { byCat[t.categoryId] = (byCat[t.categoryId] || 0) + +t.amount; });
+    catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    catTotal = exp;
+    donutLabel = "расходы " + MONTHS_GEN[now.getMonth()];
+  }
+  drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => [(cid === "c_credit" ? "Платежи по кредитам" : (cat(cid) || { name: "—" }).name), sum]), catTotal, donutLabel);
   document.getElementById("dash-cats").innerHTML = catRows.length ? catRows.map(([cid, sum]) => {
-    const c = cat(cid) || { icon: "📌", name: "—" };
-    const pct = exp ? Math.round((sum / exp) * 100) : 0;
-    const prevSum = catSpentMonth(cid, prevYm);
+    const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" });
+    const pct = catTotal ? Math.round((sum / catTotal) * 100) : 0;
+    const prevSum = isPlanCats ? 0 : catSpentMonth(cid, prevYm);
     const dl = prevSum ? Math.round((sum - prevSum) / prevSum * 100) : null;
     const dlTxt = dl === null ? "" : ` <span class="sub">${dl > 0 ? "↑" : dl < 0 ? "↓" : "="}${Math.abs(dl)}%</span>`;
     return `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
-  }).join("") : '<div class="empty"><div class="big">📝</div>В этом месяце расходов ещё нет.<br>Добавьте первую операцию кнопкой «+»</div>';
+  }).join("") : (isPlanCats ? '<div class="empty"><div class="big">🗓️</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>В этом месяце расходов ещё нет.<br>Добавьте первую операцию кнопкой «+»</div>');
   // recent
   const recent = [...S.transactions].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
   document.getElementById("dash-recent").innerHTML = recent.length ? recent.map(txRow).join("") : '<div class="empty"><div class="big">👋</div>Операций пока нет — начните с кнопки «+ Операция»</div>';
@@ -957,11 +974,25 @@ function renderCredits() {
   const debtFull = act.reduce((s, c) => s + +(c.balanceFull || c.balance), 0);
   const monthly = act.reduce((s, c) => s + currentPayment(c).amount, 0);
   const regular = act.reduce((s, c) => s + +c.payment, 0);
+  const ym = todayStr().slice(0, 7);
+  const withSchedule = act.filter((c) => c.payDay);
+  const paidThisMonth = withSchedule.filter((c) => S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym));
+  const paidCount = paidThisMonth.length, totalCount = withSchedule.length;
+  const paidSum = paidThisMonth.reduce((s, c) => s + currentPayment(c).amount, 0);
   document.getElementById("credit-stats").innerHTML = `
     <div class="card stat"><div class="lbl">Остаток долга</div><div class="val">${money(debt)}</div></div>
     <div class="card stat"><div class="lbl">С учётом %</div><div class="val warn">${money(debtFull)}</div><div class="hint">переплата ${money(debtFull - debt)}</div></div>
     <div class="card stat"><div class="lbl">Платёж сейчас/мес</div><div class="val">${money(monthly)}</div><div class="hint">с учётом льготного периода</div></div>
     <div class="card stat"><div class="lbl">Полный платёж/мес</div><div class="val">${money(regular)}</div><div class="hint">после льготного периода</div></div>`;
+  const progEl = document.getElementById("credit-month-progress");
+  if (progEl) {
+    if (!totalCount) { progEl.style.display = "none"; }
+    else {
+      progEl.style.display = "block";
+      const pct = Math.round((paidCount / totalCount) * 100);
+      progEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span class="sub">Оплачено в ${MONTHS_GEN[new Date().getMonth()]}</span><b>${paidCount} из ${totalCount} · ${money(paidSum)}</b></div><div class="progress"><i style="width:${pct}%${pct === 100 ? "" : ";background:var(--amber)"}"></i></div>`;
+    }
+  }
   const listEl = document.getElementById("credit-list");
   if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">🏦</div>Кредитов пока нет</div>'; return; }
   if (viewMode("credits") === "list") {
@@ -1036,7 +1067,7 @@ function openScheduleModal(id) {
     <div style="max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-s)">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px">
         <thead style="position:sticky;top:0;background:var(--card);box-shadow:0 1px 0 var(--border)"><tr style="text-align:left">
-          <th style="padding:8px">Дат��</th><th style="padding:8px">Платёж</th><th style="padding:8px">Проценты</th><th style="padding:8px">Долг</th><th style="padding:8px">Остаток</th>
+          <th style="padding:8px">Дата</th><th style="padding:8px">Платёж</th><th style="padding:8px">Проценты</th><th style="padding:8px">Долг</th><th style="padding:8px">Остаток</th>
         </tr></thead>
         <tbody>${body || '<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--t3)">Кредит уже погашен</td></tr>'}</tbody>
       </table>
@@ -1387,7 +1418,7 @@ let txType = "expense", txCat = null;
 function openTxModal(pre) {
   if (isObserver()) return;
   pre = pre || {};
-  txType = pre.type || "expense"; txCat = pre.categoryId || null;
+  txType = pre.type || "expense"; txCat = pre.categoryId || (S.settings.lastCat && S.settings.lastCat[txType]) || null;
   showModal(`<div class="mhead"><h3>Новая операция</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="quick-add"><input id="tx-quick" placeholder="Быстро: 450 обед #работа" onkeydown="if(event.key==='Enter')parseQuick()"><button class="btn btn-ghost btn-sm" onclick="parseQuick()">→</button></div>
     <div class="fg"><div class="seg" id="tx-seg">
@@ -1422,7 +1453,7 @@ function parseQuick() {
   }
 }
 function setTxType(t, btn) {
-  txType = t; txCat = null;
+  txType = t; txCat = (S.settings.lastCat && S.settings.lastCat[t]) || null;
   document.querySelectorAll("#tx-seg button").forEach((b) => b.classList.remove("active", "exp", "inc"));
   btn.classList.add("active", t === "expense" ? "exp" : "inc");
   renderTxCats();
@@ -1437,6 +1468,7 @@ function saveTx() {
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
   const tags = (document.getElementById("tx-tags").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
   S.transactions.push({ id: uid(), date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, note: document.getElementById("tx-note").value.trim(), tags, createdAt: Date.now() });
+  if (txCat) { S.settings.lastCat = S.settings.lastCat || {}; S.settings.lastCat[txType] = txCat; }
   save(); closeModal(); render(activePage()); toast((txType === "income" ? "Доход" : "Расход") + " " + money(amount) + " записан");
 }
 function openCreditModal(id) {
@@ -1524,10 +1556,14 @@ function catSpentMonth(cid, ym) {
 }
 function renderBudgets() {
   const vb = document.getElementById("view-btn-budgets"); if (vb) vb.innerHTML = viewBtnHtml("budgets");
-  const now = new Date(); const ym = now.toISOString().slice(0, 7);
-  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayFrac = now.getDate() / dim;
-  document.getElementById("budget-sub").textContent = MONTHS[now.getMonth()] + " " + now.getFullYear();
+  const nowYm = todayStr().slice(0, 7);
+  const isCur = budgetYm === nowYm;
+  const [by, bm] = budgetYm.split("-").map(Number);
+  const dim = new Date(by, bm, 0).getDate();
+  const now = new Date();
+  const dayFrac = isCur ? now.getDate() / dim : (budgetYm < nowYm ? 1 : 0);
+  const ym = budgetYm;
+  document.getElementById("budget-sub").innerHTML = `<span class="mnav"><button class="btn btn-ghost btn-sm" onclick="shiftBudgetMonth(-1)" title="Пред. месяц">←</button><b style="margin:0 6px">${MONTHS[bm - 1]} ${by}</b><button class="btn btn-ghost btn-sm" onclick="shiftBudgetMonth(1)" title="След. месяц">→</button>${!isCur ? '<button class="btn btn-ghost btn-sm" onclick="resetBudgetMonth()" style="margin-left:6px">Сегодня</button>' : ""}</span>`;
   const list = S.budgets || [];
   const prevYm = ymShift(ym, -1);
   const effLimit = (b) => +b.limit + (b.mode === "carryover" ? (+b.limit - catSpentMonth(b.categoryId, prevYm)) : 0);
@@ -1661,6 +1697,16 @@ function delGoal(id) { if (isObserver()) return; if (!confirm("Удалить ц
 
 /* ===================== planner (kanban, как в CRM) ===================== */
 let taskWho = "all";
+let dashCatMode = "fact";
+function setDashCatMode(m, btn) {
+  dashCatMode = m;
+  document.querySelectorAll("#dash-cat-toggle button").forEach((b) => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderDash();
+}
+let budgetYm = todayStr().slice(0, 7);
+function shiftBudgetMonth(delta) { budgetYm = ymShift(budgetYm, delta); renderBudgets(); }
+function resetBudgetMonth() { budgetYm = todayStr().slice(0, 7); renderBudgets(); }
 let _dragTaskId = null;
 const WHO_LABEL = { me: "👤 Я", wife: "👩 Жена", both: "👥 Вместе" };
 const WHO_ICON = { me: "👤", wife: "👩", both: "👥" };
@@ -1703,7 +1749,7 @@ function renderPlanner() {
     document.getElementById("kanban").innerHTML = taskCols().map((c) => `
     <div class="kb-col"><div class="kb-head"><span>${c.title}</span><span class="kb-count">${c.tasks.length}</span></div>
     <div class="kb-cards" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="taskDrop(event,'${c.key}')">${c.tasks.map(taskCard).join("") || '<div class="empty" style="padding:14px 6px;font-size:12.5px">Нет задач</div>'}</div>
-    <button class="kb-add" onclick="openTaskModal(null,'${c.key}')">＋ Добавит��</button></div>`).join("");
+    <button class="kb-add" onclick="openTaskModal(null,'${c.key}')">＋ Добавить</button></div>`).join("");
   }
   const done = S.tasks.filter((t) => t.done && (taskWho === "all" || t.who === taskWho)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 20);
   document.getElementById("tasks-done").innerHTML = done.length ? done.map((t) => `<div class="row done-list"><button class="task-check done" onclick="toggleTask('${t.id}')" title="Вернуть в работу">✓</button><div class="rmain"><div class="task-text" style="font-size:13.5px">${esc(t.text)}</div><div class="rs">${WHO_LABEL[t.who] || ""}</div></div><button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')">🗑</button></div>`).join("") : '<div class="empty">Выполненных задач пока нет</div>';
@@ -1960,6 +2006,21 @@ window.addEventListener("online", () => syncNow(false));
 if (S.settings.sbUrl && S.settings.sbKey) syncNow(false);
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 window.addEventListener("resize", () => { if (activePage() === "analytics") renderAnalytics(); });
+// Ярлыки приложения (manifest → shortcuts): ?quick=expense / ?quick=income сразу открывает форму добавления
+(() => {
+  const q = new URLSearchParams(location.search).get("quick");
+  if (q === "expense" || q === "income") { setTimeout(() => openTxModal({ type: q }), 200); history.replaceState(null, "", location.pathname); }
+})();
+// Быстрые клавиши: N — новая операция (только когда фокус не в поле ввода и нет открытой модалки)
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "n" && e.key !== "N" && e.key !== "т" && e.key !== "Т") return; // "т" — та же клавиша в русской раскладке
+  const t = e.target, tag = (t.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable) return;
+  const ov = document.getElementById("overlay"); if (ov && ov.classList.contains("open")) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  e.preventDefault();
+  openTxModal();
+});
 // Подтягиваем свежие данные при возврате в приложение (важно для наблюдателя и для
 // уменьшения окна конфликтов при обычной синхронизации), плюс лёгкий фоновый опрос.
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey) syncNow(false); });
@@ -1990,7 +2051,7 @@ setInterval(() => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey
    1) Supabase Auth (email/пароль) + личная таблица ww_user_state (RLS)
    2) PIN-код
    3) Защита от конфликтов синхронизации
-   4) Автопровед��ние регулярных платежей
+   4) Автопроведение регулярных платежей
    5) График погашения кредитов + досрочное погашение
    6) Авто-бэкапы + отмена удаления
    7) Прогноз денежного потока (12 мес.)
@@ -2007,7 +2068,7 @@ function ww2Migrate() {
 }
 ww2Migrate();
 
-/* ---------- разметка: экр��н блокировки + офлайн-бейдж ---------- */
+/* ---------- разметка: экран блокировки + офлайн-бейдж ---------- */
 document.body.insertAdjacentHTML("beforeend", `
 <div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px">🔒</div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div></div></div>
 <div id="ww-net">⚡ Офлайн — данные сохраняются локально</div>`);
@@ -2732,7 +2793,7 @@ function ww22DemoState() {
       { id: uid(), title: "Демо-сервис", category: "Пример", login: "demo@example.com", password: "demo1234", url: "https://example.com", note: "Пример записи", created: Date.now() },
     ],
     posted: {},
-    settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {} },
+    settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {}, lastCat: {} },
     updatedAt: Date.now(),
   };
 }
