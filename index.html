@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="WiseWallet">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500&display=swap" rel="stylesheet">
@@ -320,6 +320,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <button class="rail-item" data-nav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg><span>Календарь</span></button>
   <button class="rail-item" data-nav="planner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg><span>Планировщик</span></button>
   <button class="rail-item" data-nav="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>Ссылки</span></button>
+  <button class="rail-item" data-nav="passwords"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg><span>Пароли</span></button>
   <button class="rail-item" data-nav="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Аналитика</span></button>
   <button class="rail-item" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg><span>Настройки</span></button>
 </aside>
@@ -417,6 +418,13 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div id="links-list"></div>
   </section>
 
+  <!-- ================= PASSWORDS ================= -->
+  <section class="page" id="page-passwords">
+    <div class="page-head"><h1>Пароли</h1><button class="btn btn-primary" onclick="openPassModal()">＋ Пароль</button></div>
+    <div class="toolbar"><input id="pass-q" placeholder="Поиск..." oninput="renderPasswords()" style="flex:0 1 260px"><div class="chips" id="pass-cats"></div></div>
+    <div id="pass-list"></div>
+  </section>
+
   <!-- ================= SETTINGS ================= -->
   <section class="page" id="page-settings">
     <div class="page-head"><h1>Настройки</h1></div>
@@ -458,7 +466,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v1.15</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.2</div>
       </div>
     </div>
   </section>
@@ -528,7 +536,7 @@ function seedState() {
     { id: uid(), categoryId: "c_auto", limit: 5000 },
   ];
   const goals = [
-    { id: uid(), name: "Подушка безопасности", icon: "🛡️", target: 150000, saved: 0, deadline: "2026-12-31" },
+    { id: uid(), name: "Подушка безопасности", icon: "����️", target: 150000, saved: 0, deadline: "2026-12-31" },
   ];
   return {
     accounts: [
@@ -675,7 +683,7 @@ function nav(page) {
 document.querySelectorAll("[data-nav]").forEach((b) => b.addEventListener("click", () => nav(b.dataset.nav)));
 
 function render(page) {
-  ({ dashboard: renderDash, ops: renderOps, budgets: renderBudgets, goals: renderGoals, credits: renderCredits, calendar: renderCal, planner: renderPlanner, links: renderLinks, analytics: renderAnalytics, settings: renderSettings }[page] || renderDash)();
+  ({ dashboard: renderDash, ops: renderOps, budgets: renderBudgets, goals: renderGoals, credits: renderCredits, calendar: renderCal, planner: renderPlanner, links: renderLinks, passwords: renderPasswords, analytics: renderAnalytics, settings: renderSettings }[page] || renderDash)();
 }
 
 /* ===================== переключатель "Вид" (карточки / список) ===================== */
@@ -797,7 +805,7 @@ function renderDash() {
   const planInc = planIncomeMonth();
   const incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
   const _stat = {
-    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
+    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">бала��с ${money(bal)} − долги</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
     income: `<div class="card stat" data-sid="income"><div class="lbl">Доход за ${MONTHS[now.getMonth()]}</div><div class="val pos">+${money(inc)}</div><div class="hint">${incHint}</div></div>`,
     expense: `<div class="card stat" data-sid="expense"><div class="lbl">Расход за ${MONTHS[now.getMonth()]}</div><div class="val neg">−${money(exp)}</div><div class="hint ${exp && paceOver ? "warn" : ""}">${paceTxt}</div></div>`,
     debt: `<div class="card stat" data-sid="debt"><div class="lbl">Долг по кредитам</div><div class="val warn">${money(debt)}</div><div class="hint">${S.credits.filter((c) => c.status === "active").length} активных</div></div>`,
@@ -827,7 +835,7 @@ function renderDash() {
     const soon = days <= 5;
     const icon = u.kind === "credit" ? "🏦" : u.kind === "recur-inc" ? "💰" : "📌";
     const whoTag = u.who ? WHO_ICON[u.who] + " " : "";
-    const flag = u.overdue ? ' <span class="badge amber">просрочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
+    const flag = u.overdue ? ' <span class="badge amber">про���рочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
     const amt = u.kind === "recur-inc" ? `<span class="pos">+${money(u.amount)}</span>` : money(u.amount);
     return `<div class="row"><div class="ic">${icon}</div><div class="rmain"><div class="rt">${whoTag}${esc(u.name)}${flag}</div><div class="rs ${soon && u.kind !== "recur-inc" ? "warn" : ""}">${u.date.getDate()} ${MONTHS_GEN[u.date.getMonth()]}${soon ? " · через " + (days <= 0 ? "сегодня" : days + " дн.").replace("через сегодня","сегодня") : ""}</div></div><div class="ramt">${amt}</div></div>`;
   }).join("") : '<div class="empty"><div class="big">✅</div>Ближайших платежей нет</div>';
@@ -1803,6 +1811,7 @@ function openMore() {
     <button class="more-item" onclick="closeModal();nav('calendar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg>Календарь</button>
     <button class="more-item" onclick="closeModal();nav('planner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg>Планировщик</button>
     <button class="more-item" onclick="closeModal();nav('links')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>Ссылки</button>
+    <button class="more-item" onclick="closeModal();nav('passwords')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg>Пароли</button>
     <button class="more-item" onclick="closeModal();nav('analytics')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Аналитика</button>
     <button class="more-item" onclick="closeModal();nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>Настройки</button>`);
 }
@@ -1955,6 +1964,867 @@ window.addEventListener("resize", () => { if (activePage() === "analytics") rend
 // уменьшения окна конфликтов при обычной синхронизации), плюс лёгкий фоновый опрос.
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey) syncNow(false); });
 setInterval(() => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey) syncNow(false); }, S.settings.observerMode ? 30000 : 60000);
+</script>
+<style>
+/* ===================== v2.0 styles ===================== */
+#ww-lock{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center}
+.ww-lock-card{width:min(320px,86vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+#ww-lock-in{width:100%;text-align:center;font-size:22px;letter-spacing:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:var(--font-d)}
+#ww-net{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--amber-bg);border:1px solid var(--amber);color:var(--text);padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:400;align-items:center;gap:6px;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+#toast{pointer-events:auto}
+.cs-table{width:100%;border-collapse:collapse;font-size:12px}
+.cs-table th,.cs-table td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--font-d);white-space:nowrap}
+.cs-table th:first-child,.cs-table td:first-child{text-align:left;font-family:inherit}
+.cs-table th{color:var(--t3);font-weight:600}
+#dash-due .row,#ww-snap-list .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+#dash-due .row:last-of-type,#ww-snap-list .row:last-of-type{border-bottom:none}
+#dash-due .ic,#ww-snap-list .ic{font-size:18px}
+#dash-due .rmain,#ww-snap-list .rmain{flex:1;min-width:0}
+#dash-due .rt,#ww-snap-list .rt{font-size:13.5px;font-weight:600}
+#dash-due .rs,#ww-snap-list .rs{font-size:12px;color:var(--t3)}
+#dash-due .ramt{font-family:var(--font-d);font-weight:600;font-size:13.5px}
+</style>
+<script>
+"use strict";
+/* ===================== WiseWallet v2.0 =====================
+   1) Supabase Auth (email/пароль) + личная таблица ww_user_state (RLS)
+   2) PIN-код
+   3) Защита от конфликтов синхронизации
+   4) Автопровед��ние регулярных платежей
+   5) График погашения кредитов + досрочное погашение
+   6) Авто-бэкапы + отмена удаления
+   7) Прогноз денежного потока (12 мес.)
+   8) Переводы между счетами
+   9) PWA: установка, офлайн-индикатор, уведомления
+============================================================= */
+const WW2K = { sess: "ww_session_v2", pin: "ww_pin_v2", snap: "ww_snapshots_v2", lastRemote: "ww_last_remote_v2", notif: "ww_notified_v2" };
+
+/* ---------- миграция состояния ---------- */
+function ww2Migrate() {
+  if (!S.posted || typeof S.posted !== "object") S.posted = {};
+  if (!S.categories.find((c) => c.id === "c_tr_out")) S.categories.push({ id: "c_tr_out", name: "Перевод (исходящий)", type: "expense", icon: "🔄" });
+  if (!S.categories.find((c) => c.id === "c_tr_in")) S.categories.push({ id: "c_tr_in", name: "Перевод (входящий)", type: "income", icon: "🔄" });
+}
+ww2Migrate();
+
+/* ---------- разметка: экр��н блокировки + офлайн-бейдж ---------- */
+document.body.insertAdjacentHTML("beforeend", `
+<div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px">🔒</div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div></div></div>
+<div id="ww-net">⚡ Офлайн — данные сохраняются локально</div>`);
+
+/* ===================== 2. PIN-код ===================== */
+async function ww2Hash(s) {
+  try {
+    const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s + "|wisewallet"));
+    return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  } catch (e) {
+    let h = 2166136261; const t = s + "|wisewallet";
+    for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return "f" + (h >>> 0).toString(16);
+  }
+}
+function pinSet() { return !!localStorage.getItem(WW2K.pin); }
+async function ww2SetupPin() {
+  const p1 = prompt(pinSet() ? "Новый PIN-код (4–8 цифр):" : "Придумайте PIN-код (4–8 цифр):"); if (p1 === null) return;
+  if (!/^\d{4,8}$/.test(p1)) { toast("PIN — от 4 до 8 цифр"); return; }
+  const p2 = prompt("Повторите PIN-код:"); if (p2 !== p1) { toast("PIN-коды не совпадают"); return; }
+  localStorage.setItem(WW2K.pin, await ww2Hash(p1)); toast("PIN-код установлен"); fillV2Settings();
+}
+async function ww2DisablePin() {
+  const p = prompt("Введите текущий PIN-код для отключения:"); if (p === null) return;
+  if (await ww2Hash(p) !== localStorage.getItem(WW2K.pin)) { toast("Неверный PIN"); return; }
+  localStorage.removeItem(WW2K.pin); toast("PIN-код отключён"); fillV2Settings();
+}
+let _pinTries = 0, _pinBlockUntil = 0;
+function ww2Lock() {
+  if (!pinSet()) return;
+  document.getElementById("ww-lock").style.display = "flex";
+  const inp = document.getElementById("ww-lock-in"); inp.value = "";
+  setTimeout(() => inp.focus(), 120);
+}
+async function ww2TryUnlock() {
+  const msg = document.getElementById("ww-lock-msg");
+  if (Date.now() < _pinBlockUntil) { msg.textContent = "Слишком много попыток. Подождите 30 сек."; return; }
+  const v = document.getElementById("ww-lock-in").value;
+  if (await ww2Hash(v) === localStorage.getItem(WW2K.pin)) {
+    _pinTries = 0; msg.textContent = ""; document.getElementById("ww-lock").style.display = "none";
+  } else {
+    _pinTries++; document.getElementById("ww-lock-in").value = "";
+    if (_pinTries >= 5) { _pinBlockUntil = Date.now() + 30000; _pinTries = 0; msg.textContent = "Слишком много попыток. Подождите 30 сек."; }
+    else msg.textContent = "Неверный PIN (" + _pinTries + "/5)";
+  }
+}
+let _hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) _hiddenAt = Date.now();
+  else if (pinSet() && Date.now() - _hiddenAt > 120000) ww2Lock();
+});
+
+/* ===================== 1. Supabase Auth ===================== */
+function ww2SessionSync() { try { return JSON.parse(localStorage.getItem(WW2K.sess)); } catch (e) { return null; } }
+function ww2SaveSession(j) {
+  if (!j || !j.access_token) return;
+  localStorage.setItem(WW2K.sess, JSON.stringify({
+    access_token: j.access_token, refresh_token: j.refresh_token,
+    expires_at: Date.now() + (j.expires_in || 3600) * 1000,
+    user_id: (j.user && j.user.id) || j.user_id, email: (j.user && j.user.email) || j.email,
+  }));
+}
+async function ww2Session() {
+  let s = ww2SessionSync(); if (!s) return null;
+  if (Date.now() > (s.expires_at || 0) - 60000) {
+    try {
+      const r = await fetch(S.settings.sbUrl + "/auth/v1/token?grant_type=refresh_token", { method: "POST", headers: { apikey: S.settings.sbKey, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+      if (!r.ok) throw new Error("refresh failed");
+      ww2SaveSession(await r.json()); s = ww2SessionSync();
+    } catch (e) { return null; }
+  }
+  return s;
+}
+async function ww2SignIn() {
+  const email = document.getElementById("ww-email").value.trim(), pass = document.getElementById("ww-pass").value;
+  if (!S.settings.sbUrl || !S.settings.sbKey) { toast("Сначала заполните URL и anon key в карточке «Синхронизация»"); return; }
+  if (!email || !pass) { toast("Введите email и пароль"); return; }
+  try {
+    const r = await fetch(S.settings.sbUrl + "/auth/v1/token?grant_type=password", { method: "POST", headers: { apikey: S.settings.sbKey, "Content-Type": "application/json" }, body: JSON.stringify({ email, password: pass }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error_description || j.msg || ("HTTP " + r.status));
+    ww2SaveSession(j); toast("Вы вошли: " + email); fillV2Settings(); syncNow(true);
+  } catch (e) { toast("Ошибка входа: " + e.message); }
+}
+async function ww2SignUp() {
+  const email = document.getElementById("ww-email").value.trim(), pass = document.getElementById("ww-pass").value;
+  if (!S.settings.sbUrl || !S.settings.sbKey) { toast("Сначала заполните URL и anon key в карточке «Синхронизация»"); return; }
+  if (!email || pass.length < 6) { toast("Введите email и пароль (от 6 символов)"); return; }
+  try {
+    const r = await fetch(S.settings.sbUrl + "/auth/v1/signup", { method: "POST", headers: { apikey: S.settings.sbKey, "Content-Type": "application/json" }, body: JSON.stringify({ email, password: pass }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error_description || j.msg || ("HTTP " + r.status));
+    if (j.access_token) { ww2SaveSession(j); toast("Аккаунт создан, вы вошли"); fillV2Settings(); syncNow(true); }
+    else toast("Письмо отправлено — подтвердите email и нажмите «Войти»");
+  } catch (e) { toast("Ошибка регистрации: " + e.message); }
+}
+function ww2SignOut() { localStorage.removeItem(WW2K.sess); toast("Вы вышли из аккаунта"); fillV2Settings(); }
+
+/* ===================== 1+3. Синхронизация v2 (auth + защита от конфликтов) ===================== */
+let _confAsked = false;
+async function syncNow(manual) {
+  const { sbUrl, sbKey, syncId } = S.settings;
+  if (!sbUrl || !sbKey || !navigator.onLine) { if (manual) toast(!navigator.onLine ? "Нет сети" : "Сначала заполните URL и ключ"); return; }
+  const sess = await ww2Session();
+  const table = sess ? "ww_user_state" : "ww_state";
+  const keyCol = sess ? "user_id" : "id";
+  const keyVal = sess ? sess.user_id : syncId;
+  if (!keyVal) { if (manual) toast("Нет ключа синхронизации"); return; }
+  const H = { apikey: sbKey, Authorization: "Bearer " + (sess ? sess.access_token : sbKey), "Content-Type": "application/json" };
+  try {
+    const res = await fetch(`${sbUrl}/rest/v1/${table}?${keyCol}=eq.${encodeURIComponent(keyVal)}&select=data,updated_at`, { headers: H });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const remote = (await res.json())[0];
+    const lastRemote = localStorage.getItem(WW2K.lastRemote) || "";
+    const doPull = () => {
+      const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
+      ww2Migrate();
+      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      localStorage.setItem(WW2K.lastRemote, remote.updated_at || "");
+      render(activePage());
+    };
+    const doPush = async () => {
+      const row = { data: S, updated_at: new Date().toISOString() }; row[keyCol] = keyVal;
+      const up = await fetch(`${sbUrl}/rest/v1/${table}`, { method: "POST", headers: { ...H, Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([row]) });
+      if (!up.ok) throw new Error("HTTP " + up.status);
+      const saved = (await up.json())[0];
+      if (saved && saved.updated_at) localStorage.setItem(WW2K.lastRemote, saved.updated_at);
+    };
+    if (S.settings.observerMode) {
+      if (remote && remote.data) { doPull(); if (manual) toast("Данные обновлены"); }
+      else if (manual) toast("На сервере пока нет данных");
+    } else {
+      const remoteNewer = remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt;
+      const remoteChanged = remote && lastRemote && remote.updated_at && remote.updated_at !== lastRemote;
+      const localDirty = S.updatedAt > (S.settings.lastSync || 0);
+      if (remote && remote.data && remoteChanged && localDirty && (remote.data.updatedAt || 0) !== S.updatedAt) {
+        if (manual || !_confAsked) {
+          _confAsked = true;
+          const keepMine = confirm(`⚠️ Конфликт синхронизации\n\nДанные менялись и на этом устройстве, и на другом.\nВаша версия: ${new Date(S.updatedAt).toLocaleString("ru-RU")}\nНа сервере: ${new Date(remote.data.updatedAt || 0).toLocaleString("ru-RU")}\n\nOK — оставить версию ЭТОГО устройства (сервер будет перезаписан)\nОтмена — взять версию С СЕРВЕРА (локальные изменения будут потеряны)`);
+          if (keepMine) { await doPush(); toast("Сохранена ваша версия"); } else { doPull(); toast("Загружена версия с сервера"); }
+          _confAsked = false;
+        }
+      } else if (remoteNewer) {
+        doPull(); if (manual) toast("Загружены данные с сервера");
+      } else {
+        await doPush(); if (manual) toast(sess ? "Синхронизировано (личный аккаунт)" : "Данные отправлены в Supabase");
+      }
+    }
+    S.settings.lastSync = Date.now();
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    sbStatus();
+  } catch (e) { if (manual) toast("Ошибка синхронизации: " + e.message); sbStatus("Ошибка: " + e.message); }
+}
+
+/* ===================== 4. Автопроведение регулярных платежей ===================== */
+function duePostings() {
+  const now = new Date(); const ym = todayStr().slice(0, 7);
+  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return S.recurring
+    .filter((r) => now.getDate() >= Math.min(r.day, dim) && !S.posted[r.id + ":" + ym])
+    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0") }));
+}
+function renderDuePanel() {
+  let el = document.getElementById("dash-due");
+  if (!el) {
+    const rem = document.getElementById("dash-reminders"); if (!rem) return;
+    el = document.createElement("div"); el.id = "dash-due";
+    rem.parentNode.insertBefore(el, rem.nextSibling);
+  }
+  const due = S.settings.observerMode ? [] : duePostings();
+  if (!due.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  el.style.display = "block";
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К проведению (${due.length})</h2><div class="sub" style="margin:2px 0 6px">Регулярные платежи этого месяца, ещё не записанные в операции.</div>` +
+    due.map((d) => `<div class="row"><div class="ic">${(cat(d.r.categoryId) || { icon: d.r.type === "income" ? "💵" : "📌" }).icon}</div><div class="rmain"><div class="rt">${esc(d.r.name)}</div><div class="rs">${fmtDay(d.date)}</div></div><div class="ramt" style="color:var(--${d.r.type === "income" ? "green" : "red"})">${d.r.type === "income" ? "+" : "−"}${money(d.r.amount)}</div><button class="btn btn-primary btn-sm" onclick="postRecur('${d.r.id}')">Провести</button><button class="btn btn-ghost btn-sm" onclick="skipRecur('${d.r.id}')" title="Пропустить в этом месяце">✕</button></div>`).join("") +
+    `<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="postAllRecur()">Провести все</button></div></div>`;
+}
+function postRecur(id) {
+  if (isObserver()) return;
+  const ym = todayStr().slice(0, 7);
+  const r = S.recurring.find((x) => x.id === id); if (!r || S.posted[r.id + ":" + ym]) return;
+  const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const date = ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0");
+  const accId = (S.accounts.find((a) => !a.archived) || {}).id;
+  S.transactions.push({ id: uid(), date, type: r.type, amount: +r.amount, accountId: accId, categoryId: r.categoryId, note: r.name + " (регулярный)", tags: ["регулярный"], createdAt: Date.now() });
+  S.posted[r.id + ":" + ym] = true;
+  save(); render(activePage()); toast("Проведено: " + r.name);
+}
+function skipRecur(id) {
+  if (isObserver()) return;
+  S.posted[id + ":" + todayStr().slice(0, 7)] = true;
+  save(); renderDuePanel();
+}
+function postAllRecur() {
+  if (isObserver()) return;
+  duePostings().forEach((d) => postRecur(d.r.id));
+}
+const _renderDash2 = renderDash;
+renderDash = function () { _renderDash2(); renderDuePanel(); };
+
+/* ===================== 5. График погашения кредита + досрочное ===================== */
+function creditSchedule(c, extraMonthly, oneTime) {
+  let bal = Math.max(0, (+c.balance || 0) - (oneTime || 0));
+  const mr = (+c.rate || 0) / 100 / 12;
+  const rows = []; let totalInt = 0, totalPaid = oneTime || 0;
+  const start = new Date();
+  for (let i = 0; i < 600 && bal > 0.5; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i + 1, Math.min(+c.payDay || 15, 28));
+    const ds = d.toISOString().slice(0, 10);
+    const grace = c.graceFrom && c.graceTo && ds >= c.graceFrom && ds <= c.graceTo;
+    let pay = (grace ? (+c.gracePayment || +c.payment) : +c.payment) + (grace ? 0 : (extraMonthly || 0));
+    const interest = bal * mr;
+    if (!grace && pay - interest <= 0) return { rows, bal, totalInt, totalPaid, never: true };
+    let principal = pay - interest;
+    if (principal > bal) { principal = bal; pay = principal + interest; }
+    bal -= principal; totalInt += interest; totalPaid += pay;
+    rows.push({ d, pay, interest, principal, bal });
+  }
+  return { rows, bal, totalInt, totalPaid, never: bal > 0.5 };
+}
+function openCreditSchedule(id) {
+  const c = S.credits.find((x) => x.id === id); if (!c) return;
+  showModal(`<div class="mhead"><h3>📊 ${esc(c.name)}</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg-row">
+      <div class="fg"><label>Досрочно сейчас, ₽</label><input id="cs-once" type="number" value="0" min="0"></div>
+      <div class="fg"><label>Доп. платёж/мес, ₽</label><input id="cs-extra" type="number" value="0" min="0"></div>
+    </div>
+    <button class="btn btn-primary btn-sm" style="width:100%" onclick="renderSchedule('${id}')">Рассчитать</button>
+    <div id="cs-out" style="margin-top:12px"></div>`);
+  renderSchedule(id);
+}
+function renderSchedule(id) {
+  const c = S.credits.find((x) => x.id === id); if (!c) return;
+  const once = +document.getElementById("cs-once").value || 0;
+  const extra = +document.getElementById("cs-extra").value || 0;
+  const base = creditSchedule(c, 0, 0);
+  const plan = (once || extra) ? creditSchedule(c, extra, once) : base;
+  const out = document.getElementById("cs-out");
+  if (plan.never) { out.innerHTML = '<div class="empty">⚠️ При таком платеже долг не гасится — платёж меньше начисляемых процентов. Увеличьте платёж.</div>'; return; }
+  const last = plan.rows[plan.rows.length - 1];
+  const payoff = last ? last.d.toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "—";
+  let cmp = "";
+  if (plan !== base && !base.never) {
+    const savedInt = Math.max(0, base.totalInt - plan.totalInt);
+    const savedM = Math.max(0, base.rows.length - plan.rows.length);
+    cmp = `<div class="reminder-row income" style="margin:10px 0"><div class="ic">💡</div><div class="rmain"><div class="rt">Экономия на процентах: ${money(savedInt)}</div><div class="rs">закроете быстрее на ${savedM} мес.</div></div></div>`;
+  }
+  out.innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
+      <div><div class="sub">Закроете</div><b>${payoff}</b><div class="sub">${plan.rows.length} платежей</div></div>
+      <div><div class="sub">Переплата (проценты)</div><b style="color:var(--red)">${money(plan.totalInt)}</b><div class="sub">всего выплатите ${money(plan.totalPaid)}</div></div>
+    </div>` + cmp +
+    `<div style="max-height:300px;overflow:auto"><table class="cs-table"><tr><th>Дата</th><th>Платёж</th><th>Проценты</th><th>Долг</th><th>Остаток</th></tr>` +
+    plan.rows.slice(0, 120).map((r) => `<tr><td>${r.d.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" })}</td><td>${money(r.pay)}</td><td>${money(r.interest)}</td><td>${money(r.principal)}</td><td>${money(r.bal)}</td></tr>`).join("") +
+    (plan.rows.length > 120 ? `<tr><td colspan="5" class="sub">… ещё ${plan.rows.length - 120} платежей</td></tr>` : "") + `</table></div>`;
+}
+const _openCreditModal2 = openCreditModal;
+openCreditModal = function (id) {
+  _openCreditModal2(id);
+  if (!id || S.settings.observerMode) return;
+  const m = document.getElementById("modal"); if (!m) return;
+  const saveBtn = m.querySelector('button.btn-primary[onclick^="saveCredit"]');
+  if (saveBtn && saveBtn.parentElement) saveBtn.parentElement.insertAdjacentHTML("beforebegin", `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="openCreditSchedule('${id}')">📊 График платежей и досрочное погашение</button>`);
+};
+
+/* ===================== 6. Авто-бэкапы + отмена удаления ===================== */
+function ww2Snapshots() { try { return JSON.parse(localStorage.getItem(WW2K.snap)) || []; } catch (e) { return []; } }
+function ww2Snapshot(force) {
+  const snaps = ww2Snapshots(); const now = Date.now();
+  if (!force && snaps.length && now - snaps[snaps.length - 1].t < 6 * 3600 * 1000) return;
+  snaps.push({ t: now, data: JSON.stringify(S) });
+  while (snaps.length > 5) snaps.shift();
+  try { localStorage.setItem(WW2K.snap, JSON.stringify(snaps)); } catch (e) {}
+  if (document.getElementById("ww-snap-list")) fillV2Settings();
+}
+function ww2Restore(t) {
+  if (isObserver()) return;
+  const s = ww2Snapshots().find((x) => x.t === t); if (!s) return;
+  if (!confirm("Восстановить данные из копии от " + new Date(t).toLocaleString("ru-RU") + "?\n\nТекущие данные будут заменены (перед этим создадим ещё одну копию).")) return;
+  ww2Snapshot(true);
+  try { S = JSON.parse(s.data); localStorage.setItem(LS_KEY, JSON.stringify(S)); location.reload(); } catch (e) { toast("Ошибка восстановления"); }
+}
+const _save2 = save;
+save = function () { _save2(); ww2Snapshot(false); };
+let _undoTimer = null;
+function ww2UndoToast(msg, fn) {
+  const t = document.getElementById("toast"); if (!t) return;
+  t.innerHTML = esc(msg) + ' <button id="ww-undo-btn" style="margin-left:10px;background:transparent;border:1px solid currentColor;border-radius:8px;color:inherit;padding:2px 10px;font:inherit;cursor:pointer">Отменить</button>';
+  t.classList.add("show");
+  clearTimeout(_undoTimer);
+  document.getElementById("ww-undo-btn").onclick = () => { clearTimeout(_undoTimer); t.classList.remove("show"); t.textContent = ""; fn(); toast("Восстановлено"); };
+  _undoTimer = setTimeout(() => { t.classList.remove("show"); }, 6000);
+}
+function delTx(id) {
+  if (isObserver()) return;
+  const t = S.transactions.find((x) => x.id === id); if (!t) return;
+  S.transactions = S.transactions.filter((x) => x.id !== id);
+  save(); render(activePage());
+  ww2UndoToast("Операция удалена", () => { S.transactions.push(t); save(); render(activePage()); });
+}
+
+/* ===================== 7. Прогноз денежного потока (12 мес.) ===================== */
+function ensureFlowCard() {
+  if (document.getElementById("chart-flow")) return;
+  const bars = document.getElementById("chart-bars"); if (!bars) return;
+  const card = bars.closest(".card") || bars.parentElement; if (!card) return;
+  card.insertAdjacentHTML("afterend", `<div class="card" style="margin-top:14px"><h2>Прогноз остатка на 12 месяцев</h2><div class="sub" style="margin:2px 0 8px">С учётом регулярных доходов/расходов и платежей по кредитам (включая льготные периоды).</div><canvas id="chart-flow" height="240" style="width:100%"></canvas><div class="sub" id="flow-note" style="margin-top:6px"></div></div>`);
+}
+function flowSeries() {
+  let bal = balance(); const out = []; const now = new Date();
+  for (let i = 1; i <= 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 15);
+    const ds = d.toISOString().slice(0, 10);
+    const inc = S.recurring.filter((r) => r.type === "income").reduce((s, r) => s + +r.amount, 0);
+    let exp = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
+    for (const c of S.credits.filter((x) => x.status === "active")) {
+      exp += (c.graceFrom && c.graceTo && ds >= c.graceFrom.slice(0, 7) + "-01" && ds <= c.graceTo) ? +c.gracePayment : +c.payment;
+    }
+    bal += inc - exp;
+    out.push({ label: MONTHS[d.getMonth()].slice(0, 3), v: bal });
+  }
+  return out;
+}
+function drawFlow() {
+  ensureFlowCard();
+  const cv = document.getElementById("chart-flow"); if (!cv) return;
+  const { ctx, w, h } = setupCanvas(cv); ctx.clearRect(0, 0, w, h);
+  const s = flowSeries(); const vals = s.map((p) => p.v);
+  const min = Math.min(0, ...vals), max = Math.max(0, ...vals); const range = max - min || 1;
+  const pad = 30;
+  const X = (i) => pad + i * (w - pad * 2) / (s.length - 1);
+  const Y = (v) => 18 + (h - 48 - 18) * (1 - (v - min) / range);
+  ctx.strokeStyle = cssVar("--border"); ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(pad, Y(0)); ctx.lineTo(w - pad, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+  const neg = vals.some((v) => v < 0);
+  ctx.strokeStyle = cssVar(neg ? "--red" : "--green"); ctx.lineWidth = 2;
+  ctx.beginPath(); s.forEach((p, i) => { i ? ctx.lineTo(X(i), Y(p.v)) : ctx.moveTo(X(i), Y(p.v)); }); ctx.stroke(); ctx.lineWidth = 1;
+  ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = cssVar("--t3"); ctx.textAlign = "center";
+  s.forEach((p, i) => { if (i % 2 === 1) ctx.fillText(p.label, X(i), h - 10); });
+  ctx.textAlign = "left"; ctx.fillText("через год: " + fmtM.format(Math.round(vals[vals.length - 1])) + " ₽", pad, 12);
+  const firstNeg = s.find((p) => p.v < 0);
+  const note = document.getElementById("flow-note");
+  if (note) note.textContent = firstNeg ? "⚠️ Прогноз уходит в минус (" + firstNeg.label + ".) — плановые расходы выше доходов." : "✓ Прогноз положительный на всём горизонте.";
+}
+const _renderAnalytics2 = renderAnalytics;
+renderAnalytics = function () { _renderAnalytics2(); drawFlow(); };
+
+/* ===================== 8. Переводы между счетами ===================== */
+const _monthTxRaw = monthTx;
+monthTx = function (ym) { return _monthTxRaw(ym).filter((t) => !t.transfer); };
+function monthTxAll(ym) { return _monthTxRaw(ym); }
+function ensureTransferBtn() {
+  if (document.getElementById("ww-tr-btn")) return;
+  const vb = document.getElementById("view-btn-ops");
+  if (vb) vb.insertAdjacentHTML("beforebegin", `<button class="btn btn-ghost" id="ww-tr-btn" onclick="openTransferModal()">⇄ Перевод</button>`);
+}
+function openTransferModal() {
+  if (isObserver()) return;
+  const accs = S.accounts.filter((a) => !a.archived);
+  if (accs.length < 2) { toast("Нужно минимум два счёта"); return; }
+  showModal(`<div class="mhead"><h3>⇄ Перевод между счетами</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg-row">
+      <div class="fg"><label>Со счёта</label><select id="tr-from">${accs.map((a) => `<option value="${a.id}">${esc(a.name)} · ${money(accBalance(a.id))}</option>`).join("")}</select></div>
+      <div class="fg"><label>На счёт</label><select id="tr-to">${accs.map((a, i) => `<option value="${a.id}"${i === 1 ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
+    </div>
+    <div class="fg"><label>Сумма</label><input id="tr-amount" type="number" inputmode="decimal" placeholder="0"></div>
+    <div class="fg-row">
+      <div class="fg"><label>Дата</label><input type="date" id="tr-date" value="${todayStr()}"></div>
+      <div class="fg"><label>Комментарий</label><input id="tr-note" placeholder="Необязательно"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveTransfer()">Перевести</button>`);
+  setTimeout(() => { const el = document.getElementById("tr-amount"); if (el) el.focus(); }, 60);
+}
+function saveTransfer() {
+  if (isObserver()) return;
+  const from = document.getElementById("tr-from").value, to = document.getElementById("tr-to").value;
+  const amount = parseFloat(document.getElementById("tr-amount").value);
+  if (!amount || amount <= 0) { toast("Введите сумму"); return; }
+  if (from === to) { toast("Выберите разные счета"); return; }
+  const date = document.getElementById("tr-date").value || todayStr();
+  const note = document.getElementById("tr-note").value.trim();
+  const gid = uid();
+  S.transactions.push({ id: uid(), date, type: "expense", amount, accountId: from, categoryId: "c_tr_out", note: note || ("→ " + ((acc(to) || {}).name || "")), tags: ["перевод"], transfer: gid, createdAt: Date.now() });
+  S.transactions.push({ id: uid(), date, type: "income", amount, accountId: to, categoryId: "c_tr_in", note: note || ("← " + ((acc(from) || {}).name || "")), tags: ["перевод"], transfer: gid, createdAt: Date.now() + 1 });
+  save(); closeModal(); render(activePage()); toast("Перевод " + money(amount) + " выполнен");
+}
+/* renderOps v2: переводы видны в списке, но не искажают итоги доходов/расходов */
+function renderOps() {
+  const vb = document.getElementById("view-btn-ops"); if (vb) vb.innerHTML = viewBtnHtml("ops");
+  ensureTransferBtn();
+  const mEl = document.getElementById("ops-month");
+  if (!mEl.value) mEl.value = todayStr().slice(0, 7);
+  const ym = mEl.value, type = document.getElementById("ops-type").value,
+    cid = document.getElementById("ops-cat").value, q = document.getElementById("ops-q").value.toLowerCase();
+  const catSel = document.getElementById("ops-cat");
+  if (catSel.options.length <= 1) catSel.innerHTML = '<option value="">Все категории</option>' + S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
+  let tx = monthTxAll(ym);
+  if (type) tx = tx.filter((t) => t.type === type);
+  if (cid) tx = tx.filter((t) => t.categoryId === cid);
+  if (q) tx = tx.filter((t) => (t.note || "").toLowerCase().includes(q) || (cat(t.categoryId) || {}).name?.toLowerCase().includes(q) || (t.tags || []).some((tg) => ("#" + tg).toLowerCase().includes(q) || tg.toLowerCase().includes(q.replace(/^#/, ""))));
+  const inc = tx.filter((t) => t.type === "income" && !t.transfer).reduce((s, t) => s + +t.amount, 0);
+  const exp = tx.filter((t) => t.type === "expense" && !t.transfer).reduce((s, t) => s + +t.amount, 0);
+  document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div></div>`;
+  const listEl = document.getElementById("ops-list");
+  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🗂️</div>Нет операций по выбранным фильтрам</div>'; return; }
+  if (viewMode("ops") === "list") {
+    listEl.className = "card";
+    const byDay = {};
+    tx.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
+    listEl.innerHTML = Object.keys(byDay).sort().reverse().map((d) => {
+      const rows = byDay[d];
+      const dayTotal = rows.reduce((s, t) => s + (t.transfer ? 0 : (t.type === "income" ? +t.amount : -t.amount)), 0);
+      return `<div class="day-head"><span>${fmtDay(d)}</span><span>${dayTotal >= 0 ? "+" : "−"}${money(Math.abs(dayTotal))}</span></div><div class="ops-day">` + rows.map(txRow).join("") + `</div>`;
+    }).join("");
+    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { reorderById(S.transactions, ids); save(); renderOps(); }; });
+  } else {
+    listEl.className = "grid grid-2";
+    listEl.innerHTML = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).map(txCard).join("");
+  }
+}
+
+/* ===================== 9. PWA: установка, офлайн, уведомления ===================== */
+let _installEvt = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); _installEvt = e; });
+function ww2Install() {
+  if (_installEvt) { _installEvt.prompt(); _installEvt = null; }
+  else toast("На iPhone: Поделиться → «На экран “Домой”». На ПК: значок установки в адресной строке.");
+}
+function ww2Net() {
+  const el = document.getElementById("ww-net"); if (!el) return;
+  el.style.display = navigator.onLine ? "none" : "flex";
+  if (document.getElementById("ww-app-status")) fillV2Settings();
+}
+window.addEventListener("online", ww2Net);
+window.addEventListener("offline", ww2Net);
+async function ww2EnableNotif() {
+  if (!("Notification" in window)) { toast("Уведомления не поддерживаются этим браузером"); return; }
+  const p = await Notification.requestPermission();
+  toast(p === "granted" ? "Уведомления включены" : "Уведомления не разрешены");
+  fillV2Settings(); ww2Notify();
+}
+function ww2Notify() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const days = +S.settings.reminderDays || 0; if (!days) return;
+  let seen = {}; try { seen = JSON.parse(localStorage.getItem(WW2K.notif)) || {}; } catch (e) {}
+  const today = todayStr(); let changed = false;
+  for (const x of upcomingReminders(days)) {
+    const k = x.key + "|" + today; if (seen[k]) continue;
+    seen[k] = 1; changed = true;
+    try { new Notification("WiseWallet: " + x.name, { body: (x.days <= 0 ? "сегодня" : x.days === 1 ? "завтра" : "через " + x.days + " дн.") + " · " + money(x.amount), icon: "icon-192.png", tag: x.key }); } catch (e) {}
+  }
+  if (changed) {
+    Object.keys(seen).forEach((k) => { if (!k.endsWith("|" + today)) delete seen[k]; });
+    localStorage.setItem(WW2K.notif, JSON.stringify(seen));
+  }
+}
+
+/* ===================== карточки в настройках ===================== */
+function renderV2Settings() {
+  const grid = document.querySelector("#page-settings .grid.grid-2"); if (!grid) return;
+  if (!document.getElementById("ww-sec-card")) {
+    grid.insertAdjacentHTML("beforeend", `
+    <div class="card" id="ww-sec-card"><h2>🔒 Безопасность</h2>
+      <div class="sub" style="margin:2px 0 12px">PIN-код запрашивается при открытии приложения на этом устройстве.</div>
+      <div id="ww-pin-ui"></div>
+    </div>
+    <div class="card" id="ww-auth-card"><h2>👤 Аккаунт Supabase</h2>
+      <div class="sub" style="margin:2px 0 12px">Вход по email защищает данные: доступ только у вас (RLS). Нужна схема v2 из supabase_schema.sql и включённый Email-провайдер. Без входа работает старый режим с ключом синхронизации.</div>
+      <div id="ww-auth-ui"></div>
+    </div>
+    <div class="card" id="ww-backup-card"><h2>🗄️ Резервные копии</h2>
+      <div class="sub" style="margin:2px 0 12px">Автоматический снимок данных раз в 6 часов, хранятся последние 5 (на этом устройстве).</div>
+      <div id="ww-snap-list"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="ww2Snapshot(true);toast('Копия создана')">+ Создать копию сейчас</button>
+    </div>
+    <div class="card" id="ww-app-card"><h2>📲 Приложение</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="ww2Install()">📲 Установить приложение</button>
+        <button class="btn btn-ghost btn-sm" onclick="ww2EnableNotif()">🔔 Уведомления о платежах</button>
+      </div>
+      <div class="sub" id="ww-app-status" style="margin-top:8px"></div>
+    </div>`);
+  }
+  fillV2Settings();
+}
+function fillV2Settings() {
+  const pin = document.getElementById("ww-pin-ui");
+  if (pin) pin.innerHTML = pinSet()
+    ? `<div class="sub" style="margin-bottom:8px">PIN-код установлен ✓</div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="ww2SetupPin()">Сменить PIN</button><button class="btn btn-danger btn-sm" onclick="ww2DisablePin()">Отключить</button></div>`
+    : `<button class="btn btn-primary btn-sm" onclick="ww2SetupPin()">Установить PIN-код</button>`;
+  const au = document.getElementById("ww-auth-ui");
+  if (au) {
+    const sess = ww2SessionSync();
+    au.innerHTML = sess
+      ? `<div class="sub" style="margin-bottom:8px">Вы вошли как <b>${esc(sess.email || "")}</b> — синхронизация через личный аккаунт ✓</div><button class="btn btn-ghost btn-sm" onclick="ww2SignOut()">Выйти</button>`
+      : `<div class="fg"><label>Email</label><input id="ww-email" type="email" placeholder="you@example.com" autocomplete="username"></div>
+         <div class="fg"><label>Пароль</label><input id="ww-pass" type="password" placeholder="минимум 6 символов" autocomplete="current-password"></div>
+         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="ww2SignIn()">Войти</button><button class="btn btn-ghost btn-sm" onclick="ww2SignUp()">Регистрация</button></div>`;
+  }
+  const sl = document.getElementById("ww-snap-list");
+  if (sl) {
+    const snaps = ww2Snapshots();
+    sl.innerHTML = snaps.length
+      ? [...snaps].reverse().map((s) => `<div class="row"><div class="ic">💾</div><div class="rmain"><div class="rt">${new Date(s.t).toLocaleString("ru-RU")}</div><div class="rs">${(s.data.length / 1024).toFixed(1)} КБ</div></div><button class="btn btn-ghost btn-sm" onclick="ww2Restore(${s.t})">Восстановить</button></div>`).join("")
+      : '<div class="sub">Пока нет копий</div>';
+  }
+  const st = document.getElementById("ww-app-status");
+  if (st) st.textContent = (("Notification" in window) ? ("Уведомления: " + (Notification.permission === "granted" ? "включены ✓" : Notification.permission === "denied" ? "заблокированы в браузере" : "не включены")) : "Уведомления не поддерживаются") + " · " + (navigator.onLine ? "онлайн ✓" : "офлайн");
+}
+const _renderSettings2 = renderSettings;
+renderSettings = function () { _renderSettings2(); renderV2Settings(); };
+
+/* ===================== init v2 ===================== */
+if (pinSet()) ww2Lock();
+ww2Net();
+renderDuePanel();
+ww2Snapshot(false);
+ww2Notify();
+</script>
+<style>
+.pw-mini{border:none;background:transparent;cursor:pointer;font-size:12.5px;padding:0 3px;opacity:.7;line-height:1}
+.pw-mini:hover{opacity:1}
+.pass-row .rs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;row-gap:2px}
+#ww-ver-tag{vertical-align:middle;font-size:12px;font-weight:700;background:var(--green-bg);color:var(--green);padding:3px 10px;border-radius:999px;margin-left:10px;display:inline-block}
+</style>
+<script>
+"use strict";
+/* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
+const WW_VERSION = "2.2";
+
+function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
+ww21Migrate();
+const _render21 = render;
+render = function (p) { ww21Migrate(); _render21(p); };
+
+/* ---- бейдж версии в настройках ---- */
+(function ww21VersionTag() {
+  const h = document.querySelector("#page-settings .page-head h1");
+  if (h && !document.getElementById("ww-ver-tag")) h.insertAdjacentHTML("beforeend", `<span id="ww-ver-tag">v${WW_VERSION}</span>`);
+})();
+
+/* ---- раздел «Пароли» ---- */
+let passCat = "all";
+function setPassCat(c) { passCat = c; renderPasswords(); }
+function renderPasswords() {
+  const q = (document.getElementById("pass-q").value || "").toLowerCase();
+  const cats = [...new Set(S.passwords.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ru"));
+  if (passCat !== "all" && !cats.includes(passCat)) passCat = "all";
+  document.getElementById("pass-cats").innerHTML = [`<button class="chip${passCat === "all" ? " active" : ""}" onclick="setPassCat('all')">Все</button>`].concat(cats.map((c) => `<button class="chip${passCat === c ? " active" : ""}" data-c="${esc(c)}" onclick="setPassCat(this.dataset.c)">${esc(c)}</button>`)).join("");
+  const list = S.passwords.filter((p) => (passCat === "all" || p.category === passCat) && (!q || (p.title + " " + p.login + " " + (p.url || "") + " " + (p.category || "") + " " + (p.note || "")).toLowerCase().includes(q)));
+  const el = document.getElementById("pass-list");
+  if (!list.length) { el.className = "card"; el.innerHTML = '<div class="empty"><div class="big">🔐</div>Добавьте первую запись кнопкой «＋ Пароль».<div class="sub" style="margin-top:6px">Совет: включите PIN-код в настройках, чтобы защитить данные на этом устройстве.</div></div>'; return; }
+  el.className = "card";
+  el.innerHTML = list.map((p) => `<div class="row pass-row" data-sid="${p.id}">
+    <div class="ic">🔑</div>
+    <div class="rmain">
+      <div class="rt">${p.url ? `<a href="${esc(fixUrl(p.url))}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title)}</div>
+      <div class="rs">${p.category ? `<span class="tag">${esc(p.category)}</span>` : ""}<span>${esc(p.login || "—")}</span><button class="pw-mini" onclick="ww21Copy('${p.id}','login')" title="Скопировать логин">📋</button><span>·</span><span class="pass-val" id="pw-${p.id}" data-shown="0">••••••••</span><button class="pw-mini" onclick="ww21Toggle('${p.id}', this)" title="Показать/скрыть">👁</button><button class="pw-mini" onclick="ww21Copy('${p.id}','password')" title="Скопировать пароль">📋</button></div>
+      ${p.note ? `<div class="rs">${esc(p.note)}</div>` : ""}
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="openPassModal('${p.id}')" title="Редактировать">✎</button>
+    <button class="btn btn-ghost btn-sm" onclick="delPass('${p.id}')" title="Удалить">🗑</button></div>`).join("");
+}
+function ww21Toggle(id, btn) {
+  const p = S.passwords.find((x) => x.id === id); const el = document.getElementById("pw-" + id); if (!p || !el) return;
+  const shown = el.dataset.shown === "1";
+  el.textContent = shown ? "••••••••" : (p.password || "—");
+  el.dataset.shown = shown ? "0" : "1";
+  if (btn) btn.textContent = shown ? "👁" : "🙈";
+  if (!shown) setTimeout(() => { if (el.dataset.shown === "1") { el.textContent = "••••••••"; el.dataset.shown = "0"; if (btn) btn.textContent = "👁"; } }, 15000);
+}
+function ww21CopyFallback(v) { const t = document.createElement("textarea"); t.value = v; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch (e) {} t.remove(); }
+function ww21Copy(id, field) {
+  const p = S.passwords.find((x) => x.id === id); if (!p) return;
+  const v = p[field] || "";
+  const done = () => toast(field === "login" ? "Логин скопирован" : "Пароль скопирован");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done).catch(() => { ww21CopyFallback(v); done(); });
+  else { ww21CopyFallback(v); done(); }
+}
+function ww21Gen() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  const a = new Uint32Array(16); crypto.getRandomValues(a);
+  let s = ""; for (let i = 0; i < 16; i++) s += chars[a[i] % chars.length];
+  const inp = document.getElementById("pw-pass"); inp.value = s; inp.type = "text";
+}
+function openPassModal(id) {
+  if (isObserver()) return;
+  const p = id ? S.passwords.find((x) => x.id === id) : null;
+  const cats = [...new Set(S.passwords.map((x) => x.category).filter(Boolean))];
+  showModal(`<div class="mhead"><h3>${p ? "Запись" : "Новый пароль"}</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Сервис / описание</label><input id="pw-title" value="${esc(p ? p.title : "")}" placeholder="напр.: Supabase"></div>
+    <div class="fg"><label>Категория</label><input id="pw-cat" list="pw-cat-list" value="${esc(p ? p.category || "" : "")}" placeholder="напр.: Финансы"><datalist id="pw-cat-list">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></div>
+    <div class="fg"><label>Логин / email</label><input id="pw-login" autocomplete="off" value="${esc(p ? p.login || "" : "")}" placeholder="you@example.com"></div>
+    <div class="fg"><label>Пароль</label><div style="display:flex;gap:8px"><input id="pw-pass" type="password" autocomplete="new-password" value="${esc(p ? p.password || "" : "")}" placeholder="пароль" style="flex:1"><button class="btn btn-ghost" type="button" onclick="const i=document.getElementById('pw-pass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈'">👁</button><button class="btn btn-ghost" type="button" onclick="ww21Gen()" title="Сгенерировать надёжный пароль">🎲</button></div></div>
+    <div class="fg"><label>Ссылка на сервис (URL)</label><input id="pw-url" type="url" inputmode="url" value="${esc(p ? p.url || "" : "")}" placeholder="https://..."></div>
+    <div class="fg"><label>Заметка</label><input id="pw-note" value="${esc(p ? p.note || "" : "")}" placeholder="необязательно"></div>
+    <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="savePass('${id || ""}')">Сохранить</button>${p ? `<button class="btn btn-danger" onclick="delPass('${p.id}')">Удалить</button>` : ""}</div>`);
+  setTimeout(() => document.getElementById("pw-title").focus(), 50);
+}
+function savePass(id) {
+  const title = document.getElementById("pw-title").value.trim();
+  const category = document.getElementById("pw-cat").value.trim();
+  const login = document.getElementById("pw-login").value.trim();
+  const password = document.getElementById("pw-pass").value;
+  const url = document.getElementById("pw-url").value.trim();
+  const note = document.getElementById("pw-note").value.trim();
+  if (!title || (!login && !password)) { alert("Заполните сервис и логин или пароль"); return; }
+  if (id) { const p = S.passwords.find((x) => x.id === id); if (p) Object.assign(p, { title, category, login, password, url, note }); }
+  else S.passwords.push({ id: uid(), title, category, login, password, url, note, created: Date.now() });
+  save(); closeModal(); renderPasswords();
+}
+function delPass(id) {
+  if (isObserver()) return;
+  const p = S.passwords.find((x) => x.id === id); if (!p) return;
+  S.passwords = S.passwords.filter((x) => x.id !== id);
+  save(); closeModal(); renderPasswords();
+  if (typeof ww2UndoToast === "function") ww2UndoToast("Запись «" + p.title + "» удалена", function () { S.passwords.push(p); save(); renderPasswords(); });
+  else toast("Запись удалена");
+}
+</script>
+<style>
+#ww22-badge{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px}
+#ww22-badge.demo{background:var(--green-bg);color:var(--green)}
+#ww22-badge.parents{background:var(--amber-bg);color:var(--amber)}
+.ww22-prof-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line,rgba(0,0,0,.08));border-radius:12px}
+.ww22-prof-row.active{border-color:var(--green);background:var(--green-bg)}
+.ww22-prof-row .pm{flex:1;min-width:0}
+.ww22-prof-row .pt{font-weight:700;font-size:13.5px}
+.ww22-prof-row .ps{font-size:12px;color:var(--t2)}
+</style>
+<script>
+"use strict";
+/* ===================== WiseWallet v2.2: профили «Моя / Родители / Демо» ===================== */
+const WW22_PROF_KEY = "ww_profile_v2";
+const WW22_DEMO_KEY = "ww_demo_state_v1";
+const WW22_SW_FLAG = "ww22_switched";
+const WW22_PROFILES = {
+  main: { icon: "👤", name: "Моя", desc: "Полный доступ: ваши данные и синхронизация" },
+  parents: { icon: "👨‍👩‍👧", name: "Родители", desc: "Только просмотр ваших данных, без редактирования" },
+  demo: { icon: "🎬", name: "Демо", desc: "Вымышленные данные для презентации — не связаны с вашими" },
+};
+function ww22Profile() { return localStorage.getItem(WW22_PROF_KEY) || "main"; }
+
+/* ---- демо-данные ---- */
+function ww22DemoState() {
+  const cats = [
+    { id: "d_food", name: "Продукты", type: "expense", icon: "🛒" },
+    { id: "d_ku", name: "Коммуналка", type: "expense", icon: "🏠" },
+    { id: "d_tr", name: "Транспорт", type: "expense", icon: "🚌" },
+    { id: "d_cafe", name: "Кафе и рестораны", type: "expense", icon: "☕" },
+    { id: "d_fun", name: "Развлечения", type: "expense", icon: "🎬" },
+    { id: "d_health", name: "Здоровье", type: "expense", icon: "💊" },
+    { id: "d_subs", name: "Подписки", type: "expense", icon: "📺" },
+    { id: "d_cloth", name: "Одежда", type: "expense", icon: "👕" },
+    { id: "d_other", name: "Прочее", type: "expense", icon: "📌" },
+    { id: "d_salary", name: "Зарплата", type: "income", icon: "💼" },
+    { id: "d_free", name: "Фриланс", type: "income", icon: "💻" },
+    { id: "d_cashb", name: "Кэшбэк и проценты", type: "income", icon: "💵" },
+    { id: "c_tr_out", name: "Перевод (исходящий)", type: "expense", icon: "🔄" },
+    { id: "c_tr_in", name: "Перевод (входящий)", type: "income", icon: "🔄" },
+  ];
+  let seed = 42;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const tx = [];
+  const now = new Date();
+  const iso = (dt) => dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+  const push = (d, type, amount, cat, note, acc) => tx.push({ id: uid(), date: d, type, amount: Math.round(amount), accountId: acc || "da_card", categoryId: cat, note: note || "", tags: ["демо"], createdAt: Date.now() });
+  for (let i = 90; i >= 0; i--) {
+    const dt = new Date(now); dt.setDate(dt.getDate() - i);
+    const ds = iso(dt), day = dt.getDate(), wd = dt.getDay();
+    if (day === 5) push(ds, "income", 95000, "d_salary", "Зарплата");
+    if (day === 20) push(ds, "income", 40000, "d_salary", "Аванс");
+    if (day === 12 && rnd() > 0.3) push(ds, "income", 8000 + rnd() * 12000, "d_free", "Проект на фрилансе");
+    if (day === 28) push(ds, "income", 900 + rnd() * 600, "d_cashb", "Кэшбэк за месяц");
+    if (day === 10) push(ds, "expense", 6800, "d_ku", "Квартплата");
+    if (day === 1) { push(ds, "expense", 499, "d_subs", "Онлайн-кинотеатр"); push(ds, "expense", 299, "d_subs", "Музыка"); }
+    if (i % 3 === 0) push(ds, "expense", 900 + rnd() * 1800, "d_food", "Супермаркет");
+    if (wd === 6 && rnd() > 0.4) push(ds, "expense", 1500 + rnd() * 2500, "d_fun", rnd() > 0.5 ? "Кино" : "Боулинг");
+    if ((wd === 5 || wd === 0) && rnd() > 0.5) push(ds, "expense", 700 + rnd() * 1300, "d_cafe", "Кофейня", rnd() > 0.7 ? "da_cash" : "da_card");
+    if (wd === 1) push(ds, "expense", 350 + rnd() * 450, "d_tr", "Проездной и такси");
+    if (rnd() > 0.93) push(ds, "expense", 600 + rnd() * 2400, "d_health", "Аптека");
+    if (rnd() > 0.95) push(ds, "expense", 2000 + rnd() * 4000, "d_cloth", "Одежда");
+  }
+  const plus = (d) => { const t = new Date(now); t.setDate(t.getDate() + d); return iso(t); };
+  return {
+    accounts: [
+      { id: "da_card", name: "Карта", type: "card", balance0: 45000, archived: false },
+      { id: "da_cash", name: "Наличные", type: "cash", balance0: 8000, archived: false },
+      { id: "da_save", name: "Накопительный счёт", type: "card", balance0: 220000, archived: false },
+    ],
+    categories: cats,
+    transactions: tx,
+    credits: [
+      { id: uid(), name: "Автокредит", lender: "Демо Банк", type: "Автокредит", initial: 900000, balance: 480000, balanceFull: 610000, rate: 15.9, start: "2024-03-10", end: "2029-03-10", payment: 18500, payDay: 10, status: "active" },
+      { id: uid(), name: "Кредитная карта", lender: "Демо Банк", type: "Кредитная карта", initial: 0, balance: 45000, balanceFull: 45000, rate: 24.9, start: "", end: "", payment: 3500, payDay: 25, status: "active" },
+    ],
+    recurring: [
+      { id: uid(), name: "Зарплата", type: "income", amount: 95000, categoryId: "d_salary", day: 5 },
+      { id: uid(), name: "Аванс", type: "income", amount: 40000, categoryId: "d_salary", day: 20 },
+      { id: uid(), name: "Коммуналка", type: "expense", amount: 6800, categoryId: "d_ku", day: 10 },
+      { id: uid(), name: "Подписки", type: "expense", amount: 800, categoryId: "d_subs", day: 1 },
+      { id: uid(), name: "Продукты", type: "expense", amount: 28000, categoryId: "d_food", day: 15 },
+    ],
+    budgets: [
+      { id: uid(), categoryId: "d_food", limit: 30000 },
+      { id: uid(), categoryId: "d_cafe", limit: 8000 },
+      { id: uid(), categoryId: "d_fun", limit: 10000 },
+      { id: uid(), categoryId: "d_tr", limit: 5000 },
+    ],
+    goals: [
+      { id: uid(), name: "Отпуск на море", icon: "🏖️", target: 200000, saved: 85000, deadline: plus(160) },
+      { id: uid(), name: "Новый ноутбук", icon: "💻", target: 150000, saved: 40000, deadline: plus(80) },
+    ],
+    tasks: [
+      { id: uid(), text: "Оплатить страховку авто", who: "", date: plus(10), prio: "high", done: false, created: Date.now() },
+      { id: uid(), text: "Сравнить тарифы интернета", who: "", date: plus(20), prio: "mid", done: false, created: Date.now() },
+      { id: uid(), text: "Открыть вклад под 13%", who: "", date: "", prio: "low", done: true, created: Date.now() },
+    ],
+    links: [
+      { id: uid(), title: "Курсы валют ЦБ", category: "Финансы", url: "https://cbr.ru", created: Date.now() },
+      { id: uid(), title: "Госуслуги", category: "Документы", url: "https://gosuslugi.ru", created: Date.now() },
+    ],
+    passwords: [
+      { id: uid(), title: "Демо-сервис", category: "Пример", login: "demo@example.com", password: "demo1234", url: "https://example.com", note: "Пример записи", created: Date.now() },
+    ],
+    posted: {},
+    settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {} },
+    updatedAt: Date.now(),
+  };
+}
+
+/* ---- переключение профилей ---- */
+function ww22Switch(p) {
+  if (p === ww22Profile()) return;
+  if (p === "main" && typeof pinSet === "function" && pinSet()) {
+    const pin = prompt("Введите PIN-код для доступа к профилю «Моя»:");
+    if (pin === null) return;
+    ww2Hash(pin).then((h) => {
+      if (h !== localStorage.getItem(WW2K.pin)) { toast("❌ Неверный PIN"); return; }
+      localStorage.setItem(WW22_PROF_KEY, "main"); localStorage.setItem(WW22_SW_FLAG, "1"); location.reload();
+    });
+    return;
+  }
+  if (p === "parents" && !confirm("Переключиться на профиль «Родители»?\n\nДанные будут доступны только для просмотра. Для возврата понадобится PIN-код (если установлен).")) return;
+  if (p === "demo" && !confirm("Переключиться на демо-профиль?\n\nЭто отдельные вымышленные данные для показа. Ваши данные не изменятся.")) return;
+  localStorage.setItem(WW22_PROF_KEY, p); localStorage.setItem(WW22_SW_FLAG, "1"); location.reload();
+}
+function ww22DemoReset() {
+  if (!confirm("Сбросить демо-данные к исходному примеру?")) return;
+  localStorage.removeItem(WW22_DEMO_KEY);
+  location.reload();
+}
+
+/* ---- UI: бейдж в сайдбаре и карточка в настройках ---- */
+function ww22Badge() {
+  const prof = ww22Profile();
+  if (prof === "main" || document.getElementById("ww22-badge")) return;
+  const logo = document.querySelector(".rail .logo");
+  if (logo) logo.insertAdjacentHTML("afterend", `<div id="ww22-badge" class="${prof}">${WW22_PROFILES[prof].icon} Профиль: ${WW22_PROFILES[prof].name}</div>`);
+}
+function ww22Cards() {
+  const grid = document.querySelector("#page-settings .grid.grid-2");
+  if (!grid || document.getElementById("ww22-prof-card")) return;
+  grid.insertAdjacentHTML("afterbegin", `<div class="card" id="ww22-prof-card"><h2>👥 Профили</h2>
+    <div class="sub" style="margin-bottom:10px">Профиль выбирается на каждом устройстве отдельно. Демо-профиль не синхронизируется и не трогает ваши данные.</div>
+    <div style="display:flex;flex-direction:column;gap:8px" id="ww22-prof-list"></div></div>`);
+  ww22FillProf();
+}
+function ww22FillProf() {
+  const el = document.getElementById("ww22-prof-list"); if (!el) return;
+  const cur = ww22Profile();
+  el.innerHTML = Object.keys(WW22_PROFILES).map((p) => {
+    const m = WW22_PROFILES[p]; const act = p === cur;
+    return `<div class="ww22-prof-row${act ? " active" : ""}">
+      <div style="font-size:20px">${m.icon}</div>
+      <div class="pm"><div class="pt">${m.name}</div><div class="ps">${m.desc}</div></div>
+      ${act ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активен</span>${p === "demo" ? `<button class="btn btn-ghost btn-sm" onclick="ww22DemoReset()" title="Сбросить демо-данные">↺</button>` : ""}` : `<button class="btn btn-ghost" onclick="ww22Switch('${p}')">Включить</button>`}
+    </div>`;
+  }).join("");
+}
+const _renderSettings22 = renderSettings;
+renderSettings = function () {
+  _renderSettings22();
+  ww22Cards(); ww22FillProf();
+  if (ww22Profile() === "demo") {
+    const sb = document.getElementById("sb-url"); if (sb && sb.closest(".card")) sb.closest(".card").style.display = "none";
+    const auth = document.getElementById("ww-auth-card"); if (auth) auth.style.display = "none";
+  }
+};
+
+/* ---- инициализация профиля ---- */
+(function ww22Init() {
+  const prof = ww22Profile();
+  if (prof === "demo") {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(WW22_DEMO_KEY) || "null"); } catch (e) { d = null; }
+    if (!d || !Array.isArray(d.accounts)) { d = ww22DemoState(); localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(d)); }
+    S = d;
+    save = function () { S.updatedAt = Date.now(); localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(S)); };
+    syncNow = async function () {};
+    if (typeof ww2Snapshot === "function") ww2Snapshot = function () {};
+    if (typeof ww2Notify === "function") ww2Notify = function () {};
+    if (typeof ww2Migrate === "function") ww2Migrate();
+    ww21Migrate();
+    document.body.dataset.theme = S.settings.theme;
+    applyObserverMode();
+    nav("dashboard");
+  } else if (prof === "parents") {
+    S.settings.observerMode = true;
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    applyObserverMode();
+    setObserverMode = function () { toast("👨‍👩‍👧 Профиль «Родители» — только просмотр. Смените профиль, чтобы редактировать."); };
+    nav(activePage());
+  } else if (localStorage.getItem(WW22_SW_FLAG) === "1") {
+    if (S.settings.observerMode) { S.settings.observerMode = false; localStorage.setItem(LS_KEY, JSON.stringify(S)); applyObserverMode(); nav(activePage()); }
+  }
+  localStorage.removeItem(WW22_SW_FLAG);
+  ww22Badge();
+})();
 </script>
 </body>
 </html>
