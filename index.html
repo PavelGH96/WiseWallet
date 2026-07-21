@@ -469,7 +469,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.2</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.3</div>
       </div>
     </div>
   </section>
@@ -1393,7 +1393,7 @@ async function syncNow(manual) {
         const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
         localStorage.setItem(LS_KEY, JSON.stringify(S));
         render(activePage());
-        if (manual) toast("Данные обновлены");
+        if (manual) toast("Данные обновл����ны");
       } else if (manual) toast("На сервере пока нет данных");
     } else if (remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt) {
       const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
@@ -2070,7 +2070,7 @@ ww2Migrate();
 
 /* ---------- разметка: экран блокировки + офлайн-бейдж ---------- */
 document.body.insertAdjacentHTML("beforeend", `
-<div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px">🔒</div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div></div></div>
+<div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px">🔒</div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div><div class="sub" style="margin-top:12px"><a href="#" onclick="ww2ForgotPin();return false" style="color:inherit;text-decoration:underline">Забыли PIN? Сбросить</a></div></div></div>
 <div id="ww-net">⚡ Офлайн — данные сохраняются локально</div>`);
 
 /* ===================== 2. PIN-код ===================== */
@@ -2595,7 +2595,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "2.2";
+const WW_VERSION = "2.3";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -2887,5 +2887,491 @@ renderSettings = function () {
   ww22Badge();
 })();
 </script>
+<style>
+/* ===== v2.3 ===== */
+.ww23-cmp-table{width:100%;border-collapse:collapse;font-size:13px}
+.ww23-cmp-table th{color:var(--t2);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
+.ww23-cmp-table td,.ww23-cmp-table th{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line,rgba(0,0,0,.07))}
+.ww23-cmp-table td:first-child,.ww23-cmp-table th:first-child{text-align:left}
+.ww23-cmp-table tr:last-child td{border-bottom:none}
+#ww23-csv-prev{max-height:220px;overflow:auto}
+#ww23-enc-btns{align-items:center}
+</style>
+<script>
+"use strict";
+/* ===================== WiseWallet v2.3: шифрование, поиск, тренды, теги, CSV ===================== */
+
+/* ---------- 0. «Забыли PIN?» ---------- */
+function ww2ForgotPin() {
+  const ok = confirm("Сбросить PIN-код?\n\nЛокальные данные на этом устройстве будут удалены. После входа в аккаунт и синхронизации всё вернётся из облака Supabase.\n\nНесинхронизированные изменения будут потеряны.");
+  if (!ok) return;
+  if (!confirm("Точно продолжить? Отменить это действие нельзя.")) return;
+  let sb = null;
+  try { const st = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (st && st.settings) sb = { u: st.settings.sbUrl || "", k: st.settings.sbKey || "" }; } catch (e) {}
+  try { localStorage.clear(); } catch (e) {}
+  try {
+    if (sb && (sb.u || sb.k)) { const ns = seedState(); ns.settings.sbUrl = sb.u; ns.settings.sbKey = sb.k; ns.updatedAt = 0; localStorage.setItem(LS_KEY, JSON.stringify(ns)); }
+  } catch (e) {}
+  location.reload();
+}
+
+/* ---------- 1. Шифрование раздела «Пароли» (AES-256-GCM + PBKDF2) ---------- */
+const WW23 = { key: null, cache: null };
+function ww23Enabled() { return !!(S.pwVault && S.pwVault.ct); }
+function ww23B64(buf) { let s = ""; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
+function ww23Bytes(b64) { return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); }
+async function ww23Derive(pass, saltB64) {
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: ww23Bytes(saltB64), iterations: 150000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+async function ww23Seal() {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, WW23.key, new TextEncoder().encode(JSON.stringify(WW23.cache || [])));
+  S.pwVault = { v: 1, salt: S.pwVault.salt, iv: ww23B64(iv), ct: ww23B64(ct) };
+}
+async function ww23OpenVault(pass) {
+  try {
+    const key = await ww23Derive(pass, S.pwVault.salt);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ww23Bytes(S.pwVault.iv) }, key, ww23Bytes(S.pwVault.ct));
+    WW23.key = key; WW23.cache = JSON.parse(new TextDecoder().decode(pt));
+    return true;
+  } catch (e) { return false; }
+}
+function ww23PW() { return ww23Enabled() ? WW23.cache : S.passwords; }
+async function ww23Persist() { if (ww23Enabled() && WW23.key) await ww23Seal(); save(); }
+async function ww23Enable() {
+  if (isObserver()) return;
+  if (!window.crypto || !crypto.subtle) { toast("Шифрование не поддерживается этим браузером"); return; }
+  const p1 = prompt("Придумайте мастер-пароль шифрования (минимум 4 символа).\n\n⚠️ Запишите его: без мастер-пароля пароли восстановить НЕВОЗМОЖНО — даже из облака.");
+  if (p1 === null) return;
+  if (p1.length < 4) { toast("Минимум 4 символа"); return; }
+  const p2 = prompt("Повторите мастер-пароль:");
+  if (p2 !== p1) { toast("Пароли не совпадают"); return; }
+  const salt = ww23B64(crypto.getRandomValues(new Uint8Array(16)));
+  WW23.key = await ww23Derive(p1, salt);
+  WW23.cache = S.passwords || [];
+  S.pwVault = { v: 1, salt, iv: "", ct: "" };
+  S.passwords = [];
+  await ww23Seal(); save(); renderPasswords();
+  toast("🔒 Пароли зашифрованы (AES-256)");
+}
+async function ww23Disable() {
+  if (isObserver() || !WW23.key) return;
+  if (!confirm("Отключить шифрование? Пароли снова будут храниться и синхронизироваться в открытом виде.")) return;
+  S.passwords = WW23.cache || [];
+  S.pwVault = null; WW23.key = null; WW23.cache = null;
+  save(); renderPasswords(); toast("Шифрование отключено");
+}
+async function ww23Unlock() {
+  const inp = document.getElementById("ww23-mp");
+  const p = inp ? inp.value : "";
+  if (!p) return;
+  if (await ww23OpenVault(p)) { renderPasswords(); }
+  else { const m = document.getElementById("ww23-unlock-msg"); if (m) m.textContent = "Неверный мастер-пароль"; if (inp) { inp.value = ""; inp.focus(); } }
+}
+function ww23LockNow() { WW23.key = null; WW23.cache = null; renderPasswords(); }
+async function ww23ChangeMp() {
+  if (!WW23.key) return;
+  const p1 = prompt("Новый мастер-пароль (минимум 4 символа):"); if (p1 === null) return;
+  if (p1.length < 4) { toast("Минимум 4 символа"); return; }
+  const p2 = prompt("Повторите:"); if (p2 !== p1) { toast("Пароли не совпадают"); return; }
+  const salt = ww23B64(crypto.getRandomValues(new Uint8Array(16)));
+  WW23.key = await ww23Derive(p1, salt);
+  S.pwVault.salt = salt;
+  await ww23Seal(); save(); toast("Мастер-пароль изменён");
+}
+function ww23FillToolbar() {
+  const el = document.getElementById("ww23-enc-btns"); if (!el) return;
+  if (!ww23Enabled()) el.innerHTML = isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Enable()" title="Зашифровать логины и пароли (AES-256)">🔓 Включить шифрование</button>';
+  else if (!WW23.key) el.innerHTML = '<span class="tag">🔒 AES-256</span>';
+  else el.innerHTML = '<span class="tag">🔓 открыто</span><button class="btn btn-ghost btn-sm" onclick="ww23LockNow()" title="Заблокировать раздел">🔒 Закрыть</button><button class="btn btn-ghost btn-sm" onclick="ww23ChangeMp()" title="Сменить мастер-пароль">🔑</button>' + (isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Disable()" title="Отключить шифрование">✕</button>');
+}
+const _renderPasswords23 = renderPasswords;
+renderPasswords = function () {
+  const tb = document.querySelector("#page-passwords .toolbar");
+  if (tb && !document.getElementById("ww23-enc-btns")) tb.insertAdjacentHTML("beforeend", '<span id="ww23-enc-btns" style="margin-left:auto;display:flex;gap:6px"></span>');
+  ww23FillToolbar();
+  if (ww23Enabled() && !WW23.key) {
+    document.getElementById("pass-cats").innerHTML = "";
+    const el = document.getElementById("pass-list");
+    el.className = "card";
+    el.innerHTML = '<div class="empty"><div class="big">🔐</div>Раздел зашифрован (AES-256).<div style="max-width:300px;margin:12px auto 0;display:flex;gap:8px"><input id="ww23-mp" type="password" placeholder="Мастер-пароль" autocomplete="off" style="flex:1" onkeydown="if(event.key===&quot;Enter&quot;)ww23Unlock()"><button class="btn btn-primary" onclick="ww23Unlock()">Открыть</button></div><div class="sub" id="ww23-unlock-msg" style="margin-top:8px;color:var(--red)"></div></div>';
+    setTimeout(() => { const i = document.getElementById("ww23-mp"); if (i) i.focus(); }, 50);
+    return;
+  }
+  if (ww23Enabled()) { const tmp = S.passwords; S.passwords = WW23.cache; try { _renderPasswords23(); } finally { S.passwords = tmp; } }
+  else _renderPasswords23();
+};
+function ww23Swap(fn) {
+  return function () {
+    if (!ww23Enabled()) return fn.apply(this, arguments);
+    if (!WW23.key) { toast("Раздел заблокирован"); return; }
+    const tmp = S.passwords; S.passwords = WW23.cache;
+    try { return fn.apply(this, arguments); } finally { S.passwords = tmp; }
+  };
+}
+ww21Toggle = ww23Swap(ww21Toggle);
+ww21Copy = ww23Swap(ww21Copy);
+openPassModal = ww23Swap(openPassModal);
+savePass = function (id) {
+  const list = ww23PW(); if (!list) { toast("Раздел заблокирован"); return; }
+  const title = document.getElementById("pw-title").value.trim();
+  const category = document.getElementById("pw-cat").value.trim();
+  const login = document.getElementById("pw-login").value.trim();
+  const password = document.getElementById("pw-pass").value;
+  const url = document.getElementById("pw-url").value.trim();
+  const note = document.getElementById("pw-note").value.trim();
+  if (!title || (!login && !password)) { alert("Заполните сервис и логин или пароль"); return; }
+  if (id) { const p = list.find((x) => x.id === id); if (p) Object.assign(p, { title, category, login, password, url, note }); }
+  else list.push({ id: uid(), title, category, login, password, url, note, created: Date.now() });
+  ww23Persist().then(() => { closeModal(); renderPasswords(); });
+};
+delPass = function (id) {
+  if (isObserver()) return;
+  const list = ww23PW(); if (!list) return;
+  const p = list.find((x) => x.id === id); if (!p) return;
+  list.splice(list.indexOf(p), 1);
+  ww23Persist().then(() => {
+    closeModal(); renderPasswords();
+    if (typeof ww2UndoToast === "function") ww2UndoToast("Запись «" + p.title + "» удалена", function () { const l = ww23PW(); if (l) { l.push(p); ww23Persist().then(() => renderPasswords()); } });
+    else toast("Запись удалена");
+  });
+};
+const _ww2Lock23 = ww2Lock;
+ww2Lock = function () { WW23.key = null; WW23.cache = null; _ww2Lock23(); };
+
+/* ---------- 2. Операции: поиск за всё время + счётчик ---------- */
+let ww23OpsAll = false;
+function ww23ToggleAll() {
+  ww23OpsAll = !ww23OpsAll;
+  const b = document.getElementById("ops-all"); if (b) b.classList.toggle("active", ww23OpsAll);
+  const m = document.getElementById("ops-month"); if (m) m.style.opacity = ww23OpsAll ? ".45" : "1";
+  renderOps();
+}
+renderOps = function () {
+  const vb = document.getElementById("view-btn-ops"); if (vb) vb.innerHTML = viewBtnHtml("ops");
+  ensureTransferBtn();
+  const tb = document.querySelector("#page-ops .toolbar");
+  if (tb && !document.getElementById("ops-all")) tb.insertAdjacentHTML("beforeend", '<button class="chip" id="ops-all" onclick="ww23ToggleAll()" title="Искать по всей истории, а не только за месяц">Все месяцы</button>');
+  const mEl = document.getElementById("ops-month");
+  if (!mEl.value) mEl.value = todayStr().slice(0, 7);
+  const ym = mEl.value, type = document.getElementById("ops-type").value,
+    cid = document.getElementById("ops-cat").value, q = document.getElementById("ops-q").value.toLowerCase();
+  const catSel = document.getElementById("ops-cat");
+  if (catSel.options.length <= 1) catSel.innerHTML = '<option value="">Все категории</option>' + S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
+  let tx = ww23OpsAll ? S.transactions.slice() : monthTxAll(ym);
+  if (type) tx = tx.filter((t) => t.type === type);
+  if (cid) tx = tx.filter((t) => t.categoryId === cid);
+  if (q) tx = tx.filter((t) => (t.note || "").toLowerCase().includes(q) || (cat(t.categoryId) || {}).name?.toLowerCase().includes(q) || (t.tags || []).some((tg) => ("#" + tg).toLowerCase().includes(q) || tg.toLowerCase().includes(q.replace(/^#/, ""))));
+  const inc = tx.filter((t) => t.type === "income" && !t.transfer).reduce((s, t) => s + +t.amount, 0);
+  const exp = tx.filter((t) => t.type === "expense" && !t.transfer).reduce((s, t) => s + +t.amount, 0);
+  const found = tx.length;
+  let capNote = "";
+  if (ww23OpsAll && tx.length > 400) {
+    tx = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 400);
+    capNote = '<div class="sub" style="margin-top:8px">Показаны последние 400 операций — уточните поиск или фильтры</div>';
+  }
+  document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div><div><div class="sub">Операций</div><div style="font-size:17px;font-weight:700">${found}</div></div></div>` + capNote;
+  const listEl = document.getElementById("ops-list");
+  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🗂️</div>Нет операций по выбранным фильтрам</div>'; return; }
+  if (viewMode("ops") === "list") {
+    listEl.className = "card";
+    const byDay = {};
+    tx.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
+    listEl.innerHTML = Object.keys(byDay).sort().reverse().map((d) => {
+      const rows = byDay[d];
+      const dayTotal = rows.reduce((s, t) => s + (t.transfer ? 0 : (t.type === "income" ? +t.amount : -t.amount)), 0);
+      return `<div class="day-head"><span>${fmtDay(d)}</span><span>${dayTotal >= 0 ? "+" : "−"}${money(Math.abs(dayTotal))}</span></div><div class="ops-day">` + rows.map(txRow).join("") + `</div>`;
+    }).join("");
+    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { reorderById(S.transactions, ids); save(); renderOps(); }; });
+  } else {
+    listEl.className = "grid grid-2";
+    listEl.innerHTML = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).map(txCard).join("");
+  }
+};
+
+/* ---------- 3. Кредиты: кнопка графика/досрочного погашения на карточках ---------- */
+const _renderCredits23 = renderCredits;
+renderCredits = function () {
+  _renderCredits23();
+  try {
+    document.querySelectorAll("#credit-list [data-sid]").forEach((el) => {
+      if (el.querySelector("[data-ww23-sched]")) return;
+      const id = el.getAttribute("data-sid");
+      const cal = el.querySelector('button[onclick*="openScheduleModal"]');
+      const label = cal && cal.textContent.includes("График") ? "📊 Досрочно" : "📊";
+      const html = `<button class="btn btn-ghost btn-sm" data-ww23-sched onclick="event.stopPropagation();openCreditSchedule('${id}')" title="Досрочное погашение: расчёт экономии">${label}</button>`;
+      if (cal) cal.insertAdjacentHTML("afterend", html);
+      else el.insertAdjacentHTML("beforeend", html);
+    });
+  } catch (e) {}
+};
+
+/* ---------- 4. Аналитика: тренды, сравнение месяцев, отчёт по тегам ---------- */
+let ww23AnCat = null, ww23TagPeriod = "3m";
+function ww23Ym(y, m) { const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+const _renderAnalytics23 = renderAnalytics;
+renderAnalytics = function () {
+  _renderAnalytics23();
+  const page = document.getElementById("page-analytics");
+  if (page && !document.getElementById("ww23-an-trend-card")) {
+    page.insertAdjacentHTML("beforeend", '<div class="grid grid-2 section">' +
+      '<div class="card" id="ww23-an-trend-card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Динамика категории<select id="ww23-an-cat" onchange="ww23AnCat=this.value;ww23Trend()" style="max-width:190px"></select></h2><canvas id="ww23-an-trend" height="220"></canvas><div class="sub" id="ww23-an-trend-sub" style="margin-top:6px"></div></div>' +
+      '<div class="card" id="ww23-an-cmp-card"><h2>Сравнение месяцев</h2><div id="ww23-an-cmp"></div></div></div>' +
+      '<div class="section card" id="ww23-an-tags-card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">Отчёт по тегам<span class="chips" style="margin:0" id="ww23-tag-chips"></span></h2><div id="ww23-an-tags"></div></div>');
+  }
+  ww23Trend(); ww23Compare(); ww23Tags();
+};
+function ww23DrawBars(cv, series) {
+  if (!cv) return;
+  const { ctx, w, h } = setupCanvas(cv);
+  ctx.clearRect(0, 0, w, h);
+  const max = Math.max(1, ...series.map((s) => s.v));
+  const pad = 26, bw = (w - pad * 2) / series.length;
+  ctx.font = "500 10px Inter, sans-serif"; ctx.textAlign = "center";
+  series.forEach((s, i) => {
+    const x = pad + i * bw + bw / 2, hh = (s.v / max) * (h - 58);
+    ctx.fillStyle = PALETTE[0];
+    ctx.beginPath(); ctx.roundRect(x - bw * 0.3, h - 30 - hh, bw * 0.6, Math.max(hh, s.v > 0 ? 2 : 0), 3); ctx.fill();
+    ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
+  });
+  ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
+  ctx.fillText(fmtM.format(max), w - 4, 14);
+}
+function ww23Trend() {
+  const sel = document.getElementById("ww23-an-cat"); if (!sel) return;
+  if (!sel.options.length) sel.innerHTML = S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
+  if (!ww23AnCat || !S.categories.find((c) => c.id === ww23AnCat)) {
+    const sums = {};
+    S.transactions.filter((t) => t.type === "expense" && !t.transfer).forEach((t) => { sums[t.categoryId] = (sums[t.categoryId] || 0) + +t.amount; });
+    const top = Object.entries(sums).sort((a, b) => b[1] - a[1])[0];
+    ww23AnCat = top ? top[0] : (S.categories[0] || {}).id;
+  }
+  sel.value = ww23AnCat;
+  const now = new Date(); const series = [];
+  let total = 0;
+  for (let i = 11; i >= 0; i--) {
+    const ym = ww23Ym(now.getFullYear(), now.getMonth() - i);
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const sum = S.transactions.filter((t) => t.categoryId === ww23AnCat && t.date.slice(0, 7) === ym).reduce((s, t) => s + +t.amount, 0);
+    total += sum;
+    series.push({ label: MONTHS[d.getMonth()].slice(0, 3), v: sum });
+  }
+  ww23DrawBars(document.getElementById("ww23-an-trend"), series);
+  document.getElementById("ww23-an-trend-sub").textContent = "За 12 месяцев: " + money(total) + " · в среднем " + money(total / 12) + "/мес";
+}
+function ww23Compare() {
+  const el = document.getElementById("ww23-an-cmp"); if (!el) return;
+  const now = new Date();
+  const ym = ww23Ym(now.getFullYear(), now.getMonth());
+  const pd = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const pym = ww23Ym(pd.getFullYear(), pd.getMonth());
+  const sums = (m) => { const o = {}; S.transactions.filter((t) => t.type === "expense" && !t.transfer && t.date.slice(0, 7) === m).forEach((t) => { o[t.categoryId] = (o[t.categoryId] || 0) + +t.amount; }); return o; };
+  const cur = sums(ym), prev = sums(pym);
+  const ids = [...new Set([...Object.keys(cur), ...Object.keys(prev)])].sort((a, b) => (cur[b] || 0) - (cur[a] || 0)).slice(0, 10);
+  if (!ids.length) { el.innerHTML = '<div class="empty"><div class="big">📊</div>Недостаточно данных для сравнения</div>'; return; }
+  const curT = Object.values(cur).reduce((s, v) => s + v, 0), prevT = Object.values(prev).reduce((s, v) => s + v, 0);
+  const avgCur = curT / now.getDate();
+  const avgPrev = prevT / new Date(pd.getFullYear(), pd.getMonth() + 1, 0).getDate();
+  const arrow = (c, p) => { const d = c - p; if (Math.abs(d) < 1) return '<span class="sub">＝</span>'; return d > 0 ? `<span style="color:var(--red)">▲ ${money(d)}</span>` : `<span style="color:var(--green)">▼ ${money(-d)}</span>`; };
+  el.innerHTML = `<div class="sub" style="margin-bottom:8px">Средний расход в день: <b>${money(avgCur)}</b> сейчас · ${money(avgPrev)} в прошлом месяце</div>` +
+    `<table class="ww23-cmp-table"><tr><th>Категория</th><th>${MONTHS[pd.getMonth()].slice(0, 3)}</th><th>${MONTHS[now.getMonth()].slice(0, 3)}</th><th>Δ</th></tr>` +
+    ids.map((id) => { const c = cat(id) || { icon: "📌", name: "—" }; return `<tr><td>${c.icon} ${esc(c.name)}</td><td>${money(prev[id] || 0)}</td><td>${money(cur[id] || 0)}</td><td>${arrow(cur[id] || 0, prev[id] || 0)}</td></tr>`; }).join("") +
+    `<tr><td><b>Итого</b></td><td><b>${money(prevT)}</b></td><td><b>${money(curT)}</b></td><td>${arrow(curT, prevT)}</td></tr></table>`;
+}
+function ww23Tags() {
+  const chips = document.getElementById("ww23-tag-chips"), el = document.getElementById("ww23-an-tags");
+  if (!chips || !el) return;
+  chips.innerHTML = [["1m", "Месяц"], ["3m", "3 мес"], ["12m", "Год"], ["all", "Всё время"]].map(([k, l]) => `<button class="chip${ww23TagPeriod === k ? " active" : ""}" onclick="ww23TagPeriod='${k}';ww23Tags()">${l}</button>`).join("");
+  const now = new Date(); let from = "0000-00-00";
+  if (ww23TagPeriod === "1m") from = ww23Ym(now.getFullYear(), now.getMonth()) + "-01";
+  else if (ww23TagPeriod === "3m") from = ww23Ym(now.getFullYear(), now.getMonth() - 2) + "-01";
+  else if (ww23TagPeriod === "12m") from = ww23Ym(now.getFullYear(), now.getMonth() - 11) + "-01";
+  const map = {};
+  S.transactions.filter((t) => t.date >= from && (t.tags || []).length).forEach((t) => {
+    t.tags.forEach((tag) => { const m = map[tag] = map[tag] || { n: 0, exp: 0, inc: 0 }; m.n++; if (t.type === "expense") m.exp += +t.amount; else m.inc += +t.amount; });
+  });
+  const rows = Object.entries(map).sort((a, b) => (b[1].exp + b[1].inc) - (a[1].exp + a[1].inc));
+  if (!rows.length) { el.innerHTML = '<div class="empty"><div class="big">🏷️</div>Нет операций с тегами за период.<div class="sub" style="margin-top:6px">Добавляйте метки в форме операции или пишите #тег в быстрой строке — и считайте расходы на события сквозь категории.</div></div>'; return; }
+  el.innerHTML = '<table class="ww23-cmp-table"><tr><th>Тег</th><th>Операций</th><th>Расходы</th><th>Доходы</th></tr>' +
+    rows.map(([tag, m]) => `<tr><td>🏷️ #${esc(tag)}</td><td>${m.n}</td><td>${m.exp ? money(m.exp) : "—"}</td><td>${m.inc ? "+" + money(m.inc) : "—"}</td></tr>`).join("") + "</table>";
+}
+
+/* ---------- 5. Импорт выписок CSV с автокатегориями ---------- */
+let ww23Csv = null;
+const _renderSettings23 = renderSettings;
+renderSettings = function () {
+  _renderSettings23();
+  if (!document.getElementById("ww23-csv-btn")) {
+    const inp = document.getElementById("import-xlsx-file");
+    if (inp) {
+      const card = inp.closest(".card") || inp.parentElement;
+      const nearBtn = card.querySelector('button[onclick*="import-xlsx-file"]');
+      const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">🏦 Импорт CSV</button>';
+      if (nearBtn) nearBtn.insertAdjacentHTML("afterend", " " + html); else card.insertAdjacentHTML("beforeend", html);
+      if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,text/csv" style="display:none" onchange="ww23CsvPick(this)">');
+    }
+  }
+};
+function ww23CsvPick(inp) {
+  const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const txt = String(rd.result);
+    if (txt.includes("\uFFFD")) { const rd2 = new FileReader(); rd2.onload = () => { try { ww23CsvParse(String(rd2.result)); } catch (e) { toast("Не удалось разобрать CSV: " + e.message); } }; rd2.readAsText(f, "windows-1251"); }
+    else { try { ww23CsvParse(txt); } catch (e) { toast("Не удалось разобрать CSV: " + e.message); } }
+  };
+  rd.readAsText(f, "utf-8");
+}
+function ww23CsvRows(text, delim) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === delim) { row.push(cur); cur = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cur); cur = ""; if (row.some((c) => c.trim() !== "")) rows.push(row); row = []; }
+    else cur += ch;
+  }
+  row.push(cur); if (row.some((c) => c.trim() !== "")) rows.push(row);
+  return rows;
+}
+function ww23ParseDate(v) {
+  v = String(v || "").trim();
+  let m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[1] + "-" + m[2] + "-" + m[3];
+  m = v.match(/^(\d{2})[./-](\d{2})[./-](\d{4})/); if (m) return m[3] + "-" + m[2] + "-" + m[1];
+  m = v.match(/^(\d{2})[./-](\d{2})[./-](\d{2})(\D|$)/); if (m) return "20" + m[3] + "-" + m[2] + "-" + m[1];
+  return null;
+}
+function ww23ParseAmt(v) {
+  v = String(v || "").replace(/[\s\u00a0₽]/g, "").replace(/RUB|RUR/i, "").replace(",", ".");
+  if (!v || !/^[-+]?\d+(\.\d+)?$/.test(v)) return null;
+  const f = parseFloat(v); return isNaN(f) ? null : f;
+}
+function ww23CsvParse(text) {
+  const first = text.split(/\r?\n/).slice(0, 5).join("\n");
+  const delim = [";", "\t", ","].map((d) => [d, (first.split(d).length - 1)]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = ww23CsvRows(text, delim);
+  if (!rows.length) { toast("В файле нет данных"); return; }
+  const hasHeader = rows.length > 1 && rows[0].every((c) => ww23ParseDate(c) === null) && rows[0].some((c) => /[а-яёa-z]{3}/i.test(c));
+  ww23Csv = { rows, hasHeader };
+  ww23CsvModal();
+}
+function ww23GuessCols() {
+  const { rows, hasHeader } = ww23Csv;
+  const n = Math.max(...rows.map((r) => r.length));
+  const head = hasHeader ? rows[0].map((c) => String(c).toLowerCase()) : [];
+  const body = rows.slice(hasHeader ? 1 : 0).slice(0, 10);
+  const score = (c, fn) => body.filter((r) => fn(String(r[c] || ""))).length;
+  let date = -1, amt = -1, desc = -1;
+  for (let c = 0; c < n; c++) if (/дата|date/.test(head[c] || "")) { date = c; break; }
+  if (date < 0) { let bs = 0; for (let c = 0; c < n; c++) { const s = score(c, (v) => !!ww23ParseDate(v)); if (s > bs) { bs = s; date = c; } } }
+  for (let c = 0; c < n; c++) if (c !== date && /сумм|amount|sum/.test(head[c] || "")) { amt = c; break; }
+  if (amt < 0) { let bs = 0; for (let c = 0; c < n; c++) { if (c === date) continue; const s = score(c, (v) => ww23ParseAmt(v) !== null); if (s > bs) { bs = s; amt = c; } } }
+  for (let c = 0; c < n; c++) if (c !== date && c !== amt && /опис|назнач|детал|description|merchant|назв/.test(head[c] || "")) { desc = c; break; }
+  if (desc < 0) { let bs = -1; for (let c = 0; c < n; c++) { if (c === date || c === amt) continue; const s = score(c, (v) => /[а-яёa-z]{3}/i.test(v)); if (s > bs) { bs = s; desc = c; } } }
+  return { date, amt, desc, n };
+}
+function ww23GuessCat(desc, type) {
+  const d = String(desc || "").toLowerCase();
+  const words = d.split(/[^а-яёa-z0-9]+/i).filter((w) => w.length >= 4);
+  if (words.length) {
+    const freq = {};
+    S.transactions.forEach((t) => { if (t.type !== type || !t.note) return; const tn = t.note.toLowerCase(); if (words.some((w) => tn.includes(w))) freq[t.categoryId] = (freq[t.categoryId] || 0) + 1; });
+    const e = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+    if (e) return e[0];
+  }
+  const dict = [
+    ["супермаркет|магнит|пятёроч|пятероч|перекрёст|перекрест|лента|ашан|окей|продукт|вкусвилл|бристол|светофор", "продукт|быт|еда"],
+    ["аптек|клиник|стоматол|анализ|больниц", "аптек|здоров|медиц|лекарств"],
+    ["азс|лукойл|газпромнефт|роснефт|башнефт|бензин|топлив", "бензин|топлив|авто"],
+    ["кафе|ресторан|кофе|бургер|kfc|макдон|додо|суши|пицц", "кафе|ресторан|развлеч"],
+    ["такси|метро|автобус|троллейбус|проезд", "транспорт|проезд|такси"],
+    ["жкх|коммунал|энергосбыт|водоканал|газоснаб|теплосет", "коммунал|жкх"],
+    ["зарплат|аванс|выплата|зачислен", "зарплат|доход|аванс"],
+    ["подписк|netflix|плюс|spotify|apple.com|google|иви|okko", "подписк|интернет|сервис"],
+    ["wildberries|ozon|ламода|одежд|обувь", "одежд|вещи|покупк"],
+    ["мтс|мегафон|билайн|теле2", "связь|интернет|телефон"],
+  ];
+  for (const [pat, catPat] of dict) {
+    if (new RegExp(pat).test(d)) { const c = S.categories.find((x) => x.type === type && new RegExp(catPat).test(x.name.toLowerCase())); if (c) return c.id; }
+  }
+  const byName = S.categories.find((c) => c.type === type && c.name.length > 3 && d.includes(c.name.toLowerCase().split(" ")[0]));
+  if (byName) return byName.id;
+  const other = S.categories.find((c) => c.type === type && /проч|друго|разн|кладовк/.test(c.name.toLowerCase()));
+  return (other || S.categories.find((c) => c.type === type) || {}).id;
+}
+function ww23CsvModal() {
+  const { rows, hasHeader } = ww23Csv;
+  const g = ww23GuessCols();
+  const head = hasHeader ? rows[0] : [];
+  const sample = rows[hasHeader ? 1 : 0] || [];
+  const opts = (selIdx) => {
+    let h = '<option value="-1">—</option>';
+    for (let c = 0; c < g.n; c++) {
+      const label = (head[c] ? String(head[c]).slice(0, 16) : "Колонка " + (c + 1)) + " · " + String(sample[c] || "").slice(0, 16);
+      h += '<option value="' + c + '"' + (c === selIdx ? " selected" : "") + ">" + esc(label) + "</option>";
+    }
+    return h;
+  };
+  showModal(`<div class="mhead"><h3>🏦 Импорт выписки CSV</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.</div>
+    <div class="fg-row">
+      <div class="fg"><label>Дата</label><select id="csv-date" onchange="ww23CsvPreview()">${opts(g.date)}</select></div>
+      <div class="fg"><label>Сумма</label><select id="csv-amt" onchange="ww23CsvPreview()">${opts(g.amt)}</select></div>
+    </div>
+    <div class="fg"><label>Описание (для автокатегорий)</label><select id="csv-desc" onchange="ww23CsvPreview()">${opts(g.desc)}</select></div>
+    <div class="fg-row">
+      <div class="fg"><label>Счёт</label><select id="csv-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
+      <div class="fg"><label>Тип операций</label><select id="csv-sign" onchange="ww23CsvPreview()"><option value="neg">по знаку: минус = расход</option><option value="exp">все строки — расходы</option><option value="inc">все строки — доходы</option></select></div>
+    </div>
+    <div id="ww23-csv-prev"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww23CsvImport()">Импортировать</button>`);
+  ww23CsvPreview();
+}
+function ww23IsDup(x) { return S.transactions.some((t) => t.date === x.date && t.type === x.type && Math.abs(+t.amount - x.amount) < 0.01 && (t.note || "") === (x.note || "")); }
+function ww23CsvParseAll() {
+  const di = +document.getElementById("csv-date").value, ai = +document.getElementById("csv-amt").value, si = +document.getElementById("csv-desc").value;
+  const sign = document.getElementById("csv-sign").value;
+  if (di < 0 || ai < 0) return { err: "Укажите колонки даты и суммы" };
+  const { rows, hasHeader } = ww23Csv;
+  const out = []; let skipped = 0;
+  rows.slice(hasHeader ? 1 : 0).forEach((r) => {
+    const date = ww23ParseDate(r[di]); const amt = ww23ParseAmt(r[ai]);
+    if (!date || amt === null || !amt) { skipped++; return; }
+    const type = sign === "exp" ? "expense" : sign === "inc" ? "income" : (amt < 0 ? "expense" : "income");
+    const note = si >= 0 ? String(r[si] || "").trim() : "";
+    out.push({ date, amount: Math.abs(amt), type, note, categoryId: ww23GuessCat(note, type) });
+  });
+  return { out, skipped };
+}
+function ww23CsvPreview() {
+  const el = document.getElementById("ww23-csv-prev"); if (!el) return;
+  const res = ww23CsvParseAll();
+  if (res.err) { el.innerHTML = '<div class="empty">' + res.err + "</div>"; return; }
+  const dups = res.out.filter((x) => ww23IsDup(x)).length;
+  el.innerHTML = '<div class="sub" style="margin:4px 0 6px">Распознано: <b>' + res.out.length + "</b>" + (res.skipped ? " · пропущено строк: " + res.skipped : "") + (dups ? " · дубликатов (будут пропущены): " + dups : "") + "</div>" +
+    '<table class="ww23-cmp-table">' + res.out.slice(0, 8).map((x) => {
+      const c = cat(x.categoryId) || { icon: "📌", name: "—" };
+      return `<tr><td>${x.date}</td><td style="color:var(--${x.type === "income" ? "green" : "red"})">${x.type === "income" ? "+" : "−"}${money(x.amount)}</td><td style="text-align:left">${esc(x.note.slice(0, 24))}</td><td style="text-align:left">${c.icon} ${esc(c.name)}</td></tr>`;
+    }).join("") + "</table>" + (res.out.length > 8 ? '<div class="sub">… и ещё ' + (res.out.length - 8) + "</div>" : "");
+}
+function ww23CsvImport() {
+  if (isObserver()) return;
+  const res = ww23CsvParseAll();
+  if (res.err) { toast(res.err); return; }
+  if (!res.out.length) { toast("Нечего импортировать"); return; }
+  const acc = document.getElementById("csv-acc").value;
+  let added = 0, dups = 0;
+  res.out.forEach((x) => {
+    if (ww23IsDup(x)) { dups++; return; }
+    S.transactions.push({ id: uid(), date: x.date, type: x.type, amount: x.amount, accountId: acc, categoryId: x.categoryId, note: x.note, tags: ["импорт"], createdAt: Date.now() });
+    added++;
+  });
+  save(); closeModal(); render(activePage());
+  toast("Импортировано операций: " + added + (dups ? " · пропущено дублей: " + dups : "") + (res.skipped ? " · нераспознанных строк: " + res.skipped : ""));
+}
+</script>
+
 </body>
 </html>
