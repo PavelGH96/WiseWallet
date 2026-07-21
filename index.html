@@ -334,6 +334,13 @@ body.observer .task-card,.observer .credit-card{cursor:default}
       <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button></div>
     <div id="dash-reminders" style="display:none"></div>
     <div class="grid grid-4" id="dash-stats"></div>
+    <div class="section card" style="border-color:var(--accent)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <h2 style="margin:0">💰 Финансовое планирование</h2>
+        <span class="mnav" id="plan-mnav"></span>
+      </div>
+      <div class="grid grid-4" id="plan-stats"></div>
+    </div>
     <div class="section card coins-card">
       <h2>Быстрый ввод <span class="coins-hint">Перетащите счёт на категорию</span></h2>
       <div class="coins-lbl">Счета</div>
@@ -1393,7 +1400,7 @@ async function syncNow(manual) {
         const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
         localStorage.setItem(LS_KEY, JSON.stringify(S));
         render(activePage());
-        if (manual) toast("Данные обновл����ны");
+        if (manual) toast("Данные обновлены");
       } else if (manual) toast("На сервере пока нет данных");
     } else if (remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt) {
       const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
@@ -1707,6 +1714,66 @@ function setDashCatMode(m, btn) {
 let budgetYm = todayStr().slice(0, 7);
 function shiftBudgetMonth(delta) { budgetYm = ymShift(budgetYm, delta); renderBudgets(); }
 function resetBudgetMonth() { budgetYm = todayStr().slice(0, 7); renderBudgets(); }
+let planYm = todayStr().slice(0, 7);
+function shiftPlanMonth(delta) { planYm = ymShift(planYm, delta); renderPlanStats(); }
+function resetPlanMonth() { planYm = todayStr().slice(0, 7); renderPlanStats(); }
+/* ---- будущий месяц целиком по плану (регулярные платежи + кредиты, с учётом льготных периодов) ---- */
+function monthPlanFull(ym) {
+  const income = planIncomeMonth();
+  let expense = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
+  const ds15 = ym + "-15";
+  for (const c of S.credits.filter((c) => c.status === "active")) {
+    expense += (c.graceFrom && c.graceTo && ds15 >= c.graceFrom.slice(0, 7) + "-01" && ds15 <= c.graceTo) ? +c.gracePayment : +c.payment;
+  }
+  return { income, expense };
+}
+/* ---- то, что ЕЩЁ НЕ отражено в текущем балансе счетов (для прогноза остатка) ---- */
+function monthRemaining(ym) {
+  const nowYm = todayStr().slice(0, 7);
+  if (ym < nowYm) return { income: 0, expense: 0 };
+  if (ym > nowYm) return monthPlanFull(ym);
+  let income = 0, expense = 0;
+  duePostings().forEach((d) => { const r = Math.max(0, +d.r.amount - d.posted); if (d.r.type === "income") income += r; else expense += r; });
+  for (const c of S.credits.filter((c) => c.status === "active")) {
+    const paid = S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym);
+    if (!paid) expense += currentPayment(c).amount;
+  }
+  return { income, expense };
+}
+/* ---- полные ожидаемые итоги месяца для отображения (факт + ещё не проведённое / целиком план) ---- */
+function monthDisplayFigures(ym) {
+  const nowYm = todayStr().slice(0, 7);
+  if (ym > nowYm) return monthPlanFull(ym);
+  const tx = monthTx(ym);
+  let income = tx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
+  let expense = tx.filter((t) => t.type === "expense").reduce((s, t) => s + +t.amount, 0);
+  if (ym === nowYm) { const rem = monthRemaining(ym); income += rem.income; expense += rem.expense; }
+  return { income, expense };
+}
+/* ---- прогноз остатка на счетах на конец выбранного месяца ---- */
+function projectedBalanceEnd(ym) {
+  let bal = balance();
+  let cur = todayStr().slice(0, 7);
+  while (cur <= ym) { const f = monthRemaining(cur); bal += f.income - f.expense; cur = ymShift(cur, 1); }
+  return bal;
+}
+function renderPlanStats() {
+  const el = document.getElementById("plan-stats"); if (!el) return;
+  const nowYm = todayStr().slice(0, 7);
+  const isCur = planYm === nowYm;
+  const [py, pm] = planYm.split("-").map(Number);
+  const mnav = document.getElementById("plan-mnav");
+  if (mnav) mnav.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="shiftPlanMonth(-1)" title="Пред. месяц">←</button><b style="margin:0 6px">${MONTHS[pm - 1]} ${py}</b><button class="btn btn-ghost btn-sm" onclick="shiftPlanMonth(1)" title="След. месяц">→</button>${!isCur ? '<button class="btn btn-ghost btn-sm" onclick="resetPlanMonth()" style="margin-left:6px">Сегодня</button>' : ""}`;
+  const fig = monthDisplayFigures(planYm);
+  const need = fig.expense;
+  const haveNow = balance();
+  const projected = projectedBalanceEnd(planYm);
+  el.innerHTML = `
+    <div class="card stat"><div class="lbl">Сейчас на счетах</div><div class="val ${haveNow < 0 ? "neg" : ""}">${money(haveNow)}</div><div class="hint">на сегодня</div></div>
+    <div class="card stat"><div class="lbl">${isCur ? "Ожидается доходов" : "План доходов"}</div><div class="val pos">+${money(fig.income)}</div><div class="hint">${isCur ? "факт + ещё не поступило" : "по регулярным платежам"}</div></div>
+    <div class="card stat"><div class="lbl">Нужно на платежи</div><div class="val neg">−${money(need)}</div><div class="hint">${isCur ? "факт + ещё не оплачено" : "план: платежи + кредиты"}</div></div>
+    <div class="card stat"><div class="lbl">Прогноз остатка</div><div class="val ${projected < 0 ? "neg" : "pos"}">${money(projected)}</div><div class="hint">на конец месяца${!isCur ? ", по плану" : ""}</div></div>`;
+}
 let _dragTaskId = null;
 const WHO_LABEL = { me: "👤 Я", wife: "👩 Жена", both: "👥 Вместе" };
 const WHO_ICON = { me: "👤", wife: "👩", both: "👥" };
@@ -2063,6 +2130,7 @@ const WW2K = { sess: "ww_session_v2", pin: "ww_pin_v2", snap: "ww_snapshots_v2",
 /* ---------- миграция состояния ---------- */
 function ww2Migrate() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
+  if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
   if (!S.categories.find((c) => c.id === "c_tr_out")) S.categories.push({ id: "c_tr_out", name: "Перевод (исходящий)", type: "expense", icon: "🔄" });
   if (!S.categories.find((c) => c.id === "c_tr_in")) S.categories.push({ id: "c_tr_in", name: "Перевод (входящий)", type: "income", icon: "🔄" });
 }
@@ -2228,8 +2296,9 @@ function duePostings() {
   const now = new Date(); const ym = todayStr().slice(0, 7);
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return S.recurring
-    .filter((r) => now.getDate() >= Math.min(r.day, dim) && !S.posted[r.id + ":" + ym])
-    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0") }));
+    .filter((r) => now.getDate() >= Math.min(r.day, dim) && !S.skipped[r.id + ":" + ym])
+    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: +S.posted[r.id + ":" + ym] || 0 }))
+    .filter((d) => d.posted < +d.r.amount);
 }
 function renderDuePanel() {
   let el = document.getElementById("dash-due");
@@ -2241,32 +2310,49 @@ function renderDuePanel() {
   const due = S.settings.observerMode ? [] : duePostings();
   if (!due.length) { el.style.display = "none"; el.innerHTML = ""; return; }
   el.style.display = "block";
-  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К проведению (${due.length})</h2><div class="sub" style="margin:2px 0 6px">Регулярные платежи этого месяца, ещё не записанные в операции.</div>` +
-    due.map((d) => `<div class="row"><div class="ic">${(cat(d.r.categoryId) || { icon: d.r.type === "income" ? "💵" : "📌" }).icon}</div><div class="rmain"><div class="rt">${esc(d.r.name)}</div><div class="rs">${fmtDay(d.date)}</div></div><div class="ramt" style="color:var(--${d.r.type === "income" ? "green" : "red"})">${d.r.type === "income" ? "+" : "−"}${money(d.r.amount)}</div><button class="btn btn-primary btn-sm" onclick="postRecur('${d.r.id}')">Провести</button><button class="btn btn-ghost btn-sm" onclick="skipRecur('${d.r.id}')" title="Пропустить в этом месяце">✕</button></div>`).join("") +
-    `<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="postAllRecur()">Провести все</button></div></div>`;
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К оплате (${due.length})</h2><div class="sub" style="margin:2px 0 6px">Регулярные платежи этого месяца, ещё не записанные в операции.</div>` +
+    due.map((d) => {
+      const remaining = Math.max(0, +d.r.amount - d.posted);
+      const partialHint = d.posted > 0 ? ` · оплачено ${money(d.posted)} из ${money(d.r.amount)}` : "";
+      return `<div class="row"><div class="ic">${(cat(d.r.categoryId) || { icon: d.r.type === "income" ? "💵" : "📌" }).icon}</div><div class="rmain"><div class="rt">${esc(d.r.name)}</div><div class="rs">${fmtDay(d.date)}${partialHint}</div></div><div class="ramt" style="color:var(--${d.r.type === "income" ? "green" : "red"})">${d.r.type === "income" ? "+" : "−"}${money(remaining)}</div><button class="btn btn-primary btn-sm" onclick="postRecur('${d.r.id}')">Оплатить</button><button class="btn btn-ghost btn-sm" onclick="skipRecur('${d.r.id}')" title="Пропустить в этом месяце">✕</button></div>`;
+    }).join("") +
+    `<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="postAllRecur()">Оплатить все</button></div></div>`;
 }
-function postRecur(id) {
+function postRecur(id, amountOverride) {
   if (isObserver()) return;
   const ym = todayStr().slice(0, 7);
-  const r = S.recurring.find((x) => x.id === id); if (!r || S.posted[r.id + ":" + ym]) return;
+  const r = S.recurring.find((x) => x.id === id); if (!r) return;
+  const key = r.id + ":" + ym;
+  const postedSoFar = +S.posted[key] || 0;
+  const remaining = Math.max(0, +r.amount - postedSoFar);
+  if (remaining <= 0) return;
+  let amount = amountOverride;
+  if (amount == null) {
+    const raw = prompt(`Сумма оплаты «${r.name}»${postedSoFar > 0 ? ` (уже оплачено ${money(postedSoFar)} из ${money(r.amount)})` : ""}:`, remaining);
+    if (raw === null) return;
+    amount = parseFloat(String(raw).replace(",", "."));
+  }
+  if (!amount || amount <= 0) { toast("Введите сумму"); return; }
   const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const date = ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0");
   const accId = (S.accounts.find((a) => !a.archived) || {}).id;
-  S.transactions.push({ id: uid(), date, type: r.type, amount: +r.amount, accountId: accId, categoryId: r.categoryId, note: r.name + " (регулярный)", tags: ["регулярный"], createdAt: Date.now() });
-  S.posted[r.id + ":" + ym] = true;
-  save(); render(activePage()); toast("Проведено: " + r.name);
+  const isPartial = amount < remaining || postedSoFar > 0;
+  S.transactions.push({ id: uid(), date, type: r.type, amount, accountId: accId, categoryId: r.categoryId, note: r.name + (isPartial ? " (регулярный, частично)" : " (регулярный)"), tags: ["регулярный"], createdAt: Date.now() });
+  S.posted[key] = postedSoFar + amount;
+  save(); render(activePage());
+  toast((amount < remaining ? "Частично оплачено: " : "Оплачено: ") + money(amount) + (amount < remaining ? ` (остаток ${money(remaining - amount)})` : ""));
 }
 function skipRecur(id) {
   if (isObserver()) return;
-  S.posted[id + ":" + todayStr().slice(0, 7)] = true;
+  S.skipped[id + ":" + todayStr().slice(0, 7)] = true;
   save(); renderDuePanel();
 }
 function postAllRecur() {
   if (isObserver()) return;
-  duePostings().forEach((d) => postRecur(d.r.id));
+  duePostings().forEach((d) => postRecur(d.r.id, Math.max(0, +d.r.amount - d.posted)));
 }
 const _renderDash2 = renderDash;
-renderDash = function () { _renderDash2(); renderDuePanel(); };
+renderDash = function () { _renderDash2(); renderDuePanel(); renderPlanStats(); };
 
 /* ===================== 5. График погашения кредита + досрочное ===================== */
 function creditSchedule(c, extraMonthly, oneTime) {
@@ -2793,6 +2879,7 @@ function ww22DemoState() {
       { id: uid(), title: "Демо-сервис", category: "Пример", login: "demo@example.com", password: "demo1234", url: "https://example.com", note: "Пример записи", created: Date.now() },
     ],
     posted: {},
+    skipped: {},
     settings: { theme: "t9", sbUrl: "", sbKey: "", syncId: uid(), lastSync: 0, observerMode: false, reminderDays: 3, dismissed: {}, viewMode: {}, lastCat: {} },
     updatedAt: Date.now(),
   };
