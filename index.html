@@ -224,6 +224,24 @@ canvas{max-width:100%}
 .coin.dragging{position:relative;z-index:80}
 .coin.dragging .disc{transform:scale(1.15);box-shadow:0 8px 22px rgba(0,0,0,.25)}
 .coin.drop-target .disc{border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
+/* ---- v2.6: Monefy-панель и период учёта ---- */
+#ww26-period-btn{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
+#ww26-period-btn:hover{border-color:var(--border-h)}
+.ww26-lbl{display:flex;justify-content:space-between;align-items:center}
+.ww26-total{font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:0;text-transform:none}
+.ww26-total.pos{color:var(--green)}
+.ww26-total.neg{color:var(--red)}
+.ww26-wrap{flex-wrap:wrap;overflow:visible}
+.coin.inc{cursor:grab}
+.coin.inc:active{cursor:grabbing}
+.coin.inc .disc{background:var(--green-bg);border-color:var(--green)}
+.coin .camt.pos{color:var(--green)}
+.coin .camt.neg{color:var(--red)}
+.ww26-sheet .opt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;font-weight:600;font-size:14.5px}
+.ww26-sheet .opt:last-child{border-bottom:none}
+.ww26-sheet .opt .chk{color:var(--blue);font-weight:800}
+.ww26-sheet .opt .rng{display:block;font-size:11.5px;color:var(--t3);font-weight:500;margin-top:2px}
+.ww26-sheet input[type="date"]{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)}
 /* ---- budgets ---- */
 .budget-item{padding:13px 4px;border-bottom:1px solid var(--border)}
 .budget-item:last-child{border-bottom:none}
@@ -342,11 +360,13 @@ body.observer .task-card,.observer .credit-card{cursor:default}
       <div class="grid grid-4" id="plan-stats"></div>
     </div>
     <div class="section card coins-card">
-      <h2>Быстрый ввод <span class="coins-hint">Перетащите счёт на категорию</span></h2>
-      <div class="coins-lbl">Счета</div>
+      <h2><button id="ww26-period-btn" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
+      <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
+      <div class="coins-row" id="coins-inc"></div>
+      <div class="coins-lbl ww26-lbl">Кошельки <span class="ww26-total" id="ww26-acc-total"></span></div>
       <div class="coins-row" id="coins-acc"></div>
-      <div class="coins-lbl">Категории расходов</div>
-      <div class="coins-row" id="coins-cat"></div>
+      <div class="coins-lbl ww26-lbl">Расходы <span class="ww26-total neg" id="ww26-exp-total"></span></div>
+      <div class="coins-row ww26-wrap" id="coins-cat"></div>
     </div>
     <div class="section grid grid-2">
       <div class="card"><h2>Ближайшие платежи</h2><div id="dash-upcoming"></div></div>
@@ -476,7 +496,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.3</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.6</div>
       </div>
     </div>
   </section>
@@ -649,7 +669,7 @@ function balance() {
 }
 function monthTx(ym) { return S.transactions.filter((t) => t.date.slice(0, 7) === ym); }
 function ymShift(ym, n) { const p = ym.split("-").map(Number); const d = new Date(p[0], p[1] - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
-function momTxt(cur, prev) { if (!prev) return "нет данных за пр. месяц"; const d = Math.round((cur - prev) / prev * 100); const a = d > 0 ? "↑" : d < 0 ? "↓" : "="; return `${a} ${Math.abs(d)}% к пр. месяцу`; }
+function momTxt(cur, prev) { if (!prev) return "нет данных ��а пр. месяц"; const d = Math.round((cur - prev) / prev * 100); const a = d > 0 ? "↑" : d < 0 ? "↓" : "="; return `${a} ${Math.abs(d)}% к пр. месяцу`; }
 function planExpenseMonth() {
   let p = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
   for (const c of S.credits) if (c.status === "active") p += currentPayment(c).amount;
@@ -867,7 +887,7 @@ function renderDash() {
     catTotal = exp;
     donutLabel = "расходы " + MONTHS_GEN[now.getMonth()];
   }
-  drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => [(cid === "c_credit" ? "Платежи по кредитам" : (cat(cid) || { name: "—" }).name), sum]), catTotal, donutLabel);
+  drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => { const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" }); return [c.name, sum, c.icon]; }), catTotal, donutLabel);
   document.getElementById("dash-cats").innerHTML = catRows.length ? catRows.map(([cid, sum]) => {
     const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" });
     const pct = catTotal ? Math.round((sum / catTotal) * 100) : 0;
@@ -966,11 +986,14 @@ function creditRow(c) {
   const p = currentPayment(c);
   const next = nextPayDate(c);
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
+  const paidShare = c.initial > 0 ? Math.max(0, Math.min(1, 1 - c.balance / Math.max(c.balance, c.initial))) : (c.balanceFull > c.balance ? 1 - c.balance / c.balanceFull : 0);
+  const paidPct = Math.round(paidShare * 100);
   const statusTag = c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>';
   return `<div class="row" data-sid="${c.id}" style="cursor:pointer" onclick="openCreditModal('${c.id}')">
     <div class="ic">🏦</div>
-    <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}</div><div class="rs">${next && c.status === "active" ? "платёж " + next.getDate() + " " + MONTHS_GEN[next.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div></div>
-    <div class="ramt">${money(c.balance)}</div>
+    <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}</div><div class="rs">${next && c.status === "active" ? "платёж " + next.getDate() + " " + MONTHS_GEN[next.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
+    <div class="progress" style="margin-top:6px;height:5px"><i style="width:${paidPct}%${overdue ? ";background:var(--amber)" : ""}"></i></div></div>
+    <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выплачено ${paidPct}%</div></div>
     ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">📅</button>` : ""}
   </div>`;
 }
@@ -1101,13 +1124,17 @@ function renderCal() {
     const evs = [];
     for (const c of S.credits.filter((c) => c.status === "active")) {
       const pd = Math.min(c.payDay || 0, dim);
-      if (pd === d) { const p = currentPayment(c); evs.push(`<div class="cal-ev pay" title="${esc(c.name)}">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name.split(" ")[0])} ${fmtM.format(Math.round(p.amount))}</div>`); }
+      if (pd === d) { const p = currentPayment(c); evs.push(`<div class="cal-ev pay" style="cursor:pointer" onclick="event.stopPropagation();ww24OpenCreditFromCal('${c.id}')" title="${esc(c.name)} — открыть в разделе «Кредиты»">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name.split(" ")[0])} ${fmtM.format(Math.round(p.amount))}</div>`); }
     }
     for (const r of S.recurring) { if (Math.min(r.day, dim) === d) evs.push(`<div class="cal-ev ${r.type === "income" ? "inc" : "exp"}" title="${esc(r.name)}">${r.who ? WHO_ICON[r.who] + " " : ""}${esc(r.name.split(" ")[0])} ${fmtM.format(r.amount)}</div>`); }
     for (const t of S.transactions.filter((t) => t.date === ds)) evs.push(`<div class="cal-ev ${t.type === "income" ? "inc" : "exp"}">${t.type === "income" ? "+" : "−"}${fmtM.format(t.amount)}</div>`);
     cells.push(`<div class="cal-cell${ds === tStr ? " today" : ""}"><div class="cal-d">${d}</div>${evs.join("")}</div>`);
   }
   document.getElementById("cal-grid").innerHTML = dows + cells.join("");
+}
+function ww24OpenCreditFromCal(id) {
+  nav("credits");
+  openCreditModal(id);
 }
 
 /* ===================== analytics ===================== */
@@ -1120,37 +1147,80 @@ function setupCanvas(cv) {
 }
 const PALETTE = ["#5E9FE8","#EAC26B","#72BC8F","#BF8EDA","#DE9255","#DF84A8","#4FB9C9","#E97366"];
 function cssVar(n) { return getComputedStyle(document.body).getPropertyValue(n).trim(); }
+/* v2.5: колесо категорий в стиле Monefy — сегменты с зазорами, иконки на кольце, проценты, анимация */
 function drawDonut(cv, entries, total, subLabel) {
   const { ctx, w, h } = setupCanvas(cv);
+  if (cv._donutAnim) cancelAnimationFrame(cv._donutAnim);
   ctx.clearRect(0, 0, w, h);
   if (!total) return;
-  let a0 = -Math.PI / 2; const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 12, r = R * 0.62;
-  entries.forEach(([, v], i) => {
-    const a1 = a0 + (v / total) * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0));
-    ctx.arc(cx, cy, R, a0, a1); ctx.arc(cx, cy, r, a1, a0, true); ctx.closePath();
-    ctx.fillStyle = PALETTE[i % PALETTE.length]; ctx.fill(); a0 = a1;
-  });
-  ctx.fillStyle = cssVar("--text"); ctx.font = "800 17px Manrope, Inter, sans-serif"; ctx.textAlign = "center";
-  ctx.fillText(money(total), cx, cy); ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = cssVar("--t3");
-  ctx.fillText(subLabel, cx, cy + 17);
+  const cx = w / 2, cy = h / 2;
+  const R = Math.min(w, h) / 2 - 16;
+  const thick = Math.max(24, Math.round(R * 0.34));
+  const ringR = R - thick / 2;
+  const fr = entries.map(([, v]) => v / total);
+  const GAP = entries.length > 1 ? 0.045 : 0;
+  const cardBg = cssVar("--card") || "#ffffff";
+  const t0 = performance.now(), DUR = 550;
+  function seg(i, a0, a1) {
+    const g = Math.min(GAP, (a1 - a0) * 0.3) / 2;
+    if (a1 - a0 - g * 2 <= 0) return;
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, a0 + g, a1 - g);
+    ctx.strokeStyle = PALETTE[i % PALETTE.length]; ctx.lineWidth = thick; ctx.lineCap = "butt"; ctx.stroke();
+  }
+  function centerText() {
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = cssVar("--text"); ctx.font = "800 18px Manrope, Inter, sans-serif";
+    ctx.fillText(money(total), cx, cy + 1);
+    ctx.fillStyle = cssVar("--t3"); ctx.font = "500 11px Inter, sans-serif";
+    ctx.fillText(subLabel, cx, cy + 18);
+  }
+  function decorations() {
+    let a0 = -Math.PI / 2;
+    entries.forEach((e, i) => {
+      const a1 = a0 + fr[i] * Math.PI * 2, mid = (a0 + a1) / 2;
+      if (fr[i] >= 0.045) {
+        const bx = cx + ringR * Math.cos(mid), by = cy + ringR * Math.sin(mid);
+        const br = Math.min(thick * 0.46, 15);
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fillStyle = cardBg; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = PALETTE[i % PALETTE.length]; ctx.stroke();
+        if (e[2]) { ctx.font = Math.round(br * 1.05) + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = cssVar("--text"); ctx.fillText(e[2], bx, by + 1); }
+        if (fr[i] >= 0.06) {
+          const px = cx + (R + 9) * Math.cos(mid), py = cy + (R + 9) * Math.sin(mid);
+          ctx.font = "700 10px Inter, sans-serif"; ctx.fillStyle = cssVar("--t2"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(Math.round(fr[i] * 100) + "%", px, py);
+        }
+      }
+      a0 = a1;
+    });
+    ctx.textBaseline = "alphabetic";
+  }
+  function frame(now) {
+    const k = Math.min(1, (now - t0) / DUR), ease = 1 - Math.pow(1 - k, 3);
+    ctx.clearRect(0, 0, w, h);
+    let a0 = -Math.PI / 2;
+    entries.forEach((e, i) => { const a1 = a0 + fr[i] * Math.PI * 2 * ease; seg(i, a0, a1); a0 = a1; });
+    centerText();
+    if (k < 1) { cv._donutAnim = requestAnimationFrame(frame); } else { cv._donutAnim = null; decorations(); }
+  }
+  cv._donutAnim = requestAnimationFrame(frame);
 }
 function renderAnalytics() {
   /* donut: expenses of current month, fallback to plan */
   const ym = todayStr().slice(0, 7);
-  let data = {};
-  monthTx(ym).filter((t) => t.type === "expense").forEach((t) => { const n = (cat(t.categoryId) || { name: "Прочее" }).name; data[n] = (data[n] || 0) + +t.amount; });
+  let data = {}, icons = {};
+  monthTx(ym).filter((t) => t.type === "expense").forEach((t) => { const c = cat(t.categoryId) || { name: "Прочее", icon: "📌" }; data[c.name] = (data[c.name] || 0) + +t.amount; icons[c.name] = c.icon; });
   let isPlan = false;
   if (!Object.keys(data).length) {
     isPlan = true;
-    S.recurring.filter((r) => r.type === "expense").forEach((r) => { data[r.name] = +r.amount; });
+    S.recurring.filter((r) => r.type === "expense").forEach((r) => { data[r.name] = +r.amount; icons[r.name] = (cat(r.categoryId) || { icon: "📌" }).icon; });
     const cp = S.credits.filter((c) => c.status === "active").reduce((s, c) => s + currentPayment(c).amount, 0);
-    if (cp) data["Платежи по кредитам"] = cp;
+    if (cp) { data["Платежи по кредитам"] = cp; icons["Платежи по кредитам"] = "🏦"; }
   }
   const entries = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const total = entries.reduce((s, e) => s + e[1], 0);
-  drawDonut(document.getElementById("chart-donut"), entries, total, isPlan ? "план на месяц" : "факт за месяц");
-  document.getElementById("donut-legend").innerHTML = entries.map(([n], i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(n)}</span>`).join("");
+  drawDonut(document.getElementById("chart-donut"), entries.map(([n, v]) => [n, v, icons[n]]), total, isPlan ? "план на месяц" : "факт за месяц");
+  document.getElementById("donut-legend").innerHTML = entries.map(([n, v], i) => `<span><i style="background:${PALETTE[i % PALETTE.length]}"></i>${esc(n)} · ${total ? Math.round((v / total) * 100) : 0}%</span>`).join("");
   /* plan bars: next 6 months planned expense vs recurring income */
   drawBars("chart-plan", planSeries(), true);
   drawBars("chart-bars", factSeries(), false);
@@ -1394,7 +1464,7 @@ async function syncNow(manual) {
     const remote = rows[0];
     const isObs = S.settings.observerMode;
     // Наблюдатель: только читает и никогда не пишет в Supabase, независимо от таймстампов —
-    // так на его устройстве не накопится "своя" версия, способная перезаписать реальные данные.
+    // так на его устр��йстве не накопится "своя" версия, способная перезаписать реальные данные.
     if (isObs) {
       if (remote && remote.data) {
         const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
@@ -2293,6 +2363,8 @@ async function syncNow(manual) {
 
 /* ===================== 4. Автопроведение регулярных платежей ===================== */
 function duePostings() {
+  if (!S.posted || typeof S.posted !== "object") S.posted = {};
+  if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
   const now = new Date(); const ym = todayStr().slice(0, 7);
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return S.recurring
@@ -2681,7 +2753,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "2.3";
+const WW_VERSION = "2.6";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -2782,6 +2854,11 @@ function delPass(id) {
 .ww22-prof-row .pm{flex:1;min-width:0}
 .ww22-prof-row .pt{font-weight:700;font-size:13.5px}
 .ww22-prof-row .ps{font-size:12px;color:var(--t2)}
+.ww22-demo-sub{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;margin:2px 0 0 20px;border-left:2px dashed var(--line,rgba(0,0,0,.14))}
+.ww22-demo-sub.active{border-left-color:var(--green)}
+.ww22-demo-sub .pm{flex:1;min-width:0}
+.ww22-demo-sub .pt{font-weight:600;font-size:12.5px}
+.ww22-demo-sub .ps{font-size:11px;color:var(--t2)}
 </style>
 <script>
 "use strict";
@@ -2791,8 +2868,8 @@ const WW22_DEMO_KEY = "ww_demo_state_v1";
 const WW22_SW_FLAG = "ww22_switched";
 const WW22_PROFILES = {
   main: { icon: "👤", name: "Моя", desc: "Полный доступ: ваши данные и синхронизация" },
-  parents: { icon: "👨‍👩‍👧", name: "Родители", desc: "Только просмотр ваших данных, без редактирования" },
-  demo: { icon: "🎬", name: "Демо", desc: "Вымышленные данные для презентации — не связаны с вашими" },
+  parents: { icon: "🔒", name: "Просмотр", desc: "Только просмотр, без редактирования. Позже здесь появится настройка видимых разделов — сейчас видно всё." },
+  demo: { icon: "🎬", name: "Демо-режим", desc: "Вымышленные данные для показа — доступно внутри «Моя», не связано с вашими данными" },
 };
 function ww22Profile() { return localStorage.getItem(WW22_PROF_KEY) || "main"; }
 
@@ -2897,8 +2974,8 @@ function ww22Switch(p) {
     });
     return;
   }
-  if (p === "parents" && !confirm("Переключиться на профиль «Родители»?\n\nДанные будут доступны только для просмотра. Для возврата понадобится PIN-код (если установлен).")) return;
-  if (p === "demo" && !confirm("Переключиться на демо-профиль?\n\nЭто отдельные вымышленные данные для показа. Ваши данные не изменятся.")) return;
+  if (p === "parents" && !confirm("Переключиться в режим «Просмотр»?\n\nДанные будут доступны только для просмотра, без редактирования. Для возврата понадобится PIN-код (если установлен).")) return;
+  if (p === "demo" && !confirm("Включить демо-режим?\n\nЭто отдельные вымышленные данные для показа, доступные в рамках учётной записи «Моя». Ваши данные не изменятся.")) return;
   localStorage.setItem(WW22_PROF_KEY, p); localStorage.setItem(WW22_SW_FLAG, "1"); location.reload();
 }
 function ww22DemoReset() {
@@ -2912,27 +2989,36 @@ function ww22Badge() {
   const prof = ww22Profile();
   if (prof === "main" || document.getElementById("ww22-badge")) return;
   const logo = document.querySelector(".rail .logo");
-  if (logo) logo.insertAdjacentHTML("afterend", `<div id="ww22-badge" class="${prof}">${WW22_PROFILES[prof].icon} Профиль: ${WW22_PROFILES[prof].name}</div>`);
+  if (logo) logo.insertAdjacentHTML("afterend", `<div id="ww22-badge" class="${prof}">${WW22_PROFILES[prof].icon} ${prof === "demo" ? "Моя · Демо-режим" : "Учётная запись: " + WW22_PROFILES[prof].name}</div>`);
 }
 function ww22Cards() {
   const grid = document.querySelector("#page-settings .grid.grid-2");
   if (!grid || document.getElementById("ww22-prof-card")) return;
-  grid.insertAdjacentHTML("afterbegin", `<div class="card" id="ww22-prof-card"><h2>👥 Профили</h2>
-    <div class="sub" style="margin-bottom:10px">Профиль выбирается на каждом устройстве отдельно. Демо-профиль не синхронизируется и не трогает ваши данные.</div>
-    <div style="display:flex;flex-direction:column;gap:8px" id="ww22-prof-list"></div></div>`);
+  grid.insertAdjacentHTML("afterbegin", `<div class="card" id="ww22-prof-card"><h2>👥 Учётные записи</h2>
+    <div class="sub" style="margin-bottom:10px">Учётная запись выбирается на каждом устройстве отдельно. Демо-режим не синхронизируется и не трогает ваши данные.</div>
+    <div style="display:flex;flex-direction:column;gap:6px" id="ww22-prof-list"></div></div>`);
   ww22FillProf();
 }
 function ww22FillProf() {
   const el = document.getElementById("ww22-prof-list"); if (!el) return;
   const cur = ww22Profile();
-  el.innerHTML = Object.keys(WW22_PROFILES).map((p) => {
-    const m = WW22_PROFILES[p]; const act = p === cur;
-    return `<div class="ww22-prof-row${act ? " active" : ""}">
+  const m = WW22_PROFILES.main, v = WW22_PROFILES.parents, dm = WW22_PROFILES.demo;
+  const mainActive = cur === "main", viewActive = cur === "parents", demoActive = cur === "demo";
+  el.innerHTML = `<div class="ww22-prof-row${mainActive ? " active" : ""}">
       <div style="font-size:20px">${m.icon}</div>
       <div class="pm"><div class="pt">${m.name}</div><div class="ps">${m.desc}</div></div>
-      ${act ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активен</span>${p === "demo" ? `<button class="btn btn-ghost btn-sm" onclick="ww22DemoReset()" title="Сбросить демо-данные">↺</button>` : ""}` : `<button class="btn btn-ghost" onclick="ww22Switch('${p}')">Включить</button>`}
+      ${mainActive ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активна</span>` : demoActive ? `<button class="btn btn-ghost btn-sm" onclick="ww22Switch('main')">Вернуться</button>` : `<button class="btn btn-ghost" onclick="ww22Switch('main')">Включить</button>`}
+    </div>
+    <div class="ww22-demo-sub${demoActive ? " active" : ""}">
+      <div style="font-size:16px">${dm.icon}</div>
+      <div class="pm"><div class="pt">${dm.name}</div><div class="ps">${dm.desc}</div></div>
+      ${demoActive ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активен</span><button class="btn btn-ghost btn-sm" onclick="ww22DemoReset()" title="Сбросить демо-данные">↺</button>` : `<button class="btn btn-ghost btn-sm" onclick="ww22Switch('demo')">Включить</button>`}
+    </div>
+    <div class="ww22-prof-row${viewActive ? " active" : ""}" style="margin-top:4px">
+      <div style="font-size:20px">${v.icon}</div>
+      <div class="pm"><div class="pt">${v.name}</div><div class="ps">${v.desc}</div></div>
+      ${viewActive ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активна</span>` : `<button class="btn btn-ghost" onclick="ww22Switch('parents')">Включить</button>`}
     </div>`;
-  }).join("");
 }
 const _renderSettings22 = renderSettings;
 renderSettings = function () {
@@ -2942,6 +3028,23 @@ renderSettings = function () {
     const sb = document.getElementById("sb-url"); if (sb && sb.closest(".card")) sb.closest(".card").style.display = "none";
     const auth = document.getElementById("ww-auth-card"); if (auth) auth.style.display = "none";
   }
+};
+
+/* ---- разделы, доступные учётной записи «Просмотр» (задел на будущее) ---- */
+/* Сейчас все разделы видимы. Чтобы скрыть раздел от «Просмотра», поставьте false. */
+const WW24_VIEW_SECTIONS = {
+  dashboard: true, ops: true, budgets: true, goals: true, credits: true,
+  calendar: true, planner: true, links: true, passwords: true, analytics: true, settings: true,
+};
+function ww24ApplyViewSections() {
+  if (ww22Profile() !== "parents") return;
+  document.querySelectorAll("[data-nav]").forEach((b) => { b.style.display = WW24_VIEW_SECTIONS[b.dataset.nav] === false ? "none" : ""; });
+  if (WW24_VIEW_SECTIONS[activePage()] === false) nav("dashboard");
+}
+const _navWW24 = nav;
+nav = function (page) {
+  if (ww22Profile() === "parents" && WW24_VIEW_SECTIONS[page] === false) page = "dashboard";
+  _navWW24(page);
 };
 
 /* ---- инициализация профиля ---- */
@@ -2965,7 +3068,8 @@ renderSettings = function () {
     S.settings.observerMode = true;
     localStorage.setItem(LS_KEY, JSON.stringify(S));
     applyObserverMode();
-    setObserverMode = function () { toast("👨‍👩‍👧 Профиль «Родители» — только просмотр. Смените профиль, чтобы редактировать."); };
+    setObserverMode = function () { toast("🔒 Учётная запись «Просмотр» — только просмотр. Смените учётную запись, чтобы редактировать."); };
+    ww24ApplyViewSections();
     nav(activePage());
   } else if (localStorage.getItem(WW22_SW_FLAG) === "1") {
     if (S.settings.observerMode) { S.settings.observerMode = false; localStorage.setItem(LS_KEY, JSON.stringify(S)); applyObserverMode(); nav(activePage()); }
@@ -3029,7 +3133,7 @@ async function ww23Persist() { if (ww23Enabled() && WW23.key) await ww23Seal(); 
 async function ww23Enable() {
   if (isObserver()) return;
   if (!window.crypto || !crypto.subtle) { toast("Шифрование не поддерживается этим браузером"); return; }
-  const p1 = prompt("Придумайте мастер-пароль шифрования (минимум 4 символа).\n\n⚠️ Запишите его: без мастер-пароля пароли восстановить НЕВОЗМОЖНО — даже из облака.");
+  const p1 = prompt("Придумайте м��стер-пароль шифрования (минимум 4 символа).\n\n⚠️ Запишите его: без мастер-пароля пароли восстановить НЕВОЗМОЖНО — даже из облака.");
   if (p1 === null) return;
   if (p1.length < 4) { toast("Минимум 4 символа"); return; }
   const p2 = prompt("Повторите мастер-пароль:");
@@ -3458,6 +3562,131 @@ function ww23CsvImport() {
   save(); closeModal(); render(activePage());
   toast("Импортировано операций: " + added + (dups ? " · пропущено дублей: " + dups : "") + (res.skipped ? " · нераспознанных строк: " + res.skipped : ""));
 }
+// Дашборд рендерится один раз ещё до того, как позже в скрипте к нему подключаются
+// доп. блоки (К оплате, Финансовое планирование и т.п.) — досчитываем начисто после
+// полной загрузки, чтобы эти блоки не оставались пустыми при обычном заходе.
+if (activePage() === "dashboard") renderDash();
+</script>
+<script>
+"use strict";
+/* ===================== WiseWallet v2.6: Monefy-панель на дашборде ===================== */
+/* Период учёта (как в Monefy): неделя/месяц/квартал/полгода/год/весь период/произвольный */
+const WW26_KEY = "ww26_period_v1";
+function ww26Period() { try { return JSON.parse(localStorage.getItem(WW26_KEY)) || { type: "month" }; } catch (e) { return { type: "month" }; } }
+function ww26SetPeriod(p) { localStorage.setItem(WW26_KEY, JSON.stringify(p)); closeModal(); renderCoins(); }
+function ww26Iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function ww26RangeFor(p) {
+  const now = new Date();
+  let from = null, to = null;
+  if (p.type === "week") { const t = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const dow = (t.getDay() + 6) % 7; from = new Date(t); from.setDate(t.getDate() - dow); to = new Date(from); to.setDate(from.getDate() + 6); }
+  else if (p.type === "month") { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+  else if (p.type === "quarter") { const q = Math.floor(now.getMonth() / 3); from = new Date(now.getFullYear(), q * 3, 1); to = new Date(now.getFullYear(), q * 3 + 3, 0); }
+  else if (p.type === "half") { const hh = now.getMonth() < 6 ? 0 : 6; from = new Date(now.getFullYear(), hh, 1); to = new Date(now.getFullYear(), hh + 6, 0); }
+  else if (p.type === "year") { from = new Date(now.getFullYear(), 0, 1); to = new Date(now.getFullYear(), 11, 31); }
+  else if (p.type === "custom" && p.from && p.to) { return { from: p.from, to: p.to }; }
+  return { from: from ? ww26Iso(from) : null, to: to ? ww26Iso(to) : null };
+}
+function ww26Fmt(iso) { const p = iso.split("-").map(Number); return p[2] + " " + MONTHS_GEN[p[1] - 1]; }
+function ww26RangeTxt(p) { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) + " " + r.to.slice(0, 4) : "все операции без ограничений"; }
+function ww26Label() {
+  const p = ww26Period(); const now = new Date();
+  if (p.type === "week") return "Неделя";
+  if (p.type === "quarter") return ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " квартал";
+  if (p.type === "half") return "Полгода";
+  if (p.type === "year") return String(now.getFullYear());
+  if (p.type === "all") return "Весь период";
+  if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "Произвольный"; }
+  return MONTHS[now.getMonth()].toUpperCase();
+}
+function ww26In(dateStr) { const r = ww26RangeFor(ww26Period()); if (r.from && dateStr < r.from) return false; if (r.to && dateStr > r.to) return false; return true; }
+function ww26PeriodSheet() {
+  const p = ww26Period();
+  const opts = [["week", "Неделя"], ["month", "Месяц"], ["quarter", "Квартал"], ["half", "Полгода"], ["year", "Год"], ["all", "Весь период"]];
+  showModal(`<div class="mhead"><h3>Период учёта</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="ww26-sheet">
+      ${opts.map(([k, n]) => `<div class="opt" onclick="ww26SetPeriod({type:'${k}'})"><span>${n}<span class="rng">${ww26RangeTxt({ type: k })}</span></span>${p.type === k ? '<span class="chk">✓</span>' : ""}</div>`).join("")}
+      <div class="opt" style="display:block;cursor:default" onclick="event.stopPropagation()">
+        <div style="display:flex;justify-content:space-between;align-items:center">Произвольный${p.type === "custom" ? '<span class="chk">✓</span>' : ""}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="ww26-from" value="${p.from || todayStr().slice(0, 8) + "01"}">
+          <input type="date" id="ww26-to" value="${p.to || todayStr()}">
+          <button class="btn btn-primary btn-sm" onclick="ww26Custom()">ОК</button>
+        </div>
+      </div>
+    </div>`);
+}
+function ww26Custom() {
+  const f = document.getElementById("ww26-from").value, t = document.getElementById("ww26-to").value;
+  if (!f || !t || f > t) { toast("Укажите корректный диапазон дат"); return; }
+  ww26SetPeriod({ type: "custom", from: f, to: t });
+}
+/* Панель: доходы → кошельки → расходы, суммы за выбранный период */
+renderCoins = function () {
+  const accEl = document.getElementById("coins-acc"); if (!accEl) return;
+  const incEl = document.getElementById("coins-inc"), catEl = document.getElementById("coins-cat");
+  const btn = document.getElementById("ww26-period-btn"); if (btn) btn.textContent = ww26Label() + " ▾";
+  const incBy = {}, expBy = {};
+  let incTotal = 0, expTotal = 0;
+  for (const t of S.transactions) {
+    if (!ww26In(t.date)) continue;
+    if (t.type === "income") { incBy[t.categoryId] = (incBy[t.categoryId] || 0) + +t.amount; incTotal += +t.amount; }
+    else { expBy[t.categoryId] = (expBy[t.categoryId] || 0) + +t.amount; expTotal += +t.amount; }
+  }
+  const incCats = S.categories.filter((c) => c.type === "income");
+  if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onpointerdown="ww26Down(event,'inc','${c.id}')"><div class="disc">${c.icon}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") || '<div class="empty" style="padding:8px;font-size:12px">Нет категорий дохода</div>';
+  const accs = S.accounts.filter((a) => !a.archived);
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onpointerdown="ww26Down(event,'acc','${a.id}')"><div class="disc">${esc(a.name.slice(0, 1).toUpperCase())}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("");
+  const expCats = S.categories.filter((c) => c.type === "expense");
+  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="openTxModal({type:'expense',categoryId:'${c.id}'})"><div class="disc">${c.icon}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("");
+  const it = document.getElementById("ww26-inc-total"), at = document.getElementById("ww26-acc-total"), et = document.getElementById("ww26-exp-total");
+  if (it) it.textContent = "+" + money(incTotal);
+  if (at) at.textContent = money(accs.reduce((s, a) => s + accBalance(a.id), 0));
+  if (et) et.textContent = "\u2212" + money(expTotal);
+};
+/* Перетаскивание: кошелёк → категория расхода (расход), доход → кошелёк (пополнение) */
+let _ww26Drag = null;
+function ww26Down(e, kind, id) {
+  if (isObserver()) return;
+  e.preventDefault();
+  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false };
+  _ww26Drag.el.classList.add("dragging");
+  document.addEventListener("pointermove", ww26Move);
+  document.addEventListener("pointerup", ww26Up);
+}
+function ww26Move(e) {
+  if (!_ww26Drag) return;
+  const dx = e.clientX - _ww26Drag.x0, dy = e.clientY - _ww26Drag.y0;
+  if (Math.abs(dx) + Math.abs(dy) > 6) _ww26Drag.moved = true;
+  _ww26Drag.el.style.transform = `translate(${dx}px,${dy}px)`;
+  const sel = _ww26Drag.kind === "acc" ? ".coin.cat" : ".coin.acc";
+  document.querySelectorAll(sel).forEach((c) => {
+    const r = c.getBoundingClientRect();
+    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    c.classList.toggle("drop-target", over);
+  });
+}
+function ww26Up(e) {
+  document.removeEventListener("pointermove", ww26Move);
+  document.removeEventListener("pointerup", ww26Up);
+  if (!_ww26Drag) return;
+  const st = _ww26Drag; _ww26Drag = null;
+  st.el.classList.remove("dragging");
+  st.el.style.transform = "";
+  document.querySelectorAll(".coin.drop-target").forEach((c) => c.classList.remove("drop-target"));
+  st.el.style.pointerEvents = "none";
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  st.el.style.pointerEvents = "";
+  if (st.kind === "acc") {
+    const catEl = el && el.closest(".coin.cat");
+    if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat });
+  } else {
+    const accEl = el && el.closest(".coin.acc");
+    if (accEl) { openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc }); return; }
+    if (!st.moved) openTxModal({ type: "income", categoryId: st.id });
+  }
+}
+/* первый рендер новой панели после переопределения */
+try { if (typeof S !== "undefined" && document.getElementById("coins-inc")) renderCoins(); } catch (e) {}
 </script>
 
 </body>
