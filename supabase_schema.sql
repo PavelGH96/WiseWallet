@@ -41,3 +41,12 @@ create policy ww_user_select on public.ww_user_state for select using (auth.uid(
 create policy ww_user_insert on public.ww_user_state for insert with check (auth.uid() = user_id);
 create policy ww_user_update on public.ww_user_state for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy ww_user_delete on public.ww_user_state for delete using (auth.uid() = user_id);
+
+-- ============================================================
+-- ЧАСТЬ 3 (v3.6, опционально): живая синхронизация в реальном времени.
+-- Без этого шага приложение всё равно синхронизируется как раньше
+-- (по таймеру/при открытии) — это просто ускоряет обновление между
+-- устройствами до секунд. Выполните в Supabase → SQL Editor:
+-- ============================================================
+alter publication supabase_realtime add table public.ww_state;
+alter publication supabase_realtime add table public.ww_user_state;

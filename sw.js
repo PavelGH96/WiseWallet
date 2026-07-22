@@ -1,5 +1,5 @@
 /* WiseWallet service worker: cache-first offline shell */
-const CACHE = "wisewallet-v3.5";
+const CACHE = "wisewallet-v3.6";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -21,7 +21,7 @@ self.addEventListener("fetch", (e) => {
     caches.match(e.request).then((cached) => {
       const fetched = fetch(e.request)
         .then((res) => {
-          if (res.ok && (url.origin === location.origin || url.hostname.includes("fonts."))) {
+          if (res.ok && (url.origin === location.origin || url.hostname.includes("fonts.") || url.hostname.includes("jsdelivr.net"))) {
             const clone = res.clone();
             caches.open(CACHE).then((c) => c.put(e.request, clone));
           }
