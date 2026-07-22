@@ -165,6 +165,12 @@ body.sorting{cursor:grabbing}
 .fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);min-height:42px}
 .fg input:focus,.fg select:focus{outline:3px solid rgba(0,125,250,.3);outline-offset:0;border-color:var(--blue)}
 .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.overlay.center{align-items:center}
+.overlay.center .modal{border-radius:20px;width:calc(100% - 32px);max-width:420px}
+.ww32-info{font-size:13.5px;color:var(--t2);line-height:1.55;margin-bottom:14px}
+.ww32-info b{color:var(--text);font-weight:700}
+.ww32-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:4px}
+.ww32-actions .btn{min-width:120px}
 .seg{display:flex;background:var(--fill);border-radius:10px;padding:2px;gap:2px}
 .seg button{flex:1;padding:8px;border-radius:8px;font-weight:500;font-size:13.5px;color:var(--t2);min-height:36px;transition:background .15s,color .15s}
 .seg button.active{background:var(--card);color:var(--text);box-shadow:var(--sh-s)}
@@ -175,7 +181,7 @@ body.sorting{cursor:grabbing}
 .cat-opt em{font-style:normal;font-size:19px}
 .cat-opt.active{border-color:var(--accent);background:var(--blue-bg);color:var(--text)}
 /* ---- fab & bottom nav ---- */
-.fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(145deg,#0a84ff,#0060df);color:#fff;font-size:26px;box-shadow:0 8px 24px rgba(0,113,227,.4);z-index:60;display:flex;align-items:center;justify-content:center;transition:transform .12s}
+.fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;font-size:26px;box-shadow:0 8px 24px rgba(22,163,74,.4);z-index:60;display:flex;align-items:center;justify-content:center;transition:transform .12s}
 .fab:hover{transform:scale(1.06)}
 .bottom-nav{display:none}
 /* ---- themes ---- */
@@ -224,6 +230,41 @@ canvas{max-width:100%}
 .coin.dragging{position:relative;z-index:80}
 .coin.dragging .disc{transform:scale(1.15);box-shadow:0 8px 22px rgba(0,0,0,.25)}
 .coin.drop-target .disc{border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
+.coin .disc svg{width:26px;height:26px;display:block}
+.coin.cat .disc{color:var(--text)}
+.coin.inc .disc{color:var(--green)}
+.coin.ww26-ghost{opacity:.6}
+.coin.ww26-ghost .disc{transform:scale(1.1);box-shadow:0 10px 24px rgba(0,0,0,.28)}
+.coin.ww26-src{opacity:.35}
+/* ---- v2.9: три колонки — доходы слева, кошельки в центре, расходы справа ---- */
+.ww29-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.5fr);gap:14px;align-items:start}
+.ww29-mid{border-left:1px solid var(--border);border-right:1px solid var(--border);padding:0 10px}
+.ww29-row{flex-wrap:wrap;overflow:visible}
+.ww29-mid .ww29-row{justify-content:center}
+.coin.add .disc{border-style:dashed;background:transparent;box-shadow:none;color:var(--t3);font-size:28px;font-weight:300;cursor:pointer}
+.coin.add:hover .disc{border-color:var(--blue);color:var(--blue)}
+.coin.add .cname{color:var(--t3)}
+@media(max-width:700px){.ww29-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px}.ww29-mid{padding:0 6px}}
+/* ---- v3.0: «К оплате» — разделы, ползунки, подсветка статусов ---- */
+#dash-due .ww30-sec{display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin:10px 0 2px}
+#dash-due .ww30-cnt{background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:1px 8px;font-size:11px}
+#dash-due .row{border-radius:10px;padding:11px 8px}
+#dash-due .row.paid{background:rgba(63,185,80,.13);border-bottom-color:transparent;margin-top:2px}
+#dash-due .row.partial{background:rgba(245,200,66,.16)}
+#dash-due .row.paid .rt,#dash-due .row.paid .rs{color:var(--t2)}
+#dash-due .row.overdue{background:rgba(248,81,73,.12);border-bottom-color:transparent;margin-top:2px}
+#dash-due .ic svg{width:20px;height:20px;display:block;color:var(--text)}
+#dash-due .ww30-spc{width:34px;flex:0 0 auto}
+.ww30-sw{position:relative;flex:0 0 auto;width:106px;height:30px;border-radius:999px;border:1px solid var(--border);background:var(--bg);cursor:pointer;overflow:hidden;padding:0;transition:background .25s,border-color .25s}
+.ww30-sw .knob{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transition:left .25s}
+.ww30-sw .swlbl{position:absolute;top:0;left:26px;right:8px;bottom:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t2)}
+.ww30-sw.on{background:var(--green);border-color:var(--green)}
+.ww30-sw.on .knob{left:calc(100% - 26px)}
+.ww30-sw.on .swlbl{left:8px;right:26px;color:#fff}
+/* ---- v3.1: «К оплате» в две колонки — расходы слева, кредиты справа ---- */
+#dash-due .ww31-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;align-items:start}
+#dash-due .ww31-col{min-width:0}
+@media(max-width:900px){#dash-due .ww31-grid{grid-template-columns:1fr;gap:2px 0}}
 /* ---- v2.6: Monefy-панель и период учёта ---- */
 #ww26-period-btn{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
 #ww26-period-btn:hover{border-color:var(--border-h)}
@@ -351,6 +392,23 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="page-head"><div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
       <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button></div>
     <div id="dash-reminders" style="display:none"></div>
+    <div class="section card coins-card" style="margin-top:0">
+      <h2><button id="ww26-period-btn" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
+      <div class="ww29-grid">
+        <div class="ww29-col">
+          <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
+          <div class="coins-row ww29-row" id="coins-inc"></div>
+        </div>
+        <div class="ww29-col ww29-mid">
+          <div class="coins-lbl ww26-lbl">Кошельки <span class="ww26-total" id="ww26-acc-total"></span></div>
+          <div class="coins-row ww29-row" id="coins-acc"></div>
+        </div>
+        <div class="ww29-col">
+          <div class="coins-lbl ww26-lbl">Расходы <span class="ww26-total neg" id="ww26-exp-total"></span></div>
+          <div class="coins-row ww29-row" id="coins-cat"></div>
+        </div>
+      </div>
+    </div>
     <div class="grid grid-4" id="dash-stats"></div>
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -358,15 +416,6 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <span class="mnav" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
-    </div>
-    <div class="section card coins-card">
-      <h2><button id="ww26-period-btn" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
-      <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
-      <div class="coins-row" id="coins-inc"></div>
-      <div class="coins-lbl ww26-lbl">Кошельки <span class="ww26-total" id="ww26-acc-total"></span></div>
-      <div class="coins-row" id="coins-acc"></div>
-      <div class="coins-lbl ww26-lbl">Расходы <span class="ww26-total neg" id="ww26-exp-total"></span></div>
-      <div class="coins-row ww26-wrap" id="coins-cat"></div>
     </div>
     <div class="section grid grid-2">
       <div class="card"><h2>Ближайшие платежи</h2><div id="dash-upcoming"></div></div>
@@ -496,7 +545,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v2.6</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.3</div>
       </div>
     </div>
   </section>
@@ -717,7 +766,7 @@ function render(page) {
   ({ dashboard: renderDash, ops: renderOps, budgets: renderBudgets, goals: renderGoals, credits: renderCredits, calendar: renderCal, planner: renderPlanner, links: renderLinks, passwords: renderPasswords, analytics: renderAnalytics, settings: renderSettings }[page] || renderDash)();
 }
 
-/* ===================== переключатель "Вид" (карточки / список) ===================== */
+/* ===================== переключат��ль "Вид" (карточки / список) ===================== */
 const VIEW_DEFAULTS = { ops: "list", credits: "cards", budgets: "list", goals: "cards", planner: "cards", links: "list" };
 function viewMode(page) { return (S.settings.viewMode && S.settings.viewMode[page]) || VIEW_DEFAULTS[page] || "cards"; }
 function viewBtnHtml(page) {
@@ -802,7 +851,7 @@ function renderReminders() {
   el.innerHTML = list.map((x) => {
     const isInc = x.kind === "recur-inc";
     const soon = x.days <= 1 && !isInc;
-    const when = x.days <= 0 ? "сегодня" : x.days === 1 ? "завтра" : "через " + x.days + " дн.";
+    const when = x.days <= 0 ? "сегодня" : x.days === 1 ? "з��втра" : "через " + x.days + " дн.";
     return `<div class="reminder-row${soon ? " urgent" : ""}${isInc ? " income" : ""}">
       <div class="ic">${x.kind === "credit" ? "🏦" : isInc ? "💰" : "📌"}</div>
       <div class="rmain"><div class="rt">${esc(x.name)}</div><div class="rs">${when} · ${x.date.getDate()} ${MONTHS_GEN[x.date.getMonth()]}</div></div>
@@ -1081,7 +1130,7 @@ function buildSchedule(c) {
 function openScheduleModal(id) {
   const c = S.credits.find((x) => x.id === id); if (!c) return;
   if (!c.payDay) {
-    showModal(`<div class="mhead"><h3>График платежей</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">📅</div>Не указан день платежа — добавьте его в карточке кредита («Изменить»), чтобы построить график.</div>`);
+    showModal(`<div class="mhead"><h3>График платежей</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">📅</div>Не указан день платежа — добавьте ег�� в карточке кредита («Изменить»), чтобы построить график.</div>`);
     return;
   }
   const rows = buildSchedule(c);
@@ -1278,7 +1327,7 @@ const THEMES = [
 ];
 function renderSettings() {
   document.getElementById("theme-grid").innerHTML = THEMES.map((t) => `<button class="theme-sw${(S.settings.theme || "t9") === t.id ? " active" : ""}" onclick="setTheme('${t.id}')" aria-label="Тема ${t.name}"><i style="background:linear-gradient(135deg,${t.colors[0]} 50%,${t.colors[1]} 50%)"></i><span>${t.name}</span></button>`).join("");
-  document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${a.type === "cash" ? "💵" : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div><button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
+  document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${a.type === "cash" ? "����" : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div><button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
   document.getElementById("cat-list").innerHTML = S.categories.map((c) => `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}</div><div class="rs">${c.type === "income" ? "доход" : "расход"}</div></div></div>`).join("");
   document.getElementById("sb-url").value = S.settings.sbUrl || "";
   document.getElementById("sb-key").value = S.settings.sbKey || "";
@@ -1318,7 +1367,7 @@ function openRecurModal(id) {
       <div class="fg"><label>Категория</label><select id="rc-cat"></select></div>
       <div class="fg"><label>День месяца</label><input type="number" min="1" max="31" id="rc-day" value="${r ? r.day : 1}"></div>
     </div>
-    <div class="fg"><label>Кому (для бейджа в календаре и платежах)</label><select id="rc-who">${[["", "— не указано"], ["me", "👤 Я"], ["wife", "👩 Жена"], ["both", "👥 Общее"]].map(([k, l]) => `<option value="${k}"${(r?.who || "") === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+    <div class="fg"><label>Кому (для бейджа в календаре и платежах)</label><select id="rc-who">${[["", "— не указано"], ["me", "👤 Я"], ["wife", "👩 Жена"], ["both", "👥 ��бщее"]].map(([k, l]) => `<option value="${k}"${(r?.who || "") === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
     <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="saveRecur('${id || ""}')">Сохранить</button>${r ? `<button class="btn btn-danger" onclick="delRecur('${r.id}')">Удалить</button>` : ""}</div>`);
   recurCatOptions(r ? r.categoryId : null);
   setTimeout(() => document.getElementById("rc-name").focus(), 50);
@@ -1463,7 +1512,7 @@ async function syncNow(manual) {
     const rows = await res.json();
     const remote = rows[0];
     const isObs = S.settings.observerMode;
-    // Наблюдатель: только читает и никогда не пишет в Supabase, независимо от таймстампов —
+    // Наблюдатель: только читает и никогда не ��ишет в Supabase, независимо от таймстампов —
     // так на его устр��йстве не накопится "своя" версия, способная перезаписать реальные данные.
     if (isObs) {
       if (remote && remote.data) {
@@ -1489,8 +1538,8 @@ async function syncNow(manual) {
 }
 
 /* ===================== modals ===================== */
-function closeModal() { document.getElementById("overlay").classList.remove("open"); }
-function showModal(html) { document.getElementById("modal").innerHTML = html; document.getElementById("overlay").classList.add("open"); }
+function closeModal() { const ov = document.getElementById("overlay"); ov.classList.remove("open"); ov.classList.remove("center"); }
+function showModal(html, opts) { document.getElementById("modal").innerHTML = html; const ov = document.getElementById("overlay"); ov.classList.toggle("center", !!(opts && opts.center)); ov.classList.add("open"); }
 let txType = "expense", txCat = null;
 function openTxModal(pre) {
   if (isObserver()) return;
@@ -2202,7 +2251,7 @@ function ww2Migrate() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
   if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
   if (!S.categories.find((c) => c.id === "c_tr_out")) S.categories.push({ id: "c_tr_out", name: "Перевод (исходящий)", type: "expense", icon: "🔄" });
-  if (!S.categories.find((c) => c.id === "c_tr_in")) S.categories.push({ id: "c_tr_in", name: "Перевод (входящий)", type: "income", icon: "🔄" });
+  if (!S.categories.find((c) => c.id === "c_tr_in")) S.categories.push({ id: "c_tr_in", name: "Пере��од (входящий)", type: "income", icon: "🔄" });
 }
 ww2Migrate();
 
@@ -2372,23 +2421,211 @@ function duePostings() {
     .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: +S.posted[r.id + ":" + ym] || 0 }))
     .filter((d) => d.posted < +d.r.amount);
 }
+/* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
+function ww30Data() {
+  if (!S.posted || typeof S.posted !== "object") S.posted = {};
+  if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
+  if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
+  if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
+  const now = new Date(); const ym = todayStr().slice(0, 7); const today = todayStr();
+  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const exp = S.recurring
+    .filter((r) => r.type === "expense" && !S.skipped[r.id + ":" + ym])
+    .map((r) => {
+      const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
+      const posted = +S.posted[r.id + ":" + ym] || 0;
+      const paid = posted >= +r.amount;
+      return { kind: "recur", id: r.id, name: r.name, icon: (cat(r.categoryId) || { icon: "📌" }).icon, date, amount: paid ? +r.amount : Math.max(0, +r.amount - posted), full: +r.amount, posted, paid, overdue: !paid && date < today, grace: false };
+    });
+  const cr = S.credits
+    .filter((c) => (c.status === "active" || S.ww30Cr[c.id + ":" + ym]) && !S.skipped["cr" + c.id + ":" + ym])
+    .map((c) => {
+      const p = currentPayment(c);
+      const full = +p.amount || 0;
+      const rec = S.ww30Cr[c.id + ":" + ym];
+      const postedC = rec ? +rec.paid || 0 : 0;
+      const date = ym + "-" + String(Math.min(+c.payDay || 1, dim)).padStart(2, "0");
+      const paid = full > 0 ? postedC >= full : !!rec;
+      return { kind: "credit", id: c.id, name: c.name, icon: "🏦", date, amount: paid ? postedC : Math.max(0, full - postedC), full, posted: postedC, paid, overdue: !paid && date < today, grace: !!p.grace };
+    });
+  const srt = (a, b) => (a.paid !== b.paid ? (a.paid ? 1 : -1) : a.date.localeCompare(b.date));
+  exp.sort(srt); cr.sort(srt);
+  return { exp, cr };
+}
+function ww30Row(d) {
+  const ico = typeof ww28Icon === "function" ? ww28Icon(d.icon, d.name) : esc(d.icon || "📌");
+  const partial = !d.paid && d.posted > 0;
+  const cls = d.paid ? " paid" : partial ? " partial" : d.overdue ? " overdue" : "";
+  const parts = [fmtDay(d.date)];
+  if (d.paid) parts.push("оплачено"); else if (partial) parts.push("частичная оплата"); else if (d.overdue) parts.push("просрочено");
+  if (d.grace) parts.push("льготный платёж");
+  if (!d.paid && d.posted > 0) parts.push(`оплачено ${money(d.posted)} из ${money(d.full)}`);
+  let skip;
+  if (d.paid) skip = '<span class="ww30-spc"></span>';
+  else if (partial) skip = `<button class="btn btn-ghost btn-sm" onclick="ww32Reset('${d.kind}','${d.id}')" title="Сбросить оплату">↺</button>`;
+  else skip = `<button class="btn btn-ghost btn-sm" onclick="${d.kind === "recur" ? `skipRecur('${d.id}')` : `ww30SkipCr('${d.id}')`}" title="Пропустить в этом месяце">✕</button>`;
+  const amtColor = d.paid ? "green" : partial ? "amber" : "red";
+  return `<div class="row${cls}"><div class="ic">${ico}</div><div class="rmain"><div class="rt">${esc(d.name)}</div><div class="rs">${parts.join(" · ")}</div></div><div class="ramt" style="color:var(--${amtColor})">−${money(d.amount)}</div><button class="ww30-sw${d.paid ? " on" : ""}" onclick="ww30Toggle('${d.kind}','${d.id}')" title="${d.paid ? "Вернуть в «К оплате»" : partial ? "Доплатить остаток" : "Отметить оплаченным"}"><span class="knob"></span><span class="swlbl">${d.paid ? "Оплачено" : "Оплатить"}</span></button>${skip}</div>`;
+}
 function renderDuePanel() {
   let el = document.getElementById("dash-due");
   if (!el) {
-    const rem = document.getElementById("dash-reminders"); if (!rem) return;
+    const anchor = document.querySelector("#page-dashboard .coins-card") || document.getElementById("dash-reminders"); if (!anchor) return;
     el = document.createElement("div"); el.id = "dash-due";
-    rem.parentNode.insertBefore(el, rem.nextSibling);
+    anchor.parentNode.insertBefore(el, anchor.nextSibling);
   }
-  const due = S.settings.observerMode ? [] : duePostings();
-  if (!due.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+  if (S.settings.observerMode) { el.style.display = "none"; el.innerHTML = ""; return; }
+  const { exp, cr } = ww30Data();
+  const unpaid = exp.filter((d) => !d.paid).length + cr.filter((d) => !d.paid).length;
   el.style.display = "block";
-  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К оплате (${due.length})</h2><div class="sub" style="margin:2px 0 6px">Регулярные платежи этого месяца, ещё не записанные в операции.</div>` +
-    due.map((d) => {
-      const remaining = Math.max(0, +d.r.amount - d.posted);
-      const partialHint = d.posted > 0 ? ` · оплачено ${money(d.posted)} из ${money(d.r.amount)}` : "";
-      return `<div class="row"><div class="ic">${(cat(d.r.categoryId) || { icon: d.r.type === "income" ? "💵" : "📌" }).icon}</div><div class="rmain"><div class="rt">${esc(d.r.name)}</div><div class="rs">${fmtDay(d.date)}${partialHint}</div></div><div class="ramt" style="color:var(--${d.r.type === "income" ? "green" : "red"})">${d.r.type === "income" ? "+" : "−"}${money(remaining)}</div><button class="btn btn-primary btn-sm" onclick="postRecur('${d.r.id}')">Оплатить</button><button class="btn btn-ghost btn-sm" onclick="skipRecur('${d.r.id}')" title="Пропустить в этом месяце">✕</button></div>`;
-    }).join("") +
-    `<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="postAllRecur()">Оплатить все</button></div></div>`;
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К оплате${unpaid ? ` (${unpaid})` : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи текущего месяца. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
+    `<div class="ww30-sec">Расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
+    (exp.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет регулярных расходов в этом месяце.</div>') +
+    `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal()">+ Добавить расход</button></div></div><div class="ww31-col">` +
+    `<div class="ww30-sec">Кредиты <span class="ww30-cnt">${cr.filter((d) => !d.paid).length}</span></div>` +
+    (cr.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет кредитов к оплате в этом месяце.</div>') +
+    `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openCreditModal()">+ Добавить кредит</button></div></div></div></div>`;
+}
+function ww30Toggle(kind, id) {
+  if (isObserver()) return;
+  const ym = todayStr().slice(0, 7);
+  if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
+  if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
+  if (kind === "recur") {
+    const r = S.recurring.find((x) => x.id === id); if (!r) return;
+    const key = r.id + ":" + ym;
+    const posted = +S.posted[key] || 0;
+    const full = +r.amount;
+    if (posted >= full) {
+      const ids = S.ww30Tx[key] || [];
+      S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
+      delete S.ww30Tx[key]; S.posted[key] = 0;
+      toast("Возвращено в «К оплате»: " + r.name);
+      save(); render(activePage()); return;
+    }
+    const remaining = Math.max(0, full - posted);
+    ww32AskAmount(r.name, remaining, full, posted, (amount) => ww32DoPay("recur", id, amount));
+  } else {
+    const c = S.credits.find((x) => x.id === id); if (!c) return;
+    const key = c.id + ":" + ym;
+    const rec = S.ww30Cr[key];
+    const p = currentPayment(c);
+    const full = +p.amount || 0;
+    const postedC = rec ? +rec.paid || 0 : 0;
+    if (full > 0 && postedC >= full) {
+      const ids = (rec.payments || []).map((x) => x.txId);
+      S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
+      c.balance = rec.prevBalance;
+      if (rec.prevBalanceFull != null) c.balanceFull = rec.prevBalanceFull;
+      c.status = rec.prevStatus || "active";
+      delete S.ww30Cr[key];
+      toast("Платёж отменён: " + c.name);
+      save(); render(activePage()); return;
+    }
+    if (!full) { toast("У кредита не указан платёж/мес"); return; }
+    const remaining = Math.max(0, full - postedC);
+    ww32AskAmount(c.name, remaining, full, postedC, (amount) => ww32DoPay("credit", id, amount));
+  }
+}
+function ww32DoPay(kind, id, amount) {
+  if (isObserver()) return;
+  if (amount == null) return;
+  if (amount <= 0) { toast("Сумма должна быть больше 0"); return; }
+  const ym = todayStr().slice(0, 7);
+  if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
+  if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
+  if (kind === "recur") {
+    const r = S.recurring.find((x) => x.id === id); if (!r) return;
+    const key = r.id + ":" + ym;
+    const posted = +S.posted[key] || 0;
+    const full = +r.amount;
+    const remaining = Math.max(0, full - posted);
+    const pay = Math.min(amount, remaining);
+    const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
+    const txId = uid();
+    const fullNow = posted + pay >= full;
+    S.transactions.push({ id: txId, date, type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: r.categoryId, note: r.name + " (регулярный" + (fullNow ? "" : ", частично") + ")", tags: ["регулярный"], createdAt: Date.now() });
+    S.ww30Tx[key] = (S.ww30Tx[key] || []).concat(txId);
+    S.posted[key] = posted + pay;
+    if (fullNow) toast("Оплачено полностью: " + r.name);
+    else toast("Частичная оплата: " + money(pay) + " · осталось " + money(full - S.posted[key]));
+  } else {
+    const c = S.credits.find((x) => x.id === id); if (!c) return;
+    const key = c.id + ":" + ym;
+    const rec = S.ww30Cr[key];
+    const p = currentPayment(c);
+    const full = +p.amount || 0;
+    if (!full) { toast("У кредита не указан платёж/мес"); return; }
+    const postedC = rec ? +rec.paid || 0 : 0;
+    const remaining = Math.max(0, full - postedC);
+    const pay = Math.min(amount, remaining);
+    const base = rec || { payments: [], paid: 0, prevBalance: c.balance, prevBalanceFull: c.balanceFull ?? null, prevStatus: c.status };
+    const interestTotal = c.rate ? (base.prevBalance * (c.rate / 100)) / 12 : 0;
+    const principal = Math.max(0, pay - interestTotal * (full ? pay / full : 0));
+    const txId = uid();
+    const fullNow = base.paid + pay >= full;
+    base.payments = (base.payments || []).concat({ txId, amount: pay, principal });
+    base.paid = (+base.paid || 0) + pay;
+    S.ww30Cr[key] = base;
+    S.transactions.push({ id: txId, date: todayStr(), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
+    c.balance = Math.max(0, Math.round(c.balance - principal));
+    if (c.balanceFull) c.balanceFull = Math.max(c.balance, Math.round(c.balanceFull - pay));
+    if (fullNow && c.balance === 0) c.status = "closed";
+    if (fullNow) toast("Платёж записан полностью: " + c.name);
+    else toast("Частичная оплата: " + money(pay) + " · осталось " + money(full - base.paid));
+  }
+  save(); render(activePage());
+}
+function ww30SkipCr(id) {
+  if (isObserver()) return;
+  S.skipped["cr" + id + ":" + todayStr().slice(0, 7)] = true;
+  save(); renderDuePanel();
+}
+function ww32AskAmount(name, remaining, full, posted, onConfirm) {
+  const info = posted > 0
+    ? `Уже оплачено <b>${money(posted)}</b> из <b>${money(full)}</b>. Осталось <b>${money(remaining)}</b>.<br>Можно указать меньше — это будет частичная оплата.`
+    : `Полная сумма к оплате — <b>${money(full)}</b>.<br>Можно указать меньше — это будет частичная оплата.`;
+  window._ww32Confirm = onConfirm || null;
+  showModal(`<div class="mhead"><h3>Оплата · ${esc(name)}</h3><button class="x" onclick="ww32CancelPay()">✕</button></div>
+    <div class="ww32-info">${info}</div>
+    <div class="fg"><label>Сумма оплаты, ₽</label><input class="amount-in" id="ww32-amt" type="number" inputmode="decimal" min="0" step="1" value="${remaining}" onkeydown="if(event.key==='Enter')ww32ConfirmPay()"></div>
+    <div class="ww32-actions"><button class="btn btn-ghost" onclick="ww32CancelPay()">Отмена</button><button class="btn btn-primary" onclick="ww32ConfirmPay()">Оплатить</button></div>`, { center: true });
+  setTimeout(() => { const el = document.getElementById("ww32-amt"); if (el) { el.focus(); el.select(); } }, 60);
+}
+function ww32CancelPay() { window._ww32Confirm = null; closeModal(); }
+function ww32ConfirmPay() {
+  const el = document.getElementById("ww32-amt"); if (!el) return;
+  const v = parseFloat(String(el.value).replace(/\s/g, "").replace(",", "."));
+  if (!isFinite(v)) { toast("Некорректная сумма"); return; }
+  const cb = window._ww32Confirm; window._ww32Confirm = null;
+  closeModal();
+  if (cb) cb(Math.round(v));
+}
+function ww32Reset(kind, id) {
+  if (isObserver()) return;
+  const ym = todayStr().slice(0, 7);
+  if (kind === "recur") {
+    const key = id + ":" + ym;
+    const ids = (S.ww30Tx && S.ww30Tx[key]) || [];
+    S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
+    if (S.ww30Tx) delete S.ww30Tx[key];
+    if (S.posted) S.posted[key] = 0;
+  } else {
+    const c = S.credits.find((x) => x.id === id);
+    const key = id + ":" + ym;
+    const rec = S.ww30Cr && S.ww30Cr[key];
+    if (rec && c) {
+      const ids = (rec.payments || []).map((x) => x.txId);
+      S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
+      c.balance = rec.prevBalance;
+      if (rec.prevBalanceFull != null) c.balanceFull = rec.prevBalanceFull;
+      c.status = rec.prevStatus || "active";
+      delete S.ww30Cr[key];
+    }
+  }
+  toast("Оплата сброшена");
+  save(); render(activePage());
 }
 function postRecur(id, amountOverride) {
   if (isObserver()) return;
@@ -2409,7 +2646,7 @@ function postRecur(id, amountOverride) {
   const date = ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0");
   const accId = (S.accounts.find((a) => !a.archived) || {}).id;
   const isPartial = amount < remaining || postedSoFar > 0;
-  S.transactions.push({ id: uid(), date, type: r.type, amount, accountId: accId, categoryId: r.categoryId, note: r.name + (isPartial ? " (регулярный, частично)" : " (регулярный)"), tags: ["регулярный"], createdAt: Date.now() });
+  S.transactions.push({ id: uid(), date, type: r.type, amount, accountId: accId, categoryId: r.categoryId, note: r.name + (isPartial ? " (регулярны��, частично)" : " (регулярный)"), tags: ["ре��улярный"], createdAt: Date.now() });
   S.posted[key] = postedSoFar + amount;
   save(); render(activePage());
   toast((amount < remaining ? "Частично оплачено: " : "Оплачено: ") + money(amount) + (amount < remaining ? ` (остаток ${money(remaining - amount)})` : ""));
@@ -2687,7 +2924,7 @@ function renderV2Settings() {
   const grid = document.querySelector("#page-settings .grid.grid-2"); if (!grid) return;
   if (!document.getElementById("ww-sec-card")) {
     grid.insertAdjacentHTML("beforeend", `
-    <div class="card" id="ww-sec-card"><h2>🔒 Безопасность</h2>
+    <div class="card" id="ww-sec-card"><h2>🔒 ��езопасность</h2>
       <div class="sub" style="margin:2px 0 12px">PIN-код запрашивается при открытии приложения на этом устройстве.</div>
       <div id="ww-pin-ui"></div>
     </div>
@@ -2753,7 +2990,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "2.6";
+const WW_VERSION = "3.3";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -2927,7 +3164,7 @@ function ww22DemoState() {
       { id: uid(), name: "Кредитная карта", lender: "Демо Банк", type: "Кредитная карта", initial: 0, balance: 45000, balanceFull: 45000, rate: 24.9, start: "", end: "", payment: 3500, payDay: 25, status: "active" },
     ],
     recurring: [
-      { id: uid(), name: "Зарплата", type: "income", amount: 95000, categoryId: "d_salary", day: 5 },
+      { id: uid(), name: "За��плата", type: "income", amount: 95000, categoryId: "d_salary", day: 5 },
       { id: uid(), name: "Аванс", type: "income", amount: 40000, categoryId: "d_salary", day: 20 },
       { id: uid(), name: "Коммуналка", type: "expense", amount: 6800, categoryId: "d_ku", day: 10 },
       { id: uid(), name: "Подписки", type: "expense", amount: 800, categoryId: "d_subs", day: 1 },
@@ -3291,7 +3528,7 @@ renderCredits = function () {
       const id = el.getAttribute("data-sid");
       const cal = el.querySelector('button[onclick*="openScheduleModal"]');
       const label = cal && cal.textContent.includes("График") ? "📊 Досрочно" : "📊";
-      const html = `<button class="btn btn-ghost btn-sm" data-ww23-sched onclick="event.stopPropagation();openCreditSchedule('${id}')" title="Досрочное погашение: расчёт экономии">${label}</button>`;
+      const html = `<button class="btn btn-ghost btn-sm" data-ww23-sched onclick="event.stopPropagation();openCreditSchedule('${id}')" title="Досрочно�� погашение: расчёт экономии">${label}</button>`;
       if (cal) cal.insertAdjacentHTML("afterend", html);
       else el.insertAdjacentHTML("beforeend", html);
     });
@@ -3506,7 +3743,7 @@ function ww23CsvModal() {
     return h;
   };
   showModal(`<div class="mhead"><h3>🏦 Импорт выписки CSV</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.</div>
+    <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и ��оправьте при необходимости.</div>
     <div class="fg-row">
       <div class="fg"><label>Дата</label><select id="csv-date" onchange="ww23CsvPreview()">${opts(g.date)}</select></div>
       <div class="fg"><label>Сумма</label><select id="csv-amt" onchange="ww23CsvPreview()">${opts(g.amt)}</select></div>
@@ -3633,32 +3870,105 @@ renderCoins = function () {
     else { expBy[t.categoryId] = (expBy[t.categoryId] || 0) + +t.amount; expTotal += +t.amount; }
   }
   const incCats = S.categories.filter((c) => c.type === "income");
-  if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onpointerdown="ww26Down(event,'inc','${c.id}')"><div class="disc">${c.icon}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") || '<div class="empty" style="padding:8px;font-size:12px">Нет категорий дохода</div>';
+  if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onpointerdown="ww26Down(event,'inc','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('income')" title="Новый источник дохода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const accs = S.accounts.filter((a) => !a.archived);
-  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onpointerdown="ww26Down(event,'acc','${a.id}')"><div class="disc">${esc(a.name.slice(0, 1).toUpperCase())}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("");
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onpointerdown="ww26Down(event,'acc','${a.id}')"><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const expCats = S.categories.filter((c) => c.type === "expense");
-  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="openTxModal({type:'expense',categoryId:'${c.id}'})"><div class="disc">${c.icon}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("");
+  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="openTxModal({type:'expense',categoryId:'${c.id}'})"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const it = document.getElementById("ww26-inc-total"), at = document.getElementById("ww26-acc-total"), et = document.getElementById("ww26-exp-total");
   if (it) it.textContent = "+" + money(incTotal);
   if (at) at.textContent = money(accs.reduce((s, a) => s + accBalance(a.id), 0));
   if (et) et.textContent = "\u2212" + money(expTotal);
 };
+/* ===== v2.8: минималистичные иконки в стиле Apple (SF Symbols) ===== */
+function ww28Svg(p) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`; }
+const WW28_ICONS = {
+  cart: ww28Svg('<circle cx="9.5" cy="19.5" r="1.2"/><circle cx="17" cy="19.5" r="1.2"/><path d="M3 4h2l2.5 11.5h10L20.5 8H6.2"/>'),
+  house: ww28Svg('<path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5.5h4V20"/>'),
+  fuel: ww28Svg('<path d="M5 20V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14"/><path d="M4 20h10"/><path d="M13 10h2a2 2 0 0 1 2 2v4.5a1.5 1.5 0 0 0 3 0V10.5L17.5 8"/><path d="M7.5 8h3"/>'),
+  box: ww28Svg('<path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5"/><path d="M12 12v9"/>'),
+  globe: ww28Svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.4 2.3 3.7 5.2 3.7 8.5s-1.3 6.2-3.7 8.5c-2.4-2.3-3.7-5.2-3.7-8.5s1.3-6.2 3.7-8.5z"/>'),
+  phone: ww28Svg('<rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M11 17.5h2"/>'),
+  food: ww28Svg('<path d="M6 3v5a2 2 0 0 0 4 0V3"/><path d="M8 10v11"/><path d="M17 3c-1.3 1.9-2 4.4-2 7h2v11"/>'),
+  car: ww28Svg('<path d="M5.5 12l1.4-4.3A2 2 0 0 1 8.8 6.3h6.4a2 2 0 0 1 1.9 1.4L18.5 12"/><rect x="4" y="12" width="16" height="5.5" rx="1.5"/><path d="M7.2 14.8h.01M16.8 14.8h.01"/><path d="M5.5 17.5V19M18.5 17.5V19"/>'),
+  pill: ww28Svg('<rect x="3.2" y="8.8" width="17.6" height="6.4" rx="3.2" transform="rotate(-45 12 12)"/><path d="M8.6 15.4l6.8-6.8"/>'),
+  heart: ww28Svg('<path d="M12 20s-7-4.4-8.4-8.8C2.7 8.1 4.3 5.2 7.3 5.2c1.9 0 3.5 1 4.7 2.9 1.2-1.9 2.8-2.9 4.7-2.9 3 0 4.6 2.9 3.7 6C19 15.6 12 20 12 20z"/>'),
+  bank: ww28Svg('<path d="M3.5 9L12 4.5 20.5 9"/><path d="M4.5 9.5h15"/><path d="M6.5 10v6.5M10.2 10v6.5M13.8 10v6.5M17.5 10v6.5"/><path d="M4 19.5h16"/>'),
+  pin: ww28Svg('<path d="M12 16.5V21"/><path d="M8.5 3.5h7l-.9 6 2.6 3.2a1 1 0 0 1-.8 1.6H7.6a1 1 0 0 1-.8-1.6l2.6-3.2z"/>'),
+  transfer: ww28Svg('<path d="M6.5 8.5H18l-3-3"/><path d="M17.5 15.5H6l3 3"/>'),
+  briefcase: ww28Svg('<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5"/><path d="M3.5 12.5h17"/>'),
+  banknote: ww28Svg('<rect x="3" y="6.5" width="18" height="11" rx="1.8"/><circle cx="12" cy="12" r="2.6"/><path d="M6.2 9.5h.01M17.8 14.5h.01"/>'),
+  receipt: ww28Svg('<path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>'),
+  bolt: ww28Svg('<path d="M13 2.5L5.5 13H11l-1 8.5L18.5 11H13z"/>'),
+  gift: ww28Svg('<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M4 10h16M12 10v10"/><path d="M12 10c-4 0-5.5-1.5-5.5-3S8 4.5 9.5 5 12 8 12 10zm0 0c4 0 5.5-1.5 5.5-3S16 4.5 14.5 5 12 8 12 10z"/>'),
+  card: ww28Svg('<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 9.5h18"/><path d="M6.5 14.5h4"/>'),
+};
+const WW28_EMOJI = { "🛒": "cart", "🛍": "cart", "🏠": "house", "🏡": "house", "⛽": "fuel", "📦": "box", "🌐": "globe", "🌍": "globe", "🌎": "globe", "📱": "phone", "☎": "phone", "📞": "phone", "🍱": "food", "🍽": "food", "🍔": "food", "🍕": "food", "☕": "food", "🥗": "food", "🚗": "car", "🚙": "car", "🚕": "car", "🚘": "car", "💊": "pill", "🏥": "pill", "❤": "heart", "💛": "heart", "🧡": "heart", "💚": "heart", "💙": "heart", "💜": "heart", "💖": "heart", "💕": "heart", "🏛": "bank", "🏦": "bank", "📌": "pin", "📍": "pin", "🔄": "transfer", "🔁": "transfer", "💱": "transfer", "💼": "briefcase", "💵": "banknote", "💰": "banknote", "💸": "banknote", "🪙": "banknote", "🧾": "receipt", "📄": "receipt", "⚡": "bolt", "💡": "bolt", "🎁": "gift", "💳": "card" };
+const WW28_BY_NAME = [[/зарплат|заработ/, "briefcase"], [/бензин|топлив|азс/, "fuel"], [/коммунал|жкх|кварт/, "house"], [/интернет/, "globe"], [/связ|телефон|мобил/, "phone"], [/обед|еда|продукт|питан/, "food"], [/авто|машин|такси/, "car"], [/здоров|аптек|лекарств|медиц/, "pill"], [/кредит|банк|ипотек/, "bank"], [/перевод/, "transfer"], [/бытов|покупк|магазин/, "cart"], [/кладов|склад/, "box"], [/доход/, "banknote"], [/подар/, "gift"], [/проч/, "pin"]];
+function ww28Icon(ic, name) {
+  const key = (ic || "").replace(/[\uFE0F\u20E3]/g, "").trim();
+  let k = WW28_EMOJI[key];
+  if (!k && name) { const n = name.toLowerCase(); const hit = WW28_BY_NAME.find((p) => p[0].test(n)); if (hit) k = hit[1]; }
+  return k ? WW28_ICONS[k] : (ic || "•");
+}
+function ww28AccIcon(a) {
+  const n = (a.name || "").toLowerCase();
+  if (/карт|card|visa|виза|мир/.test(n)) return WW28_ICONS.card;
+  if (/налич|cash|кэш|кеш/.test(n)) return WW28_ICONS.banknote;
+  if (/сбер|банк|bank|счет|счёт|вклад/.test(n)) return WW28_ICONS.bank;
+  return esc(a.name.slice(0, 1).toUpperCase());
+}
+/* ===== v2.9: быстрое добавление источника дохода / категории расхода / счёта из панели ===== */
+function ww29Add(kind) {
+  if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
+  const isAcc = kind === "acc";
+  const title = isAcc ? "Новый счёт" : (kind === "income" ? "Новый источник дохода" : "Новая категория расхода");
+  showModal(`<div class="mhead"><h3>${title}</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Название</label><input id="ww29-name" placeholder="${isAcc ? "Например: Вклад" : (kind === "income" ? "Например: Подработка" : "Например: Спорт")}"></div>
+    ${isAcc
+    ? '<div class="fg"><label>Начальный баланс, ₽</label><input id="ww29-bal" type="number" value="0"></div>'
+    : `<div class="fg"><label>Эмодзи-иконка (необязательно)</label><input id="ww29-icon" placeholder="${kind === "income" ? "💵" : "📌"}"></div>`}
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="ww29Save('${kind}')">Добавить</button></div>`);
+  setTimeout(() => { const i = document.getElementById("ww29-name"); if (i) i.focus(); }, 50);
+}
+function ww29Save(kind) {
+  const n = (document.getElementById("ww29-name").value || "").trim();
+  if (!n) { toast("Введите название"); return; }
+  if (kind === "acc") {
+    const b = +(document.getElementById("ww29-bal").value || 0);
+    S.accounts.push({ id: uid(), name: n, type: "card", balance0: b, archived: false });
+  } else {
+    const icon = (document.getElementById("ww29-icon").value || "").trim() || (kind === "income" ? "💵" : "📌");
+    S.categories.push({ id: uid(), name: n, type: kind, icon });
+  }
+  save(); closeModal(); renderCoins(); toast("Добавлено: " + n);
+}
 /* Перетаскивание: кошелёк → категория расхода (расход), доход → кошелёк (пополнение) */
 let _ww26Drag = null;
 function ww26Down(e, kind, id) {
   if (isObserver()) return;
   e.preventDefault();
-  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false };
-  _ww26Drag.el.classList.add("dragging");
+  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, ghost: null };
   document.addEventListener("pointermove", ww26Move);
   document.addEventListener("pointerup", ww26Up);
 }
 function ww26Move(e) {
-  if (!_ww26Drag) return;
-  const dx = e.clientX - _ww26Drag.x0, dy = e.clientY - _ww26Drag.y0;
-  if (Math.abs(dx) + Math.abs(dy) > 6) _ww26Drag.moved = true;
-  _ww26Drag.el.style.transform = `translate(${dx}px,${dy}px)`;
-  const sel = _ww26Drag.kind === "acc" ? ".coin.cat" : ".coin.acc";
+  const st = _ww26Drag;
+  if (!st) return;
+  const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+  if (!st.moved && Math.abs(dx) + Math.abs(dy) > 6) {
+    st.moved = true;
+    /* полупрозрачный «призрак» поверх всего экрана — оригинал остаётся на месте */
+    const r = st.el.getBoundingClientRect();
+    const g = st.el.cloneNode(true);
+    g.classList.add("ww26-ghost");
+    g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:9999;pointer-events:none;transition:none`;
+    document.body.appendChild(g);
+    st.ghost = g;
+    st.el.classList.add("ww26-src");
+  }
+  if (st.ghost) st.ghost.style.transform = `translate(${dx}px,${dy}px)`;
+  const sel = st.kind === "acc" ? ".coin.cat" : ".coin.acc";
   document.querySelectorAll(sel).forEach((c) => {
     const r = c.getBoundingClientRect();
     const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
@@ -3670,23 +3980,27 @@ function ww26Up(e) {
   document.removeEventListener("pointerup", ww26Up);
   if (!_ww26Drag) return;
   const st = _ww26Drag; _ww26Drag = null;
-  st.el.classList.remove("dragging");
-  st.el.style.transform = "";
+  if (st.ghost) st.ghost.remove();
+  st.el.classList.remove("ww26-src");
   document.querySelectorAll(".coin.drop-target").forEach((c) => c.classList.remove("drop-target"));
-  st.el.style.pointerEvents = "none";
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  st.el.style.pointerEvents = "";
   if (st.kind === "acc") {
     const catEl = el && el.closest(".coin.cat");
     if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat });
   } else {
     const accEl = el && el.closest(".coin.acc");
-    if (accEl) { openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc }); return; }
+    if (accEl && accEl !== st.el) { openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc }); return; }
     if (!st.moved) openTxModal({ type: "income", categoryId: st.id });
   }
 }
 /* первый рендер новой панели после переопределения */
 try { if (typeof S !== "undefined" && document.getElementById("coins-inc")) renderCoins(); } catch (e) {}
+/* v3.0: обновление «К оплате» после сохранения регулярного платежа/кредита + перерисовка с SVG-иконками */
+try {
+  if (typeof saveRecur === "function") { const _sr30 = saveRecur; saveRecur = function (id) { _sr30(id); try { renderDuePanel(); } catch (e) {} }; }
+  if (typeof saveCredit === "function") { const _sc30 = saveCredit; saveCredit = function (id) { _sc30(id); try { renderDuePanel(); } catch (e) {} }; }
+  if (typeof S !== "undefined") renderDuePanel();
+} catch (e) {}
 </script>
 
 </body>
