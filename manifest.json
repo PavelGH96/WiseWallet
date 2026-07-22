@@ -1,31 +1,351 @@
 {
-  "name": "WiseWallet — учёт доходов и расходов",
-  "short_name": "WiseWallet",
-  "description": "Личный учёт доходов, расходов и кредитов. Работает офлайн.",
-  "lang": "ru",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#f8fafc",
-  "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ],
-  "shortcuts": [
+  "accounts": [
     {
-      "name": "Добавить расход",
-      "short_name": "Расход",
-      "description": "Быстро записать новый расход",
-      "url": "./index.html?quick=expense",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "id": "a_card",
+      "name": "Карта",
+      "type": "card",
+      "balance0": 0,
+      "archived": false
     },
     {
-      "name": "Добавить доход",
-      "short_name": "Доход",
-      "description": "Быстро записать новый доход",
-      "url": "./index.html?quick=income",
-      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+      "id": "a_cash",
+      "name": "Наличные",
+      "type": "cash",
+      "balance0": 0,
+      "archived": false
     }
-  ]
+  ],
+  "categories": [
+    {
+      "id": "c_byt",
+      "name": "Бытовые расходы",
+      "type": "expense",
+      "icon": "🛒"
+    },
+    {
+      "id": "c_ku",
+      "name": "Коммуналка",
+      "type": "expense",
+      "icon": "🏠"
+    },
+    {
+      "id": "c_fuel",
+      "name": "Бензин",
+      "type": "expense",
+      "icon": "⛽"
+    },
+    {
+      "id": "c_stor",
+      "name": "Кладовка",
+      "type": "expense",
+      "icon": "📦"
+    },
+    {
+      "id": "c_net",
+      "name": "Интернет",
+      "type": "expense",
+      "icon": "🌐"
+    },
+    {
+      "id": "c_cell",
+      "name": "Сотовая связь",
+      "type": "expense",
+      "icon": "📱"
+    },
+    {
+      "id": "c_lunch",
+      "name": "Обеды",
+      "type": "expense",
+      "icon": "🍽️"
+    },
+    {
+      "id": "c_auto",
+      "name": "Авто (ТО, штрафы)",
+      "type": "expense",
+      "icon": "🚗"
+    },
+    {
+      "id": "c_health",
+      "name": "Здоровье",
+      "type": "expense",
+      "icon": "💊"
+    },
+    {
+      "id": "c_katya",
+      "name": "Катя",
+      "type": "expense",
+      "icon": "💛"
+    },
+    {
+      "id": "c_credit",
+      "name": "Платежи по кредитам",
+      "type": "expense",
+      "icon": "🏦"
+    },
+    {
+      "id": "c_other",
+      "name": "Прочее",
+      "type": "expense",
+      "icon": "📌"
+    },
+    {
+      "id": "c_salary",
+      "name": "Заработная плата",
+      "type": "income",
+      "icon": "💼"
+    },
+    {
+      "id": "c_side",
+      "name": "Доп. доход (такси/WB)",
+      "type": "income",
+      "icon": "🚕"
+    },
+    {
+      "id": "c_inc_other",
+      "name": "Прочий доход",
+      "type": "income",
+      "icon": "💵"
+    }
+  ],
+  "transactions": [],
+  "credits": [
+    {
+      "id": "ks6bfmyhmrvtrdzb",
+      "name": "Машина кредит",
+      "lender": "Банк",
+      "type": "Автокредит",
+      "initial": 620000,
+      "balance": 620000,
+      "balanceFull": 824696,
+      "rate": 20,
+      "start": "2023-10-15",
+      "end": "2028-09-15",
+      "payment": 27490,
+      "payDay": 15,
+      "status": "active"
+    },
+    {
+      "id": "fz25iojqmrvtrdzb",
+      "name": "Ипотека",
+      "lender": "Банк",
+      "type": "Ипотека",
+      "initial": 5813000,
+      "balance": 5813000,
+      "balanceFull": 9160511,
+      "rate": 0,
+      "start": "2024-07-23",
+      "end": "2054-07-23",
+      "payment": 26943,
+      "payDay": 23,
+      "status": "active"
+    },
+    {
+      "id": "6i763f4mmrvtrdzb",
+      "name": "Сбербанк кредит 1",
+      "lender": "Сбербанк",
+      "type": "Потребительский",
+      "initial": 200000,
+      "balance": 210173,
+      "balanceFull": 426879,
+      "rate": 28.7,
+      "start": "2025-11-30",
+      "end": "2031-11-30",
+      "payment": 6663,
+      "paymentOld": 6312,
+      "graceFrom": "2026-04-07",
+      "graceTo": "2026-09-30",
+      "gracePayment": 529.29,
+      "payDay": 30,
+      "status": "active"
+    },
+    {
+      "id": "kvo8p932mrvtrdzb",
+      "name": "Сбербанк кредит 2",
+      "lender": "Сбербанк",
+      "type": "Потребительский",
+      "initial": 200000,
+      "balance": 208331,
+      "balanceFull": 431185,
+      "rate": 28.7,
+      "start": "2025-06-12",
+      "end": "2031-06-12",
+      "payment": 6663,
+      "paymentOld": 6312,
+      "graceFrom": "2026-04-07",
+      "graceTo": "2026-09-30",
+      "gracePayment": 529.3,
+      "payDay": 12,
+      "status": "active"
+    },
+    {
+      "id": "xzr799gomrvtrdzb",
+      "name": "Сбербанк кредит 3",
+      "lender": "Сбербанк",
+      "type": "Потребительский",
+      "initial": 500000,
+      "balance": 525053,
+      "balanceFull": 1072771,
+      "rate": 28.7,
+      "start": "2025-10-12",
+      "end": "2031-10-12",
+      "payment": 16067,
+      "paymentOld": 15780,
+      "graceFrom": "2026-04-07",
+      "graceTo": "2026-09-30",
+      "gracePayment": 953.81,
+      "payDay": 12,
+      "status": "active"
+    },
+    {
+      "id": "ktmoce4dmrvtrdzb",
+      "name": "Родители кредит",
+      "lender": "Родители",
+      "type": "Частный долг",
+      "initial": 2000000,
+      "balance": 3314000,
+      "balanceFull": 3314000,
+      "rate": 22,
+      "start": "2026-07-15",
+      "end": "2031-07-15",
+      "payment": 55000,
+      "payDay": 15,
+      "status": "active"
+    },
+    {
+      "id": "mc7d4i4tmrvtrdzb",
+      "name": "Кредитная карта Сбербанк",
+      "lender": "Сбербанк",
+      "type": "Кредитная карта",
+      "initial": 204433,
+      "balance": 217000,
+      "balanceFull": 217000,
+      "rate": 25.4,
+      "start": "",
+      "end": "",
+      "payment": 6713,
+      "payDay": 30,
+      "status": "active"
+    }
+  ],
+  "recurring": [
+    {
+      "id": "qdnohahimrvtrdzb",
+      "name": "Бытовые расходы",
+      "type": "expense",
+      "amount": 50000,
+      "categoryId": "c_byt",
+      "day": 15
+    },
+    {
+      "id": "nbxouwq0mrvtrdzb",
+      "name": "Коммуналка",
+      "type": "expense",
+      "amount": 7000,
+      "categoryId": "c_ku",
+      "day": 15
+    },
+    {
+      "id": "6kv42hramrvtrdzb",
+      "name": "Бензин",
+      "type": "expense",
+      "amount": 7000,
+      "categoryId": "c_fuel",
+      "day": 15
+    },
+    {
+      "id": "5bufd19xmrvtrdzb",
+      "name": "Кладовка",
+      "type": "expense",
+      "amount": 4200,
+      "categoryId": "c_stor",
+      "day": 15
+    },
+    {
+      "id": "6d8cpdncmrvtrdzb",
+      "name": "Интернет",
+      "type": "expense",
+      "amount": 1000,
+      "categoryId": "c_net",
+      "day": 15
+    },
+    {
+      "id": "vz9jtkimmrvtrdzb",
+      "name": "Сотовая связь",
+      "type": "expense",
+      "amount": 1000,
+      "categoryId": "c_cell",
+      "day": 15
+    },
+    {
+      "id": "5nyeia1mmrvtrdzb",
+      "name": "Обеды",
+      "type": "expense",
+      "amount": 5000,
+      "categoryId": "c_lunch",
+      "day": 15
+    },
+    {
+      "id": "duq950humrvtrdzb",
+      "name": "Заработная плата",
+      "type": "income",
+      "amount": 150000,
+      "categoryId": "c_salary",
+      "day": 15
+    }
+  ],
+  "budgets": [
+    {
+      "id": "8qrcdu2cmrvtrdzb",
+      "categoryId": "c_byt",
+      "limit": 50000
+    },
+    {
+      "id": "qpppxw1dmrvtrdzb",
+      "categoryId": "c_fuel",
+      "limit": 7000
+    },
+    {
+      "id": "b5qu7al0mrvtrdzb",
+      "categoryId": "c_lunch",
+      "limit": 5000
+    },
+    {
+      "id": "t7t1wjtwmrvtrdzb",
+      "categoryId": "c_ku",
+      "limit": 7000
+    },
+    {
+      "id": "23isi53cmrvtrdzb",
+      "categoryId": "c_auto",
+      "limit": 5000
+    }
+  ],
+  "goals": [
+    {
+      "id": "824428qgmrvtrdzb",
+      "name": "Подушка безопасности",
+      "icon": "🛡️",
+      "target": 150000,
+      "saved": 0,
+      "deadline": "2026-12-31"
+    }
+  ],
+  "tasks": [],
+  "links": [],
+  "passwords": [],
+  "posted": {},
+  "skipped": {},
+  "settings": {
+    "theme": "t9",
+    "sbUrl": "",
+    "sbKey": "",
+    "syncId": "l4cbjfxnmrvtrdzb",
+    "lastSync": 0,
+    "observerMode": false,
+    "reminderDays": 3,
+    "dismissed": {},
+    "viewMode": {},
+    "lastCat": {}
+  },
+  "updatedAt": 1784709171335
 }
