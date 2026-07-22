@@ -6,7 +6,7 @@
 <title>WiseWallet — учёт доходов и расходов</title>
 <meta name="theme-color" content="#f8fafc">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WiseWallet">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -46,7 +46,7 @@ body[data-theme="t4"]{--bg:#1a2420;--card:#212e28;--border:#2a3d34;--border-h:#3
 body[data-theme="t5"]{--bg:#fdf4f5;--card:#ffffff;--border:#f0d8db;--border-h:#dbb0b6;--text:#2d1a1e;--t2:#8c6068;--t3:#c8a0a8;--accent:#c0505f;--accent-h:#a03848;--accent-fg:#ffffff;--blue:#3b82c4;--blue-bg:#eef4fb;--green:#2e855a;--green-bg:#edf7f2;--amber:#b45309;--amber-bg:#fef3e2;--red:#c0505f;--red-bg:#fdeef0;--glass:rgba(253,244,245,.78)}
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;-webkit-font-smoothing:antialiased}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
 button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .app{display:flex;min-height:100vh}
@@ -154,7 +154,7 @@ body.sorting{cursor:grabbing}
 /* ---- forms & modal ---- */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:90;display:none;align-items:flex-end;justify-content:center}
 .overlay.open{display:flex}
-.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:88vh;overflow:auto;padding:24px 24px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--sh)}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:88vh;max-height:88dvh;overflow:auto;padding:24px 24px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--sh)}
 @media(min-width:640px){.overlay{align-items:center}.modal{border-radius:20px}}
 .mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .mhead h3{font-family:var(--font-d);font-size:18px;font-weight:700;letter-spacing:-.01em}
@@ -219,7 +219,7 @@ canvas{max-width:100%}
 /* ---- responsive ---- */
 @media(max-width:820px){
   .rail{display:none}
-  .main{margin-left:0;padding:16px 16px 110px}
+  .main{margin-left:0;padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(110px + env(safe-area-inset-bottom,0px))}
   .grid-4{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
   .stat .val{font-size:19px}
@@ -229,11 +229,25 @@ canvas{max-width:100%}
   .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;color:var(--t3);font-size:9.5px;font-weight:600;border-radius:8px;min-height:48px}
   .bn-item svg{width:21px;height:21px}
   .bn-item.active{color:var(--accent)}
-  .fab{bottom:86px;right:16px}
-  .toast{bottom:150px}
+  .fab{bottom:calc(86px + env(safe-area-inset-bottom,0px));right:16px}
+  .toast{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
   h1{font-size:20px}
   .coin .disc{width:54px;height:54px;font-size:21px}
   .coin{width:66px}
+  input,select,textarea{font-size:16px}
+  .fg input,.fg select,.fg textarea{min-height:46px;font-size:16px}
+  .btn{min-height:44px}
+  .x{width:38px;height:38px;font-size:17px}
+  .bn-item:active{transform:scale(.94)}
+  .fab:active{transform:scale(.94)}
+}
+/* ---- v3.5: адаптация под iPhone 15 Pro Max ---- */
+#dash-due .row{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+@media(max-width:480px){
+  .main{padding-left:14px;padding-right:14px}
+  .grid-4{gap:10px}
+  .card{padding:16px 14px}
+  .stat .val{font-size:18px}
 }
 /* ---- coins (drag & drop quick entry, CoinKeeper-style) ---- */
 .coins-card h2{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -565,7 +579,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.4.2</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.5</div>
       </div>
     </div>
   </section>
@@ -1363,7 +1377,7 @@ function setReminderDays(v) {
   localStorage.setItem(LS_KEY, JSON.stringify(S));
   renderReminders();
 }
-function setTheme(id) { S.settings.theme = id; document.body.dataset.theme = id; save(); renderSettings(); }
+function setTheme(id) { S.settings.theme = id; document.body.dataset.theme = id; try { ww35ThemeColor(); } catch (e) {} save(); renderSettings(); }
 function renderRecurList() {
   const el = document.getElementById("recur-list"); if (!el) return;
   if (!S.recurring.length) { el.innerHTML = '<div class="empty">Пока нет регулярных платежей</div>'; return; }
@@ -2205,7 +2219,14 @@ applyNavOrder();
 injectGripsAll();
 _gripObs.observe(document.body, { childList: true, subtree: true });
 /* ===================== init ===================== */
+function ww35ThemeColor() {
+  try {
+    const m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute("content", getComputedStyle(document.body).backgroundColor || "#f7f7f5");
+  } catch (e) {}
+}
 document.body.dataset.theme = S.settings.theme || "t9";
+ww35ThemeColor();
 applyObserverMode();
 renderDash();
 window.addEventListener("online", () => syncNow(false));
@@ -2487,7 +2508,7 @@ function ww30Row(d) {
   else if (partial) skip = `<button class="btn btn-ghost btn-sm" onclick="ww32Reset('${d.kind}','${d.id}')" title="Сбросить оплату">↺</button>`;
   else skip = `<button class="btn btn-ghost btn-sm" onclick="${d.kind === "recur" ? `skipRecur('${d.id}')` : `ww30SkipCr('${d.id}')`}" title="Пропустить в этом месяце">✕</button>`;
   const amtColor = d.paid ? "green" : partial ? "amber" : "red";
-  return `<div class="row${cls}" draggable="true" data-ww34="${d.kind}" data-id="${d.id}" ondragstart="ww34DragStart(event,'${d.kind}','${d.id}')" ondragover="ww34DragOver(event,'${d.kind}')" ondrop="event.preventDefault()" ondragend="ww34DragEnd()"><div class="ic">${ico}</div><div class="rmain"><div class="rt">${esc(d.name)}</div><div class="rs">${parts.join(" · ")}</div></div><div class="ramt" style="color:var(--${amtColor})">−${money(d.amount)}</div><button class="ww30-sw${d.paid ? " on" : ""}" onclick="ww30Toggle('${d.kind}','${d.id}')" title="${d.paid ? "Вернуть в «К оплате»" : partial ? "Доплатить остаток" : "Отметить оплаченным"}"><span class="knob"></span><span class="swlbl">${d.paid ? "Оплачено" : "Оплатить"}</span></button>${skip}</div>`;
+  return `<div class="row${cls}" draggable="true" data-ww34="${d.kind}" data-id="${d.id}" ondragstart="ww34DragStart(event,'${d.kind}','${d.id}')" ondragover="ww34DragOver(event,'${d.kind}')" ondrop="event.preventDefault()" ondragend="ww34DragEnd()" ontouchstart="ww35TouchStart(event,'${d.kind}','${d.id}')"><div class="ic">${ico}</div><div class="rmain"><div class="rt">${esc(d.name)}</div><div class="rs">${parts.join(" · ")}</div></div><div class="ramt" style="color:var(--${amtColor})">−${money(d.amount)}</div><button class="ww30-sw${d.paid ? " on" : ""}" onclick="ww30Toggle('${d.kind}','${d.id}')" title="${d.paid ? "Вернуть в «К оплате»" : partial ? "Доплатить остаток" : "Отметить оплаченным"}"><span class="knob"></span><span class="swlbl">${d.paid ? "Оплачено" : "Оплатить"}</span></button>${skip}</div>`;
 }
 function renderDuePanel() {
   let el = document.getElementById("dash-due");
@@ -2650,6 +2671,51 @@ function ww34DragEnd() {
   _ww34 = null;
   if (!S.ww34Order || typeof S.ww34Order !== "object") S.ww34Order = {};
   S.ww34Order[kind] = [...document.querySelectorAll(`#dash-due .row[data-ww34="${kind}"]`)].map((x) => x.dataset.id);
+  save(); renderDuePanel();
+}
+/* v3.5: перенос строк пальцем на iPhone (долгое нажатие) */
+let _ww35 = null, _ww35Timer = null;
+function ww35TouchStart(e, kind, id) {
+  if (typeof isObserver === "function" && isObserver()) return;
+  if (e.target.closest && (e.target.closest("button") || e.target.closest(".ww30-sw"))) return;
+  const row = e.currentTarget;
+  clearTimeout(_ww35Timer);
+  _ww35Timer = setTimeout(function () {
+    _ww35 = { kind: kind, id: id, el: row };
+    row.classList.add("ww34-drag");
+    if (navigator.vibrate) { try { navigator.vibrate(10); } catch (_) {} }
+  }, 300);
+  row._ww35move = function (ev) { ww35TouchMove(ev, kind); };
+  row._ww35end = function () { ww35TouchEnd(row); };
+  row.addEventListener("touchmove", row._ww35move, { passive: false });
+  row.addEventListener("touchend", row._ww35end);
+  row.addEventListener("touchcancel", row._ww35end);
+}
+function ww35TouchMove(ev, kind) {
+  if (!_ww35) { clearTimeout(_ww35Timer); return; }
+  ev.preventDefault();
+  const t = ev.touches[0];
+  const rows = document.querySelectorAll('#dash-due .row[data-ww34="' + kind + '"]');
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (r === _ww35.el) continue;
+    const b = r.getBoundingClientRect();
+    if (t.clientY > b.top && t.clientY < b.bottom) {
+      r.parentNode.insertBefore(_ww35.el, t.clientY < b.top + b.height / 2 ? r : r.nextSibling);
+      break;
+    }
+  }
+}
+function ww35TouchEnd(row) {
+  clearTimeout(_ww35Timer);
+  if (row._ww35move) row.removeEventListener("touchmove", row._ww35move);
+  if (row._ww35end) { row.removeEventListener("touchend", row._ww35end); row.removeEventListener("touchcancel", row._ww35end); }
+  if (!_ww35) return;
+  const kind = _ww35.kind;
+  row.classList.remove("ww34-drag");
+  _ww35 = null;
+  if (!S.ww34Order || typeof S.ww34Order !== "object") S.ww34Order = {};
+  S.ww34Order[kind] = [...document.querySelectorAll('#dash-due .row[data-ww34="' + kind + '"]')].map(function (x) { return x.dataset.id; });
   save(); renderDuePanel();
 }
 function ww32Reset(kind, id) {
@@ -3040,7 +3106,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.4.2";
+const WW_VERSION = "3.5";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -3417,6 +3483,7 @@ function ww342Guard() {
     if (typeof ww2Migrate === "function") ww2Migrate();
     ww21Migrate();
     document.body.dataset.theme = S.settings.theme;
+    try { ww35ThemeColor(); } catch (e) {}
     applyObserverMode();
     nav("dashboard");
   } else if (prof === "parents") {
