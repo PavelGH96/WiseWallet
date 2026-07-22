@@ -565,7 +565,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.4.1</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.4.2</div>
       </div>
     </div>
   </section>
@@ -3040,7 +3040,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.4.1";
+const WW_VERSION = "3.4.2";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -3297,6 +3297,7 @@ function ww22Switch(p) {
   }
   if (p === "parents" && !confirm("Переключиться в режим «Просмотр»?\n\nДанные будут доступны только для просмотра, без редактирования. Для возврата понадобится PIN-код (если установлен).")) return;
   if (p === "demo" && !confirm("Включить демо-режим?\n\nЭто отдельные вымышленные данные для показа, доступные в рамках учётной записи «Моя». Ваши данные не изменятся.")) return;
+  if (p === "demo" && typeof ww2Snapshot === "function") { try { ww2Snapshot(true); } catch (e) {} }
   localStorage.setItem(WW22_PROF_KEY, p); localStorage.setItem(WW22_SW_FLAG, "1"); location.reload();
 }
 function ww22DemoReset() {
@@ -3368,9 +3369,37 @@ nav = function (page) {
   _navWW24(page);
 };
 
+/* ---- v3.4.2: защита основной учётной записи от демо-данных ---- */
+function ww342LooksDemo(st) {
+  try { return !!(st && Array.isArray(st.accounts) && st.accounts.some((a) => a && typeof a.id === "string" && a.id.slice(0, 3) === "da_")); } catch (e) { return false; }
+}
+function ww342Guard() {
+  if (!ww342LooksDemo(S)) { localStorage.removeItem("ww342_alerted"); return; }
+  const snaps = (typeof ww2Snapshots === "function" ? ww2Snapshots() : []).slice().reverse();
+  const good = snaps.find((sn) => { try { return !ww342LooksDemo(JSON.parse(sn.data)); } catch (e) { return false; } });
+  if (good) {
+    try {
+      S = JSON.parse(good.data);
+      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      localStorage.removeItem("ww342_alerted");
+      alert("Обнаружено, что в основную учётную запись попали демо-данные.\n\nДанные автоматически восстановлены из резервной копии от " + new Date(good.t).toLocaleString("ru-RU") + ".\n\nЕсли копия не самая свежая — выполните синхронизацию в настройках, чтобы подтянуть последнюю версию из облака.");
+      location.reload();
+      return;
+    } catch (e) {}
+  }
+  S.updatedAt = 0;
+  if (S.settings) S.settings.lastSync = 0;
+  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  if (!localStorage.getItem("ww342_alerted")) {
+    localStorage.setItem("ww342_alerted", "1");
+    alert("В основную учётную запись попали демо-данные, а локальной резервной копии не нашлось.\n\nЕсли вы пользуетесь синхронизацией: откройте Настройки → Синхронизация, проверьте URL и ключ и запустите синхронизацию — настоящие данные вернутся из облака.\n\nЗащита включена: демо-данные НЕ будут отправлены в облако.");
+  }
+}
+
 /* ---- инициализация профиля ---- */
 (function ww22Init() {
   const prof = ww22Profile();
+  if (prof !== "demo") ww342Guard();
   if (prof === "demo") {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(WW22_DEMO_KEY) || "null"); } catch (e) { d = null; }
@@ -3378,6 +3407,11 @@ nav = function (page) {
     S = d;
     save = function () { S.updatedAt = Date.now(); localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(S)); };
     syncNow = async function () {};
+    /* v3.4.2: жёсткая изоляция демо — любые прямые записи в основное хранилище перенаправляются в демо-хранилище */
+    const _ww342set = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function (k, v) { _ww342set(k === LS_KEY ? WW22_DEMO_KEY : k, v); };
+    const _ww342rm = localStorage.removeItem.bind(localStorage);
+    localStorage.removeItem = function (k) { _ww342rm(k === LS_KEY ? WW22_DEMO_KEY : k); };
     if (typeof ww2Snapshot === "function") ww2Snapshot = function () {};
     if (typeof ww2Notify === "function") ww2Notify = function () {};
     if (typeof ww2Migrate === "function") ww2Migrate();
