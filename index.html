@@ -207,6 +207,12 @@ body.sorting{cursor:grabbing}
 .bottom-nav{display:none}
 /* ---- themes ---- */
 .theme-grid{display:flex;gap:10px;flex-wrap:wrap}
+.ww38-acc{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:none;cursor:pointer;padding:4px;border-radius:10px;font:inherit;color:var(--t2);font-size:11.5px;width:64px}
+.ww38-acc i{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);display:block}
+.ww38-acc:hover i{border-color:var(--border-h)}
+.ww38-acc.active i{border-color:var(--text);box-shadow:0 0 0 3px var(--blue-bg)}
+.ww38-acc.active{color:var(--text);font-weight:600}
+.ww38-acc span{max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .theme-sw{display:flex;flex-direction:column;align-items:center;gap:6px;width:auto;height:auto;border:none;background:none;font-size:11px;font-weight:600;color:var(--t2)}
 .theme-sw i{display:block;width:44px;height:44px;border-radius:10px;border:2px solid var(--border)}
 .theme-sw.active{color:var(--text)}
@@ -559,7 +565,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page" id="page-settings">
     <div class="page-head"><h1>Настройки</h1></div>
     <div class="grid grid-2">
-      <div class="card"><h2>Тема</h2><div class="theme-grid" id="theme-grid"></div></div>
+      <div class="card"><h2>Тема</h2><div class="theme-grid" id="theme-grid"></div><div class="sub" style="margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px">Акцентный цвет — кнопки и активные элементы</div><div class="theme-grid" id="ww38-accent-grid"></div></div>
       <div class="card"><h2>Счета</h2><div id="acc-list"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addAccount()">+ Счёт</button></div>
       <div class="card"><h2>Категории</h2><div id="cat-list" style="max-height:300px;overflow:auto"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addCategory()">+ Категория</button></div>
       <div class="card"><h2>Регулярные платежи</h2><div class="sub" style="margin:-4px 0 12px">Повторяются каждый месяц. Автоматически учитываются в плане на месяц, в календаре и в аналитике.</div><div id="recur-list"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="openRecurModal(null)">+ Регулярный платёж</button></div>
@@ -596,7 +602,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.7</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.8</div>
       </div>
     </div>
   </section>
@@ -3168,6 +3174,7 @@ async function ww2EnableNotif() {
   toast(p === "granted" ? "Уведомления включены" : "Уведомления не разрешены");
   fillV2Settings(); ww2Notify();
 }
+function ww38PushNamed(nt, no) { var f = function () { try { new Notification(nt, no); } catch (e) {} }; try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) { navigator.serviceWorker.getRegistration().then(function (r) { if (r && typeof r.showNotification === "function") return r.showNotification(nt, no); f(); }).catch(f); } else { f(); } } catch (e) { f(); } }
 function ww2Notify() {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   const days = +S.settings.reminderDays || 0; if (!days) return;
@@ -3176,7 +3183,7 @@ function ww2Notify() {
   for (const x of upcomingReminders(days)) {
     const k = x.key + "|" + today; if (seen[k]) continue;
     seen[k] = 1; changed = true;
-    try { new Notification("WiseWallet: " + x.name, { body: (x.days <= 0 ? "сегодня" : x.days === 1 ? "завтра" : "через " + x.days + " дн.") + " · " + money(x.amount), icon: "icon-192.png", tag: x.key }); } catch (e) {}
+    try { ww38PushNamed("WiseWallet: " + x.name, { body: (x.days <= 0 ? "сегодня" : x.days === 1 ? "завтра" : "через " + x.days + " дн.") + " · " + money(x.amount), icon: "icon-192.png", tag: x.key }); } catch (e) {}
   }
   if (changed) {
     Object.keys(seen).forEach((k) => { if (!k.endsWith("|" + today)) delete seen[k]; });
@@ -4443,6 +4450,92 @@ try {
   document.addEventListener("touchmove", function (e) { if (!pOn) return; var dy = e.touches[0].clientY - pY, dx = e.touches[0].clientX - pX; if (Math.abs(dx) > Math.abs(dy)) { pOn = false; ptrHide(ensurePtr()); return; } if (dy <= 0 || topScroll() > 0) { pP = 0; ptrHide(ensurePtr()); return; } pP = Math.min(dy, 150); var el = ensurePtr(); el.style.transform = "translateX(-50%) translateY(" + (Math.min(pP * 0.5, 62) - 60) + "px)"; el.style.opacity = "" + Math.min(pP / 70, 1); el.classList.toggle("ready", pP > 70); }, { passive: true });
   document.addEventListener("touchend", function () { if (!pOn) return; pOn = false; var el = ensurePtr(); if (pP > 70) { window.haptic(12); el.classList.remove("ready"); el.classList.add("run"); el.style.transform = "translateX(-50%) translateY(10px)"; el.style.opacity = "1"; Promise.resolve(typeof syncNow === "function" ? syncNow(true) : null).catch(function () {}).then(function () { setTimeout(function () { el.classList.remove("run"); ptrHide(el); }, 500); }); } else { el.classList.remove("ready"); ptrHide(el); } pP = 0; });
 })();
+</script>
+<script>
+/* WiseWallet v3.8: цветовые акценты + push-уведомления */
+(function () {
+  "use strict";
+
+  /* --- акцентные цвета --- */
+  var ACC = [
+    { id: "auto", name: "Как в теме", a: "", h: "", fg: "" },
+    { id: "green", name: "Зелёный", a: "#16a34a", h: "#15803d", fg: "#ffffff" },
+    { id: "blue", name: "Синий", a: "#2563eb", h: "#1d4ed8", fg: "#ffffff" },
+    { id: "purple", name: "Фиолетовый", a: "#7c3aed", h: "#6d28d9", fg: "#ffffff" },
+    { id: "orange", name: "Оранжевый", a: "#ea580c", h: "#c2410c", fg: "#ffffff" },
+    { id: "pink", name: "Розовый", a: "#db2777", h: "#be185d", fg: "#ffffff" },
+    { id: "teal", name: "Бирюзовый", a: "#0d9488", h: "#0f766e", fg: "#ffffff" },
+    { id: "red", name: "Красный", a: "#dc2626", h: "#b91c1c", fg: "#ffffff" },
+    { id: "graphite", name: "Графит", a: "#334155", h: "#1e293b", fg: "#ffffff" }
+  ];
+  window.WW38_ACCENTS = ACC;
+
+  function curAccent() { return (typeof S !== "undefined" && S.settings && S.settings.accent) || "auto"; }
+  function findAcc(id) { for (var i = 0; i < ACC.length; i++) if (ACC[i].id === id) return ACC[i]; return null; }
+
+  window.ww38ApplyAccent = function () {
+    var p = findAcc(curAccent());
+    var st = document.body.style;
+    if (!p || p.id === "auto") { st.removeProperty("--accent"); st.removeProperty("--accent-h"); st.removeProperty("--accent-fg"); }
+    else { st.setProperty("--accent", p.a); st.setProperty("--accent-h", p.h); st.setProperty("--accent-fg", p.fg); }
+  };
+
+  window.setAccent = function (id) {
+    if (typeof S === "undefined" || !findAcc(id)) return;
+    S.settings.accent = id;
+    save();
+    ww38ApplyAccent();
+    ww38RenderAccents();
+    try { if (window.haptic) haptic(8); } catch (e) {}
+  };
+
+  window.ww38SetAccentIdx = function (i) { if (ACC[i]) setAccent(ACC[i].id); };
+
+  window.ww38RenderAccents = function () {
+    var el = document.getElementById("ww38-accent-grid"); if (!el) return;
+    var id = curAccent(), h = "";
+    for (var i = 0; i < ACC.length; i++) {
+      var p = ACC[i];
+      var sw = p.id === "auto" ? "background:conic-gradient(#16a34a,#2563eb,#7c3aed,#db2777,#ea580c,#16a34a)" : "background:" + p.a;
+      h += "<button class='ww38-acc" + (id === p.id ? " active" : "") + "' onclick='ww38SetAccentIdx(" + i + ")' aria-label='" + p.name + "'><i style='" + sw + "'></i><span>" + p.name + "</span></button>";
+    }
+    el.innerHTML = h;
+  };
+
+  /* --- тестовое уведомление --- */
+  window.ww38TestNotif = function () {
+    if (!("Notification" in window)) { toast("Уведомления не поддерживаются этим браузером"); return; }
+    if (Notification.permission !== "granted") { ww2EnableNotif(); return; }
+    ww38PushNamed("WiseWallet", { body: "Уведомления работают ✓", icon: "icon-192.png", tag: "ww38-test" });
+    toast("Тестовое уведомление отправлено");
+  };
+
+  function addTestBtn() {
+    if (document.getElementById("ww38-test-btn")) return;
+    var card = document.getElementById("ww-app-card"); if (!card) return;
+    var row = card.querySelector("div"); if (!row) return;
+    var b = document.createElement("button");
+    b.className = "btn btn-ghost btn-sm";
+    b.id = "ww38-test-btn";
+    b.textContent = "📨 Тест уведомления";
+    b.onclick = function () { ww38TestNotif(); };
+    row.appendChild(b);
+  }
+
+  if (typeof renderSettings === "function") {
+    var _rs38 = renderSettings;
+    window.renderSettings = function () { _rs38(); try { ww38RenderAccents(); addTestBtn(); } catch (e) {} };
+  }
+
+  /* --- повторная проверка напоминаний: каждые 30 минут и при возвращении в приложение --- */
+  setInterval(function () { try { ww2Notify(); } catch (e) {} }, 30 * 60 * 1000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") { try { ww2Notify(); } catch (e) {} }
+  });
+
+  try { ww38ApplyAccent(); } catch (e) {}
+})();
+
 </script>
 </body>
 </html>
