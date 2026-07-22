@@ -565,7 +565,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.4</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.4.1</div>
       </div>
     </div>
   </section>
@@ -3040,12 +3040,46 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.4";
+const WW_VERSION = "3.4.1";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
+/* ===================== v3.4.1: автоисправление битых символов в сохранённых данных ===================== */
+function ww341FixText() {
+  try {
+    const R = "\uFFFD";
+    if (typeof S !== "object" || !S) return;
+    const dict = [
+      ["За" + R + R + "плата", "Зарплата"],
+      ["Пере" + R + R + "од (входящий)", "Перевод (входящий)"],
+      ["регулярны" + R + R, "регулярный"],
+      ["ре" + R + R + "улярный", "регулярный"],
+      ["полност" + R + R + "ю", "полностью"],
+    ];
+    let changed = false;
+    const fix = (v) => {
+      if (typeof v !== "string" || v.indexOf(R) === -1) return v;
+      let t = v;
+      for (const [a, b] of dict) t = t.split(a).join(b);
+      t = t.replace(/\uFFFD+/g, "");
+      changed = true;
+      return t;
+    };
+    const lists = [S.recurring, S.categories, S.accounts, S.credits, S.goals, S.budgets, S.tasks, S.links, S.transactions, S.passwords];
+    for (const arr of lists) {
+      if (!Array.isArray(arr)) continue;
+      for (const o of arr) {
+        if (!o || typeof o !== "object") continue;
+        for (const k of ["name", "note", "lender", "type", "icon", "title", "login", "url"]) if (typeof o[k] === "string") o[k] = fix(o[k]);
+        if (Array.isArray(o.tags)) o.tags = o.tags.map(fix);
+      }
+    }
+    if (changed && typeof save === "function") save();
+  } catch (e) { /* никогда не ломаем загрузку */ }
+}
+ww341FixText();
 const _render21 = render;
-render = function (p) { ww21Migrate(); _render21(p); };
+render = function (p) { ww21Migrate(); ww341FixText(); _render21(p); };
 
 /* ---- бейдж версии в настройках ---- */
 (function ww21VersionTag() {
@@ -3968,6 +4002,9 @@ function ww28AccIcon(a) {
   if (/сбер|банк|bank|счет|счёт|вклад/.test(n)) return WW28_ICONS.bank;
   return esc(a.name.slice(0, 1).toUpperCase());
 }
+/* v3.4.1: перерисовать напоминания уже с SVG-иконками (первый рендер проходит до их определения) */
+try { if (typeof renderReminders === "function" && document.getElementById("dash-reminders")) renderReminders(); } catch (e) {}
+
 /* ===== v2.9: быстрое добавление источника дохода / категории расхода / счёта из панели ===== */
 function ww29Add(kind) {
   if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
