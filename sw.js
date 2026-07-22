@@ -1,5 +1,5 @@
 /* WiseWallet service worker: cache-first offline shell */
-const CACHE = "wisewallet-v3.6";
+const CACHE = "wisewallet-v3.7";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

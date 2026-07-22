@@ -224,8 +224,8 @@ canvas{max-width:100%}
   .grid-4{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
   .stat .val{font-size:19px}
-  .cal-cell{min-height:56px;padding:4px}
-  .cal-ev{font-size:9px;padding:1px 3px}
+  .cal-cell{min-height:64px;padding:5px 4px}
+  .cal-ev{font-size:10.5px;padding:1px 4px;line-height:1.3}
   .bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:1px solid var(--border);z-index:70;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
   .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;color:var(--t3);font-size:9.5px;font-weight:600;border-radius:8px;min-height:48px}
   .bn-item svg{width:21px;height:21px}
@@ -279,7 +279,7 @@ canvas{max-width:100%}
 .coin.add .disc{border-style:dashed;background:transparent;box-shadow:none;color:var(--t3);font-size:28px;font-weight:300;cursor:pointer}
 .coin.add:hover .disc{border-color:var(--blue);color:var(--blue)}
 .coin.add .cname{color:var(--t3)}
-@media(max-width:700px){.ww29-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px}.ww29-mid{padding:0 6px}}
+@media(max-width:700px){.ww29-grid{grid-template-columns:1fr;gap:2px}.ww29-mid{border-left:none;border-right:none;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 0}.ww29-mid .ww29-row{justify-content:flex-start}.ww29-row{gap:14px 12px}.coins-lbl{margin:8px 2px 0}}
 /* ---- v3.0: «К оплате» — разделы, ползунки, подсветка статусов ---- */
 #dash-due .ww30-sec{display:flex;align-items:center;gap:8px;font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin:10px 0 2px}
 #dash-due .ww30-cnt{background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:1px 8px;font-size:11px}
@@ -303,6 +303,22 @@ canvas{max-width:100%}
 /* ---- v2.6: Monefy-панель и период учёта ---- */
 #ww26-period-btn{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
 #ww26-period-btn:hover{border-color:var(--border-h)}
+#credit-period-btn{font:inherit;font-size:13px;color:var(--t2);background:none;border:none;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-weight:600;text-align:left}
+#credit-period-btn:hover{color:var(--text)}
+/* ---- v3.7: мобильные жесты и читаемость календаря ---- */
+@media(max-width:700px){
+  .modal::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--border);margin:-6px auto 14px}
+  .cal-d{font-size:12.5px;font-weight:700}
+  .cal-ev{font-size:10.5px;padding:1px 4px;line-height:1.3}
+  .cal-cell{min-height:64px;padding:5px 4px}
+}
+.ww37-tabhint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--text);z-index:120;opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
+.ww37-ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%) translateY(-60px);width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);z-index:120;display:flex;align-items:center;justify-content:center;opacity:0;transition:transform .2s ease,opacity .2s}
+.ww37-ptr-spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--accent);transition:transform .2s}
+.ww37-ptr.ready .ww37-ptr-spin{transform:rotate(180deg);border-top-color:var(--green)}
+.ww37-ptr.run .ww37-ptr-spin{animation:ww37spin .7s linear infinite}
+@keyframes ww37spin{to{transform:rotate(360deg)}}
+
 .ww26-lbl{display:flex;justify-content:space-between;align-items:center}
 .ww26-total{font-family:var(--font-d);font-weight:800;font-size:12px;letter-spacing:0;text-transform:none}
 .ww26-total.pos{color:var(--green)}
@@ -580,7 +596,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.6</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.7</div>
       </div>
     </div>
   </section>
@@ -626,9 +642,9 @@ function seedState() {
   const credits = [
     { id: uid(), name: "Машина кредит", lender: "Банк", type: "Автокредит", initial: 0, balance: 620000, balanceFull: 824696, rate: 20, start: "2023-10-15", end: "2028-09-15", payment: 27490, payDay: 15, status: "active" },
     { id: uid(), name: "Ипотека", lender: "Банк", type: "Ипотека", initial: 0, balance: 5813000, balanceFull: 9160511, rate: 0, start: "2024-07-23", end: "2054-07-23", payment: 26943, payDay: 23, status: "active" },
-    { id: uid(), name: "Сбербанк кредит 1", lender: "Сбербанк", type: "Потребительский", initial: 200000, balance: 210173, balanceFull: 426879, rate: 28.7, start: "2025-11-30", end: "2031-11-30", payment: 6663, paymentOld: 6312, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 529.29, payDay: 30, status: "active" },
-    { id: uid(), name: "Сбербанк кредит 2", lender: "Сбербанк", type: "Потребительский", initial: 200000, balance: 208331, balanceFull: 431185, rate: 28.7, start: "2025-06-12", end: "2031-06-12", payment: 6663, paymentOld: 6312, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 529.3, payDay: 30, status: "active" },
-    { id: uid(), name: "Сбербанк кредит 3", lender: "Сбербанк", type: "Потребительский", initial: 500000, balance: 525053, balanceFull: 1072771, rate: 28.7, start: "2025-10-12", end: "2031-10-12", payment: 16067, paymentOld: 15780, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 1222.28, payDay: 30, status: "active" },
+    { id: uid(), name: "Сбербанк кредит 1", lender: "Сбербанк", type: "Потребительский", initial: 200000, balance: 210173, balanceFull: 426879, rate: 28.7, start: "2026-04-07", end: "2031-11-30", payment: 6663, paymentOld: 6312, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 529.29, payDay: 30, status: "active" },
+    { id: uid(), name: "Сбербанк кредит 2", lender: "Сбербанк", type: "Потребительский", initial: 200000, balance: 208331, balanceFull: 431185, rate: 28.7, start: "2026-04-07", end: "2031-06-12", payment: 6663, paymentOld: 6312, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 529.3, payDay: 30, status: "active" },
+    { id: uid(), name: "Сбербанк кредит 3", lender: "Сбербанк", type: "Потребительский", initial: 500000, balance: 525053, balanceFull: 1072771, rate: 28.7, start: "2026-04-07", end: "2031-10-12", payment: 16067, paymentOld: 15780, graceFrom: "2026-04-07", graceTo: "2026-09-30", gracePayment: 1222.28, payDay: 30, status: "active" },
     { id: uid(), name: "Родители кредит", lender: "Родители", type: "Частный долг", initial: 2000000, balance: 3314000, balanceFull: 3314000, rate: 22, start: "2026-07-15", end: "2031-07-15", payment: 55000, payDay: 15, status: "active" },
     { id: uid(), name: "Кредитная карта Сбербанк", lender: "Сбербанк", type: "Кредитная карта", initial: 204433, balance: 217000, balanceFull: 217000, rate: 25.4, start: "", end: "", payment: 6713, payDay: 30, status: "active" },
   ];
@@ -1053,7 +1069,7 @@ function renderOps() {
 /* ===================== credits ===================== */
 function creditCardHtml(c) {
   const p = currentPayment(c);
-  const paidShare = (() => { const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
+  const paidShare = (() => { if (c.start && c.end) { const s = new Date(c.start).getTime(), e = new Date(c.end).getTime(); if (e > s) return Math.max(0, Math.min(1, (Date.now() - s) / (e - s))); } const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
   const next = nextPayDate(c);
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
   return `<div class="card credit-card" data-sid="${c.id}">
@@ -1061,7 +1077,7 @@ function creditCardHtml(c) {
         ${c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный период</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>'}</div>
       <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span class="sub">Остаток</span><b style="font-family:var(--font-d)">${money(c.balance)}</b></div>
       <div class="progress"><i style="width:${Math.round(paidShare * 100)}%${overdue ? ";background:var(--amber)" : ""}"></i></div>
-      <div style="text-align:right;font-size:11.5px;color:var(--t3);margin-top:4px">выплачено ${Math.round(paidShare * 100)}%</div></div>
+      <div style="text-align:right;font-size:11.5px;color:var(--t3);margin-top:4px">выполнено ${Math.round(paidShare * 100)}%</div></div>
       <div class="kv">
         <span class="k">Платёж сейчас</span><b>${money(p.amount)}${p.grace ? " (льготный)" : ""}</b>
         ${c.paymentOld ? `<span class="k">До реструктуризации</span><b>${money(c.paymentOld)}</b>` : ""}
@@ -1079,14 +1095,14 @@ function creditRow(c) {
   const p = currentPayment(c);
   const next = nextPayDate(c);
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
-  const paidShare = (() => { const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
+  const paidShare = (() => { if (c.start && c.end) { const s = new Date(c.start).getTime(), e = new Date(c.end).getTime(); if (e > s) return Math.max(0, Math.min(1, (Date.now() - s) / (e - s))); } const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
   const paidPct = Math.round(paidShare * 100);
   const statusTag = c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>';
   return `<div class="row" data-sid="${c.id}" style="cursor:pointer" onclick="openCreditModal('${c.id}')">
     <div class="ic">🏦</div>
     <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}</div><div class="rs">${next && c.status === "active" ? "платёж " + next.getDate() + " " + MONTHS_GEN[next.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
     <div class="progress" style="margin-top:6px;height:5px"><i style="width:${paidPct}%${overdue ? ";background:var(--amber)" : ""}"></i></div></div>
-    <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выплачено ${paidPct}%</div></div>
+    <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выполнено ${paidPct}%</div></div>
     ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">📅</button>` : ""}
   </div>`;
 }
@@ -1097,11 +1113,13 @@ function renderCredits() {
   const debtFull = act.reduce((s, c) => s + +(c.balanceFull || c.balance), 0);
   const monthly = act.reduce((s, c) => s + currentPayment(c).amount, 0);
   const regular = act.reduce((s, c) => s + +c.payment, 0);
-  const ym = todayStr().slice(0, 7);
   const withSchedule = act.filter((c) => c.payDay);
-  const paidThisMonth = withSchedule.filter((c) => S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym));
-  const paidCount = paidThisMonth.length, totalCount = withSchedule.length;
-  const paidSum = paidThisMonth.reduce((s, c) => s + currentPayment(c).amount, 0);
+  const _crR = ww26RangeFor(crPeriod());
+  const _crIn = (d) => (!_crR.from || d >= _crR.from) && (!_crR.to || d <= _crR.to);
+  const _crTx = S.transactions.filter((t) => t.categoryId === "c_credit" && _crIn(t.date));
+  const _crPaidNames = new Set(_crTx.map((t) => t.note));
+  const paidCount = withSchedule.filter((c) => _crPaidNames.has(c.name)).length, totalCount = withSchedule.length;
+  const paidSum = _crTx.reduce((s, t) => s + +t.amount, 0);
   document.getElementById("credit-stats").innerHTML = `
     <div class="card stat"><div class="lbl">Остаток долга</div><div class="val">${money(debt)}</div></div>
     <div class="card stat"><div class="lbl">С учётом %</div><div class="val warn">${money(debtFull)}</div><div class="hint">переплата ${money(debtFull - debt)}</div></div>
@@ -1113,7 +1131,7 @@ function renderCredits() {
     else {
       progEl.style.display = "block";
       const pct = Math.round((paidCount / totalCount) * 100);
-      progEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span class="sub">Оплачено в ${MONTHS_GEN[new Date().getMonth()]}</span><b>${paidCount} из ${totalCount} · ${money(paidSum)}</b></div><div class="progress"><i style="width:${pct}%${pct === 100 ? "" : ";background:var(--amber)"}"></i></div>`;
+      progEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px"><button id="credit-period-btn" onclick="crPeriodSheet()" title="Выбрать период">Оплачено ${crPeriodPhrase()} ▾</button><b>${paidCount} из ${totalCount} · ${money(paidSum)}</b></div><div class="progress"><i style="width:${pct}%${pct === 100 ? "" : ";background:var(--amber)"}"></i></div>`;
     }
   }
   const listEl = document.getElementById("credit-list");
@@ -1613,6 +1631,7 @@ let txType = "expense", txCat = null;
 function openTxModal(pre) {
   if (isObserver()) return;
   pre = pre || {};
+  if (!pre._edit) window._txEditId = null;
   txType = pre.type || "expense"; txCat = pre.categoryId || (S.settings.lastCat && S.settings.lastCat[txType]) || null;
   showModal(`<div class="mhead"><h3>Новая операция</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="quick-add"><input id="tx-quick" placeholder="Быстро: 450 обед #работа" onkeydown="if(event.key==='Enter')parseQuick()"><button class="btn btn-ghost btn-sm" onclick="parseQuick()">→</button></div>
@@ -1662,7 +1681,9 @@ function saveTx() {
   const amount = parseFloat(document.getElementById("tx-amount").value);
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
   const tags = (document.getElementById("tx-tags").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
-  S.transactions.push({ id: uid(), date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, note: document.getElementById("tx-note").value.trim(), tags, createdAt: Date.now() });
+  const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, note: document.getElementById("tx-note").value.trim(), tags };
+  if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) Object.assign(_ex, _txData); window._txEditId = null; }
+  else S.transactions.push({ id: uid(), ..._txData, createdAt: Date.now() });
   if (txCat) { S.settings.lastCat = S.settings.lastCat || {}; S.settings.lastCat[txType] = txCat; }
   save(); closeModal(); render(activePage()); toast((txType === "income" ? "Доход" : "Расход") + " " + money(amount) + " записан");
 }
@@ -2393,7 +2414,7 @@ async function ww2DisablePin() {
   localStorage.removeItem(WW2K.pin); toast("PIN-код отключён"); fillV2Settings();
 }
 
-/* ===================== v3.6: Face ID / Touch ID (WebAuthn) ===================== */
+/* ===================== v3.7: Face ID / Touch ID (WebAuthn) ===================== */
 function ww36B64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
 function ww36B64ToBuf(str) { let s2 = str.replace(/-/g, "+").replace(/_/g, "/"); while (s2.length % 4) s2 += "="; const bin = atob(s2); const buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); return buf; }
 function ww36Rand(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
@@ -4183,6 +4204,42 @@ function ww26Custom() {
   if (!f || !t || f > t) { toast("Укажите корректный диапазон дат"); return; }
   ww26SetPeriod({ type: "custom", from: f, to: t });
 }
+/* ===================== v3.7.1: период для раздела «Кредиты» ===================== */
+const WWCR_KEY = "ww_credit_period_v1";
+function crPeriod() { try { return JSON.parse(localStorage.getItem(WWCR_KEY)) || { type: "month" }; } catch (e) { return { type: "month" }; } }
+function crSetPeriod(p) { localStorage.setItem(WWCR_KEY, JSON.stringify(p)); closeModal(); renderCredits(); }
+function crPeriodPhrase() {
+  const p = crPeriod(); const now = new Date();
+  if (p.type === "week") return "на этой неделе";
+  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " квартале";
+  if (p.type === "half") return now.getMonth() < 6 ? "в первом полугодии" : "во втором полугодии";
+  if (p.type === "year") return "в " + now.getFullYear() + " году";
+  if (p.type === "all") return "за всё время";
+  if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? "за " + ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "за период"; }
+  const PRE = ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"];
+  return "в " + PRE[now.getMonth()];
+}
+function crPeriodSheet() {
+  const p = crPeriod();
+  const opts = [["week", "Неделя"], ["month", "Месяц"], ["quarter", "Квартал"], ["half", "Полгода"], ["year", "Год"], ["all", "Весь период"]];
+  showModal(`<div class="mhead"><h3>Период</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="ww26-sheet">
+      ${opts.map(([k, n]) => `<div class="opt" onclick="crSetPeriod({type:'${k}'})"><span>${n}<span class="rng">${ww26RangeTxt({ type: k })}</span></span>${p.type === k ? '<span class="chk">✓</span>' : ""}</div>`).join("")}
+      <div class="opt" style="display:block;cursor:default" onclick="event.stopPropagation()">
+        <div style="display:flex;justify-content:space-between;align-items:center">Произвольный${p.type === "custom" ? '<span class="chk">✓</span>' : ""}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="cr-from" value="${p.from || todayStr().slice(0, 8) + "01"}">
+          <input type="date" id="cr-to" value="${p.to || todayStr()}">
+          <button class="btn btn-primary btn-sm" onclick="crCustom()">ОК</button>
+        </div>
+      </div>
+    </div>`);
+}
+function crCustom() {
+  const f = document.getElementById("cr-from").value, t = document.getElementById("cr-to").value;
+  if (!f || !t || f > t) { toast("Укажите корректный диапазон дат"); return; }
+  crSetPeriod({ type: "custom", from: f, to: t });
+}
 /* Панель: доходы → кошельки → расходы, суммы за выбранный период */
 renderCoins = function () {
   const accEl = document.getElementById("coins-acc"); if (!accEl) return;
@@ -4332,5 +4389,60 @@ try {
 } catch (e) {}
 </script>
 
+<script>
+/* ===================== v3.7: мобильные жесты и удобства ===================== */
+(function () {
+  "use strict";
+  var mq = window.matchMedia("(max-width:700px)");
+  function isMobile() { return mq.matches; }
+  function ovOpen() { var o = document.getElementById("overlay"); return o && o.classList.contains("open"); }
+  window.haptic = function (ms) { try { if (navigator.vibrate && isMobile()) navigator.vibrate(ms || 8); } catch (e) {} };
+  function wrap(n, ms) { var o = window[n]; if (typeof o === "function") window[n] = function () { window.haptic(ms); return o.apply(this, arguments); }; }
+  wrap("nav", 6); wrap("openTxModal", 10); wrap("payCredit", 14); wrap("closeModal", 6);
+
+  /* --- редактирование операции по свайпу вправо --- */
+  window.editTx = function (id) {
+    var t = ((typeof S !== "undefined" && S.transactions) || []).find(function (x) { return x.id === id; });
+    if (!t) return;
+    window._txEditId = id;
+    openTxModal({ _edit: true, type: t.type, categoryId: t.categoryId, amount: t.amount, accountId: t.accountId });
+    setTimeout(function () {
+      var d = document.getElementById("tx-date"); if (d) d.value = t.date;
+      var g = document.getElementById("tx-tags"); if (g) g.value = (t.tags || []).join(", ");
+      var nt = document.getElementById("tx-note"); if (nt) nt.value = t.note || "";
+      var h = document.querySelector("#modal .mhead h3"); if (h) h.textContent = "Изменить операцию";
+    }, 60);
+  };
+
+  /* --- свайп вниз для закрытия модалки --- */
+  var md = document.getElementById("modal"), mY = 0, mOn = false, mD = 0;
+  if (md) {
+    md.addEventListener("touchstart", function (e) { if (!isMobile() || e.touches.length !== 1 || md.scrollTop > 0) { mOn = false; return; } mY = e.touches[0].clientY; mOn = true; mD = 0; md.style.transition = "none"; }, { passive: true });
+    md.addEventListener("touchmove", function (e) { if (!mOn) return; mD = e.touches[0].clientY - mY; if (mD < 0 || md.scrollTop > 0) { mD = 0; md.style.transform = ""; return; } md.style.transform = "translateY(" + mD + "px)"; }, { passive: true });
+    md.addEventListener("touchend", function () { if (!mOn) return; mOn = false; md.style.transition = "transform .22s ease"; if (mD > 90) { window.haptic(10); md.style.transform = "translateY(100%)"; setTimeout(function () { closeModal(); md.style.transform = ""; md.style.transition = ""; }, 210); } else md.style.transform = ""; });
+  }
+
+  /* --- единый горизонтальный жест: строки транзакций + переключение вкладок --- */
+  function navOrder() { return [].slice.call(document.querySelectorAll(".bottom-nav .bn-item[data-nav]")).map(function (b) { return b.dataset.nav; }); }
+  function excluded(t) { return !!(t && t.closest && t.closest(".coins-row,.kanban,input,select,textarea,button,a,.modal,.overlay,[data-noswipe]")); }
+  var hint = null;
+  function ensureHint() { if (!hint) { hint = document.createElement("div"); hint.className = "ww37-tabhint"; document.body.appendChild(hint); } return hint; }
+  function showHint(dx) { var o = navOrder(), i = o.indexOf(activePage()); if (i < 0) i = 0; var j = dx < 0 ? i + 1 : i - 1; var h = ensureHint(); if (Math.abs(dx) < 40 || j < 0 || j >= o.length) { h.style.opacity = "0"; return; } var b = document.querySelector(".bottom-nav .bn-item[data-nav='" + o[j] + "']"); h.textContent = (dx < 0 ? "→ " : "← ") + (b ? b.textContent.trim() : o[j]); h.style.opacity = "1"; }
+  function hideHint() { if (hint) hint.style.opacity = "0"; }
+  var g = null;
+  document.addEventListener("touchstart", function (e) { g = null; if (!isMobile() || ovOpen() || e.touches.length !== 1) return; var t = e.target; if (excluded(t)) return; var row = t.closest ? t.closest("[data-sid]") : null; var isTx = !!(row && row.dataset.sid && typeof S !== "undefined" && S.transactions.some(function (x) { return x.id === row.dataset.sid; })); g = { x: e.touches[0].clientX, y: e.touches[0].clientY, mode: isTx ? "row" : "tab", row: isTx ? row : null, sid: isTx ? row.dataset.sid : null, lock: null, dx: 0 }; }, { passive: true });
+  document.addEventListener("touchmove", function (e) { if (!g) return; var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y; g.dx = dx; if (g.lock === null) { if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) + 5) { g.lock = "x"; if (g.row) g.row.style.transition = "none"; } else if (Math.abs(dy) > 8) { g = null; return; } else return; } if (g.lock !== "x") return; if (g.mode === "row") { g.row.style.transform = "translateX(" + dx + "px)"; g.row.style.background = dx < 0 ? "rgba(248,81,73,.14)" : "rgba(94,159,232,.14)"; } else showHint(dx); }, { passive: true });
+  document.addEventListener("touchend", function () { if (!g || g.lock !== "x") { g = null; hideHint(); return; } var c = g; g = null; if (c.mode === "row") { var el = c.row, sid = c.sid, dx = c.dx; el.style.transition = "transform .2s ease, background .2s ease"; if (dx <= -80) { window.haptic(14); el.style.transform = "translateX(-110%)"; el.style.background = ""; setTimeout(function () { if (window.delTx) delTx(sid); }, 160); } else if (dx >= 80) { window.haptic(10); el.style.transform = ""; el.style.background = ""; if (window.editTx) editTx(sid); } else { el.style.transform = ""; el.style.background = ""; } } else { hideHint(); if (Math.abs(c.dx) > 70) { var o = navOrder(), i = o.indexOf(activePage()); if (i < 0) i = 0; var j = c.dx < 0 ? i + 1 : i - 1; if (j >= 0 && j < o.length) nav(o[j]); } } });
+
+  /* --- pull-to-refresh: синхронизация с Supabase --- */
+  var pY = 0, pX = 0, pOn = false, pP = 0, ptr = null;
+  function ensurePtr() { if (!ptr) { ptr = document.createElement("div"); ptr.className = "ww37-ptr"; ptr.innerHTML = "<div class='ww37-ptr-spin'></div>"; document.body.appendChild(ptr); } return ptr; }
+  function topScroll() { return window.scrollY || (document.scrollingElement ? document.scrollingElement.scrollTop : 0) || 0; }
+  function ptrHide(el) { el.style.opacity = "0"; el.style.transform = "translateX(-50%) translateY(-60px)"; }
+  document.addEventListener("touchstart", function (e) { pOn = false; if (!isMobile() || ovOpen() || e.touches.length !== 1 || topScroll() > 0) return; if (e.target.closest && e.target.closest(".coins-row,.kanban,.modal,.overlay")) return; pY = e.touches[0].clientY; pX = e.touches[0].clientX; pOn = true; pP = 0; }, { passive: true });
+  document.addEventListener("touchmove", function (e) { if (!pOn) return; var dy = e.touches[0].clientY - pY, dx = e.touches[0].clientX - pX; if (Math.abs(dx) > Math.abs(dy)) { pOn = false; ptrHide(ensurePtr()); return; } if (dy <= 0 || topScroll() > 0) { pP = 0; ptrHide(ensurePtr()); return; } pP = Math.min(dy, 150); var el = ensurePtr(); el.style.transform = "translateX(-50%) translateY(" + (Math.min(pP * 0.5, 62) - 60) + "px)"; el.style.opacity = "" + Math.min(pP / 70, 1); el.classList.toggle("ready", pP > 70); }, { passive: true });
+  document.addEventListener("touchend", function () { if (!pOn) return; pOn = false; var el = ensurePtr(); if (pP > 70) { window.haptic(12); el.classList.remove("ready"); el.classList.add("run"); el.style.transform = "translateX(-50%) translateY(10px)"; el.style.opacity = "1"; Promise.resolve(typeof syncNow === "function" ? syncNow(true) : null).catch(function () {}).then(function () { setTimeout(function () { el.classList.remove("run"); ptrHide(el); }, 500); }); } else { el.classList.remove("ready"); ptrHide(el); } pP = 0; });
+})();
+</script>
 </body>
 </html>
