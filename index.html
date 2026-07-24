@@ -602,7 +602,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.8</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.10</div>
       </div>
     </div>
   </section>
@@ -1073,17 +1073,36 @@ function renderOps() {
 }
 
 /* ===================== credits ===================== */
+function crPaidRub(c) { const total = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return Math.max(0, Math.round(total - (+c.balance || 0))); }
+function crPaidInPeriod(c) { return !!(window._crFilter && window._crFilter.paid && window._crFilter.paid.has(c.name)); }
+function crScheduledInPeriod(c) {
+  const f = window._crFilter; if (!f || !f.from || !f.to) return false;
+  if (c.status !== "active" || !c.payDay) return false;
+  let d = new Date(f.from + "T00:00:00"); d.setDate(1);
+  const end = new Date(f.to + "T00:00:00"); let guard = 0;
+  while (d <= end && guard < 400) {
+    guard++;
+    const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const pd = new Date(d.getFullYear(), d.getMonth(), Math.min(c.payDay, dim));
+    const iso = pd.getFullYear() + "-" + String(pd.getMonth() + 1).padStart(2, "0") + "-" + String(pd.getDate()).padStart(2, "0");
+    if (iso >= f.from && iso <= f.to && (!c.start || iso >= c.start) && (!c.end || iso <= c.end)) return true;
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+  return false;
+}
+function crCreditInPeriod(c) { const f = window._crFilter; if (!f || f.isAll) return true; return crPaidInPeriod(c) || crScheduledInPeriod(c); }
+function crPeriodTag(c) { const f = window._crFilter; if (!f || f.isAll) return ""; if (crPaidInPeriod(c)) return ' <span class="badge green">\u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043e</span>'; if (crScheduledInPeriod(c)) return ' <span class="badge amber">\u043d\u0435 \u043e\u043f\u043b\u0430\u0447\u0435\u043d\u043e</span>'; return ""; }
 function creditCardHtml(c) {
   const p = currentPayment(c);
   const paidShare = (() => { if (c.start && c.end) { const s = new Date(c.start).getTime(), e = new Date(c.end).getTime(); if (e > s) return Math.max(0, Math.min(1, (Date.now() - s) / (e - s))); } const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
   const next = nextPayDate(c);
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
   return `<div class="card credit-card" data-sid="${c.id}">
-      <div class="credit-top"><div><div class="credit-name">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)}</div><div class="sub">${esc(c.type)} · ${esc(c.lender)}</div></div>
+      <div class="credit-top"><div><div class="credit-name">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)}${crPeriodTag(c)}</div><div class="sub">${esc(c.type)} · ${esc(c.lender)}</div></div>
         ${c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный период</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>'}</div>
       <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span class="sub">Остаток</span><b style="font-family:var(--font-d)">${money(c.balance)}</b></div>
       <div class="progress"><i style="width:${Math.round(paidShare * 100)}%${overdue ? ";background:var(--amber)" : ""}"></i></div>
-      <div style="text-align:right;font-size:11.5px;color:var(--t3);margin-top:4px">выполнено ${Math.round(paidShare * 100)}%</div></div>
+      <div style="text-align:right;font-size:11.5px;color:var(--t3);margin-top:4px">выполнено ${Math.round(paidShare * 100)}% \u00b7 ${money(crPaidRub(c))} / ${money(c.balance)}</div></div>
       <div class="kv">
         <span class="k">Платёж сейчас</span><b>${money(p.amount)}${p.grace ? " (льготный)" : ""}</b>
         ${c.paymentOld ? `<span class="k">До реструктуризации</span><b>${money(c.paymentOld)}</b>` : ""}
@@ -1106,9 +1125,9 @@ function creditRow(c) {
   const statusTag = c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>';
   return `<div class="row" data-sid="${c.id}" style="cursor:pointer" onclick="openCreditModal('${c.id}')">
     <div class="ic">🏦</div>
-    <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}</div><div class="rs">${next && c.status === "active" ? "платёж " + next.getDate() + " " + MONTHS_GEN[next.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
+    <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}${crPeriodTag(c)}</div><div class="rs">${next && c.status === "active" ? "платёж " + next.getDate() + " " + MONTHS_GEN[next.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
     <div class="progress" style="margin-top:6px;height:5px"><i style="width:${paidPct}%${overdue ? ";background:var(--amber)" : ""}"></i></div></div>
-    <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выполнено ${paidPct}%</div></div>
+    <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выполнено ${paidPct}% \u00b7 ${money(crPaidRub(c))} / ${money(c.balance)}</div></div>
     ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">📅</button>` : ""}
   </div>`;
 }
@@ -1126,6 +1145,7 @@ function renderCredits() {
   const _crPaidNames = new Set(_crTx.map((t) => t.note));
   const paidCount = withSchedule.filter((c) => _crPaidNames.has(c.name)).length, totalCount = withSchedule.length;
   const paidSum = _crTx.reduce((s, t) => s + +t.amount, 0);
+  window._crFilter = { from: _crR.from, to: _crR.to, paid: _crPaidNames, isAll: (!_crR.from && !_crR.to) };
   document.getElementById("credit-stats").innerHTML = `
     <div class="card stat"><div class="lbl">Остаток долга</div><div class="val">${money(debt)}</div></div>
     <div class="card stat"><div class="lbl">С учётом %</div><div class="val warn">${money(debtFull)}</div><div class="hint">переплата ${money(debtFull - debt)}</div></div>
@@ -1142,12 +1162,16 @@ function renderCredits() {
   }
   const listEl = document.getElementById("credit-list");
   if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">🏦</div>Кредитов пока нет</div>'; return; }
-  if (viewMode("credits") === "list") {
+  const _crShown = S.credits.filter(crCreditInPeriod);
+  if (!_crShown.length) {
     listEl.className = "section card";
-    listEl.innerHTML = S.credits.map(creditRow).join("");
+    listEl.innerHTML = '<div class="empty"><div class="big">\ud83d\uddd3\ufe0f</div>\u041d\u0435\u0442 \u043a\u0440\u0435\u0434\u0438\u0442\u043e\u0432 \u0437\u0430 \u044d\u0442\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434</div>';
+  } else if (viewMode("credits") === "list") {
+    listEl.className = "section card";
+    listEl.innerHTML = _crShown.map(creditRow).join("");
   } else {
     listEl.className = "section credit-cards-grid";
-    listEl.innerHTML = S.credits.map(creditCardHtml).join("");
+    listEl.innerHTML = _crShown.map(creditCardHtml).join("");
   }
 }
 function payCredit(id) {
@@ -4534,6 +4558,103 @@ try {
   });
 
   try { ww38ApplyAccent(); } catch (e) {}
+})();
+
+</script>
+<script>
+/* WiseWallet v3.9: фоновые push-уведомления (Web Push) */
+(function () {
+  "use strict";
+
+  var PUB = "BP37m52jfmQISC6E_bEhTyHUgcGUv5Yn7rRDAi7GasRLrpcfmDawq1v4XAugAQLLLAkOpdcfDRkxB1vc9iaPJ0k";
+  var LSK = "ww39_push_on";
+
+  function u8(b64) {
+    var pad = "====".slice(0, (4 - (b64.length % 4)) % 4);
+    var s = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+    var raw = atob(s), a = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
+    return a;
+  }
+
+  function supported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+  function standaloneNeeded() {
+    var ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    var standalone = false;
+    try { standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true; } catch (e) {}
+    return ios && !standalone;
+  }
+
+  async function sbHeaders() {
+    var sess = await ww2Session();
+    return { apikey: S.settings.sbKey, Authorization: "Bearer " + (sess ? sess.access_token : S.settings.sbKey), "Content-Type": "application/json" };
+  }
+
+  window.ww39Enable = async function () {
+    try {
+      if (!supported()) { toast("Push не поддерживается этим браузером"); return; }
+      if (standaloneNeeded()) { toast("Сначала добавьте приложение на экран Домой: Поделиться → На экран Домой"); return; }
+      if (!S.settings.sbUrl || !S.settings.sbKey) { toast("Сначала настройте Supabase (URL и ключ в настройках)"); return; }
+      var p = await Notification.requestPermission();
+      if (p !== "granted") { toast("Уведомления не разрешены"); return; }
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: u8(PUB) });
+      var sess = await ww2Session();
+      var row = {
+        endpoint: sub.endpoint,
+        sub: sub.toJSON(),
+        sync_id: sess ? null : (S.settings.syncId || null),
+        user_id: sess ? sess.user_id : null,
+        tz_min: -new Date().getTimezoneOffset()
+      };
+      if (!row.sync_id && !row.user_id) { toast("Нужен ключ синхронизации или вход в аккаунт Supabase"); return; }
+      var H = await sbHeaders();
+      var res = await fetch(S.settings.sbUrl + "/rest/v1/ww_push", { method: "POST", headers: Object.assign({}, H, { Prefer: "resolution=merge-duplicates" }), body: JSON.stringify([row]) });
+      if (!res.ok) throw new Error("HTTP " + res.status + " — возможно, не выполнен SQL из push-server/push_schema.sql");
+      localStorage.setItem(LSK, sub.endpoint);
+      toast("Фоновые push включены на этом устройстве");
+      ww39Render();
+    } catch (e) { toast("Не удалось включить push: " + (e && e.message ? e.message : e)); }
+  };
+
+  window.ww39Disable = async function () {
+    try {
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        try {
+          var H = await sbHeaders();
+          await fetch(S.settings.sbUrl + "/rest/v1/ww_push?endpoint=eq." + encodeURIComponent(sub.endpoint), { method: "DELETE", headers: H });
+        } catch (e) {}
+        await sub.unsubscribe();
+      }
+      localStorage.removeItem(LSK);
+      toast("Фоновые push выключены");
+      ww39Render();
+    } catch (e) { toast("Ошибка: " + (e && e.message ? e.message : e)); }
+  };
+
+  window.ww39Render = async function () {
+    var el = document.getElementById("ww39-ui"); if (!el) return;
+    if (!supported()) { el.innerHTML = "<div class='sub'>Web Push не поддерживается этим браузером" + (standaloneNeeded() ? " (на iPhone сначала добавьте приложение на экран Домой)" : "") + "</div>"; return; }
+    var on = false;
+    try { var reg = await navigator.serviceWorker.ready; var sub = await reg.pushManager.getSubscription(); on = !!sub; } catch (e) {}
+    if (on) el.innerHTML = "<div class='sub' style='margin-bottom:8px'>Включены на этом устройстве ✓</div><button class='btn btn-danger btn-sm' onclick='ww39Disable()'>Выключить</button>";
+    else el.innerHTML = "<div class='sub' style='margin-bottom:8px'>" + (Notification.permission === "denied" ? "Уведомления заблокированы в настройках браузера" : "Выключены") + "</div><button class='btn btn-primary btn-sm' onclick='ww39Enable()'>Включить фоновые push</button>";
+  };
+
+  function addCard() {
+    if (document.getElementById("ww39-card")) { ww39Render(); return; }
+    var grid = document.querySelector("#page-settings .grid.grid-2"); if (!grid) return;
+    grid.insertAdjacentHTML("beforeend", "<div class='card' id='ww39-card'><h2>📡 Фоновые push</h2><div class='sub' style='margin:2px 0 12px'>Напоминания о платежах приходят, даже когда приложение закрыто. Требуется один раз настроить серверную часть в Supabase — инструкция в файле push-server/README-push.md из архива. На iPhone: iOS 16.4+ и приложение добавлено на экран Домой.</div><div id='ww39-ui'></div></div>");
+    ww39Render();
+  }
+
+  if (typeof renderSettings === "function") {
+    var _rs39 = renderSettings;
+    window.renderSettings = function () { _rs39(); try { addCard(); } catch (e) {} };
+  }
 })();
 
 </script>
