@@ -1,15 +1,19 @@
-/* WiseWallet service worker: cache-first offline shell + web push */
-const CACHE = "wisewallet-v3.10";
+/* WiseWallet service worker: network-first для HTML (свежая версия сразу) + cache-first для ассетов + web push */
+const CACHE = "wisewallet-v3.11";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (e) => {
+  if (e.data === "skipWaiting") self.skipWaiting();
 });
 
 self.addEventListener("push", (e) => {
@@ -35,18 +39,42 @@ self.addEventListener("notificationclick", (e) => {
   );
 });
 
+function isHtml(req, url) {
+  if (req.mode === "navigate") return true;
+  const accept = req.headers.get("accept") || "";
+  if (accept.includes("text/html")) return true;
+  const p = url.pathname;
+  return p === "/" || p.endsWith("/") || p.endsWith(".html");
+}
+
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  // Never cache Supabase API calls
+  const req = e.request;
+  const url = new URL(req.url);
+  // Никогда не кэшируем вызовы Supabase
   if (url.pathname.includes("/rest/v1/")) return;
-  if (e.request.method !== "GET") return;
+  if (req.method !== "GET") return;
+
+  // App shell (index.html и навигация): сначала сеть, офлайн — из кэша
+  if (isHtml(req, url) && url.origin === location.origin) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) { const clone = res.clone(); caches.open(CACHE).then((c) => c.put(req, clone)); }
+          return res;
+        })
+        .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
+    );
+    return;
+  }
+
+  // Остальные ассеты: сначала кэш, фоновое обновление
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const fetched = fetch(e.request)
+    caches.match(req).then((cached) => {
+      const fetched = fetch(req)
         .then((res) => {
           if (res.ok && (url.origin === location.origin || url.hostname.includes("fonts.") || url.hostname.includes("jsdelivr.net"))) {
             const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(e.request, clone));
+            caches.open(CACHE).then((c) => c.put(req, clone));
           }
           return res;
         })

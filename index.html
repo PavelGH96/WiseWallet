@@ -602,7 +602,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v3.10</div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v<span id="ww-foot-ver">3.11</span></div>
       </div>
     </div>
   </section>
@@ -3299,7 +3299,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.6";
+const WW_VERSION = "3.11";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -3344,6 +3344,7 @@ render = function (p) { ww21Migrate(); ww341FixText(); _render21(p); };
 (function ww21VersionTag() {
   const h = document.querySelector("#page-settings .page-head h1");
   if (h && !document.getElementById("ww-ver-tag")) h.insertAdjacentHTML("beforeend", `<span id="ww-ver-tag">v${WW_VERSION}</span>`);
+  const fv = document.getElementById("ww-foot-ver"); if (fv) fv.textContent = WW_VERSION;
 })();
 
 /* ---- раздел «Пароли» ---- */
