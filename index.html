@@ -438,6 +438,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 </style>
 </head>
 <body>
+<div id="ww-splash"><div class="ws-logo">💰</div><div class="ws-name">WiseWallet</div><div class="ws-spin"></div></div><style>#ww-splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#f6f7f9;transition:opacity .35s ease}#ww-splash .ws-logo{font-size:52px;animation:wsPulse 1.2s ease-in-out infinite}#ww-splash .ws-name{font-weight:800;font-size:20px;color:#1c2733;letter-spacing:.02em;font-family:-apple-system,system-ui,sans-serif}#ww-splash .ws-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(127,127,127,.25);border-top-color:#0f9d76;animation:wsRot .8s linear infinite}#ww-splash.hide{opacity:0;pointer-events:none}@media(prefers-color-scheme:dark){#ww-splash{background:#10151c}#ww-splash .ws-name{color:#e8edf2}}@keyframes wsRot{to{transform:rotate(360deg)}}@keyframes wsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}</style>
 <div class="app">
 <aside class="rail">
   <div class="logo">WiseWallet</div>
@@ -619,7 +620,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v<span id="ww-foot-ver">3.15</span></div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v<span id="ww-foot-ver">3.17</span></div>
       </div>
     </div>
   </section>
@@ -1598,7 +1599,7 @@ function saveRecur(id) {
   else S.recurring.push({ id: uid(), name, type, amount, categoryId, day, who });
   save(); closeModal(); renderSettings();
 }
-function delRecur(id) { if (isObserver()) return; if (!confirm("Удалить регулярный платёж?")) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); }
+function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x) => x.id === id); if (!r) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); ww2UndoToast("Регулярный платёж удалён", () => { S.recurring.push(r); save(); renderSettings(); }); }
 function addAccount() { if (isObserver()) return; const n = prompt("Название счёта:"); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
 function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = prompt("Название счёта:", a.name); if (!n) return; a.name = n; save(); renderSettings(); }
 function addCategory() {
@@ -1791,7 +1792,7 @@ function openTxModal(pre) {
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
     </div>
     <div class="fg"><label>Метки (через запятую)</label><input id="tx-tags" placeholder="напр.: работа, катя"></div>
-    <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно"></div>
+    <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTx()">Сохранить</button>`);
   renderTxCats();
   setTimeout(() => document.getElementById(pre.amount ? "tx-amount" : "tx-quick").focus(), 50);
@@ -1809,7 +1810,7 @@ function parseQuick() {
     const cats = S.categories.filter((c) => c.type === txType);
     const found = cats.find((c) => words.some((w) => c.name.toLowerCase().includes(w) || w.includes(c.name.toLowerCase().split(" ")[0])));
     if (found) { txCat = found.id; renderTxCats(); }
-    document.getElementById("tx-note").value = rest;
+    document.getElementById("tx-note").value = rest; ww317Suggest();
   }
 }
 function setTxType(t, btn) {
@@ -1823,15 +1824,45 @@ function renderTxCats() {
   if (!txCat && cats.length) txCat = cats[0].id;
   document.getElementById("tx-cats").innerHTML = cats.map((c) => `<button class="cat-opt${txCat === c.id ? " active" : ""}" onclick="txCat='${c.id}';renderTxCats()"><em>${c.icon}</em>${esc(c.name.length > 13 ? c.name.slice(0, 12) + "…" : c.name)}</button>`).join("");
 }
+let _ww317 = [];
+function ww317Suggest() {
+  const box = document.getElementById("ww317-sugg"); if (!box) return;
+  const q = (document.getElementById("tx-note").value || "").trim().toLowerCase();
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  const seen = {}; _ww317 = [];
+  const txs = S.transactions.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  for (const t of txs) {
+    if (t.type !== txType || !t.note) continue;
+    if (!t.note.toLowerCase().includes(q)) continue;
+    const key = t.note.toLowerCase() + "|" + t.categoryId;
+    if (seen[key]) continue; seen[key] = 1;
+    _ww317.push(t);
+    if (_ww317.length >= 3) break;
+  }
+  box.innerHTML = _ww317.length ? '<div class="sub" style="margin:4px 0 2px">Похожие операции — нажмите, чтобы подставить:</div>' + _ww317.map((t, i) => { const c = cat(t.categoryId); return `<button type="button" class="chip" style="margin:2px 4px 2px 0" onclick="ww317Apply(${i})">${c ? c.icon + " " : ""}${esc(t.note.length > 18 ? t.note.slice(0, 17) + "…" : t.note)} · ${money(t.amount)}</button>`; }).join("") : "";
+}
+function ww317Apply(i) {
+  const t = _ww317[i]; if (!t) return;
+  if (t.categoryId) { txCat = t.categoryId; renderTxCats(); }
+  const amt = document.getElementById("tx-amount");
+  if (amt && !parseFloat(amt.value)) amt.value = t.amount;
+  document.getElementById("tx-note").value = t.note;
+  const tg = document.getElementById("tx-tags");
+  if (tg && !tg.value && t.tags && t.tags.length) tg.value = t.tags.join(", ");
+  const box = document.getElementById("ww317-sugg"); if (box) box.innerHTML = "";
+}
 function saveTx() {
   const amount = parseFloat(document.getElementById("tx-amount").value);
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
   const tags = (document.getElementById("tx-tags").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
   const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, note: document.getElementById("tx-note").value.trim(), tags };
-  if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) Object.assign(_ex, _txData); window._txEditId = null; }
-  else S.transactions.push({ id: uid(), ..._txData, createdAt: Date.now() });
+  let _undoFn = null;
+  if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) { const _old = { ..._ex }; Object.assign(_ex, _txData); _undoFn = () => { const _c = S.transactions.find((x) => x.id === _old.id); if (_c) Object.assign(_c, _old); }; } window._txEditId = null; }
+  else { const _newId = uid(); S.transactions.push({ id: _newId, ..._txData, createdAt: Date.now() }); _undoFn = () => { S.transactions = S.transactions.filter((x) => x.id !== _newId); }; }
   if (txCat) { S.settings.lastCat = S.settings.lastCat || {}; S.settings.lastCat[txType] = txCat; }
-  save(); closeModal(); render(activePage()); toast((txType === "income" ? "Доход" : "Расход") + " " + money(amount) + " записан");
+  save(); closeModal(); render(activePage());
+  const _msg = (txType === "income" ? "Доход" : "Расход") + " " + money(amount) + " записан";
+  if (_undoFn) ww2UndoToast(_msg, () => { _undoFn(); save(); render(activePage()); }, "Отменено"); else toast(_msg);
 }
 function openCreditModal(id) {
   if (isObserver()) return;
@@ -1868,7 +1899,7 @@ function saveCredit(id) {
   else S.credits.push({ id: uid(), lender: "", type: "Кредит", initial: data.balance, balanceFull: data.balance, status: "active", ...data });
   save(); closeModal(); renderCredits(); toast("Сохранено");
 }
-function delCredit(id) { if (isObserver()) return; if (!confirm("Удалить кредит?")) return; S.credits = S.credits.filter((c) => c.id !== id); save(); closeModal(); renderCredits(); }
+function delCredit(id) { if (isObserver()) return; const c = S.credits.find((x) => x.id === id); if (!c) return; S.credits = S.credits.filter((x) => x.id !== id); save(); closeModal(); renderCredits(); ww2UndoToast("Кредит удалён", () => { S.credits.push(c); save(); renderCredits(); }); }
 
 /* ===================== coins (drag & drop quick entry) ===================== */
 function accBalance(id) {
@@ -2071,7 +2102,7 @@ function saveGoal(id) {
   else S.goals.push({ id: uid(), ...data });
   save(); closeModal(); renderGoals(); toast("Цель сохранена");
 }
-function delGoal(id) { if (isObserver()) return; if (!confirm("Удалить цель?")) return; S.goals = S.goals.filter((g) => g.id !== id); save(); closeModal(); renderGoals(); }
+function delGoal(id) { if (isObserver()) return; const g = S.goals.find((x) => x.id === id); if (!g) return; S.goals = S.goals.filter((x) => x.id !== id); save(); closeModal(); renderGoals(); ww2UndoToast("Цель удалена", () => { S.goals.push(g); save(); renderGoals(); }); }
 
 /* ===================== planner (kanban, как в CRM) ===================== */
 let taskWho = "all";
@@ -2251,7 +2282,7 @@ function saveTask(id) {
   save(); closeModal(); renderPlanner();
 }
 function toggleTask(id) { if (isObserver()) return; const t = S.tasks.find((x) => x.id === id); if (!t) return; t.done = !t.done; t.doneAt = t.done ? Date.now() : null; save(); renderPlanner(); }
-function delTask(id) { if (isObserver()) return; if (!confirm("Удалить задачу?")) return; S.tasks = S.tasks.filter((x) => x.id !== id); save(); closeModal(); renderPlanner(); }
+function delTask(id) { if (isObserver()) return; const t = S.tasks.find((x) => x.id === id); if (!t) return; S.tasks = S.tasks.filter((x) => x.id !== id); save(); closeModal(); renderPlanner(); ww2UndoToast("Задача удалена", () => { S.tasks.push(t); save(); renderPlanner(); }); }
 
 /* ===================== links ===================== */
 let linkCat = "all";
@@ -2766,13 +2797,30 @@ function duePostings() {
     .filter((d) => d.posted < +d.r.amount);
 }
 /* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
+/* v3.16: выбор месяца в блоке «К оплате» */
+let ww316DueYm = null;
+function ww316Ym() { return ww316DueYm || todayStr().slice(0, 7); }
+function ww316DimOf(ym) { return new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(); }
+function ww316DueShift(dir) { const next = ymShift(ww316Ym(), dir); ww316DueYm = next === todayStr().slice(0, 7) ? null : next; renderDuePanel(); }
+function ww316DueReset() { ww316DueYm = null; renderDuePanel(); }
+function ww316DueLabel() {
+  const ym = ww316Ym(); const cur = todayStr().slice(0, 7);
+  if (ym === cur) return "Текущий месяц";
+  const y = +ym.slice(0, 4), m = +ym.slice(5, 7);
+  return MONTHS[m - 1] + (y === +cur.slice(0, 4) ? "" : " " + y);
+}
+function ww316CrPay(c, ym) {
+  const ds15 = ym + "-15";
+  if (c.graceFrom && c.graceTo && ds15 >= c.graceFrom.slice(0, 7) + "-01" && ds15 <= c.graceTo) return { amount: +c.gracePayment || 0, grace: true };
+  return { amount: +c.payment || 0, grace: false };
+}
 function ww30Data() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
   if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
-  const now = new Date(); const ym = todayStr().slice(0, 7); const today = todayStr();
-  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const ym = ww316Ym(); const today = todayStr();
+  const dim = ww316DimOf(ym);
   const exp = S.recurring
     .filter((r) => r.type === "expense" && !S.skipped[r.id + ":" + ym])
     .map((r) => {
@@ -2784,7 +2832,7 @@ function ww30Data() {
   const cr = S.credits
     .filter((c) => (c.status === "active" || S.ww30Cr[c.id + ":" + ym]) && !S.skipped["cr" + c.id + ":" + ym])
     .map((c) => {
-      const p = currentPayment(c);
+      const p = ww316CrPay(c, ym);
       const full = +p.amount || 0;
       const rec = S.ww30Cr[c.id + ":" + ym];
       const postedC = rec ? +rec.paid || 0 : 0;
@@ -2824,8 +2872,8 @@ function renderDuePanel() {
   const { exp, cr } = ww30Data();
   const unpaid = exp.filter((d) => !d.paid).length + cr.filter((d) => !d.paid).length;
   el.style.display = "block";
-  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2>📥 К оплате${unpaid ? ` (${unpaid})` : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи текущего месяца. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
-    `<div class="ww30-sec">Расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>📥 К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><button class="ww31-navm" onclick="ww316DueShift(-1)" title="Предыдущий месяц">◀</button><b style="font-size:12.5px;white-space:nowrap">${ww316DueLabel()}</b><button class="ww31-navm" onclick="ww316DueShift(1)" title="Следующий месяц">▶</button>${ww316DueYm ? '<button class="btn btn-ghost btn-sm" onclick="ww316DueReset()" style="margin-left:2px">Сегодня</button>' : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи за выбранный месяц. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
+    `<div class="ww30-sec">Регулярные расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
     (exp.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет регулярных расходов в этом месяце.</div>') +
     `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal()">+ Добавить расход</button></div></div><div class="ww31-col">` +
     `<div class="ww30-sec">Кредиты <span class="ww30-cnt">${cr.filter((d) => !d.paid).length}</span></div>` +
@@ -2834,7 +2882,7 @@ function renderDuePanel() {
 }
 function ww30Toggle(kind, id) {
   if (isObserver()) return;
-  const ym = todayStr().slice(0, 7);
+  const ym = ww316Ym();
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
   if (kind === "recur") {
@@ -2855,7 +2903,7 @@ function ww30Toggle(kind, id) {
     const c = S.credits.find((x) => x.id === id); if (!c) return;
     const key = c.id + ":" + ym;
     const rec = S.ww30Cr[key];
-    const p = currentPayment(c);
+    const p = ww316CrPay(c, ym);
     const full = +p.amount || 0;
     const postedC = rec ? +rec.paid || 0 : 0;
     if (full > 0 && postedC >= full) {
@@ -2877,7 +2925,7 @@ function ww32DoPay(kind, id, amount) {
   if (isObserver()) return;
   if (amount == null) return;
   if (amount <= 0) { toast("Сумма должна быть больше 0"); return; }
-  const ym = todayStr().slice(0, 7);
+  const ym = ww316Ym();
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
   if (kind === "recur") {
@@ -2887,7 +2935,7 @@ function ww32DoPay(kind, id, amount) {
     const full = +r.amount;
     const remaining = Math.max(0, full - posted);
     const pay = Math.min(amount, remaining);
-    const now = new Date(); const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dim = ww316DimOf(ym);
     const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
     const txId = uid();
     const fullNow = posted + pay >= full;
@@ -2900,7 +2948,7 @@ function ww32DoPay(kind, id, amount) {
     const c = S.credits.find((x) => x.id === id); if (!c) return;
     const key = c.id + ":" + ym;
     const rec = S.ww30Cr[key];
-    const p = currentPayment(c);
+    const p = ww316CrPay(c, ym);
     const full = +p.amount || 0;
     if (!full) { toast("У кредита не указан платёж/мес"); return; }
     const postedC = rec ? +rec.paid || 0 : 0;
@@ -2914,7 +2962,7 @@ function ww32DoPay(kind, id, amount) {
     base.payments = (base.payments || []).concat({ txId, amount: pay, principal });
     base.paid = (+base.paid || 0) + pay;
     S.ww30Cr[key] = base;
-    S.transactions.push({ id: txId, date: todayStr(), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
+    S.transactions.push({ id: txId, date: (ww316DueYm ? ym + "-" + String(Math.min(+c.payDay || 1, ww316DimOf(ym))).padStart(2, "0") : todayStr()), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
     c.balance = Math.max(0, Math.round(c.balance - principal));
     if (c.balanceFull) c.balanceFull = Math.max(c.balance, Math.round(c.balanceFull - pay));
     if (fullNow && c.balance === 0) c.status = "closed";
@@ -2925,7 +2973,7 @@ function ww32DoPay(kind, id, amount) {
 }
 function ww30SkipCr(id) {
   if (isObserver()) return;
-  S.skipped["cr" + id + ":" + todayStr().slice(0, 7)] = true;
+  S.skipped["cr" + id + ":" + ww316Ym()] = true;
   save(); renderDuePanel();
 }
 function ww32AskAmount(name, remaining, full, posted, onConfirm) {
@@ -3023,7 +3071,7 @@ function ww35TouchEnd(row) {
 }
 function ww32Reset(kind, id) {
   if (isObserver()) return;
-  const ym = todayStr().slice(0, 7);
+  const ym = ww316Ym();
   if (kind === "recur") {
     const key = id + ":" + ym;
     const ids = (S.ww30Tx && S.ww30Tx[key]) || [];
@@ -3072,7 +3120,7 @@ function postRecur(id, amountOverride) {
 }
 function skipRecur(id) {
   if (isObserver()) return;
-  S.skipped[id + ":" + todayStr().slice(0, 7)] = true;
+  S.skipped[id + ":" + ww316Ym()] = true;
   save(); renderDuePanel();
 }
 function postAllRecur() {
@@ -3184,12 +3232,12 @@ function ww2Restore(t) {
 const _save2 = save;
 save = function () { _save2(); ww2Snapshot(false); };
 let _undoTimer = null;
-function ww2UndoToast(msg, fn) {
+function ww2UndoToast(msg, fn, doneMsg) {
   const t = document.getElementById("toast"); if (!t) return;
   t.innerHTML = esc(msg) + ' <button id="ww-undo-btn" style="margin-left:10px;background:transparent;border:1px solid currentColor;border-radius:8px;color:inherit;padding:2px 10px;font:inherit;cursor:pointer">Отменить</button>';
   t.classList.add("show");
   clearTimeout(_undoTimer);
-  document.getElementById("ww-undo-btn").onclick = () => { clearTimeout(_undoTimer); t.classList.remove("show"); t.textContent = ""; fn(); toast("Восстановлено"); };
+  document.getElementById("ww-undo-btn").onclick = () => { clearTimeout(_undoTimer); t.classList.remove("show"); t.textContent = ""; fn(); toast(doneMsg || "Восстановлено"); };
   _undoTimer = setTimeout(() => { t.classList.remove("show"); }, 6000);
 }
 function delTx(id) {
@@ -3441,7 +3489,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.15";
+const WW_VERSION = "3.17";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4645,55 +4693,86 @@ function ww26ClearSel() {
   document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
 }
 let _ww26Drag = null;
+/* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
+   Короткое нажатие — прежний режим «источник → цель», скролл не блокируется. */
+function ww26StartGhost(st) {
+  const r = st.el.getBoundingClientRect();
+  const g = st.el.cloneNode(true);
+  g.classList.add("ww26-ghost");
+  g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:9999;pointer-events:none;transition:none`;
+  document.body.appendChild(g);
+  st.ghost = g;
+  st.el.classList.add("ww26-src");
+}
+function ww26Block(e) { if (_ww26Drag && _ww26Drag.armed) e.preventDefault(); }
+function ww26Cleanup(st) {
+  clearTimeout(st.timer);
+  document.removeEventListener("pointermove", ww26Move);
+  document.removeEventListener("pointerup", ww26Up);
+  document.removeEventListener("pointercancel", ww26Cancel);
+  document.removeEventListener("touchmove", ww26Block);
+  if (st.ghost) st.ghost.remove();
+  st.el.classList.remove("ww26-src");
+  if (st.armed || st.moved) document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
+}
 function ww26Down(e, kind, id) {
   if (isObserver()) return;
-  if (e.pointerType && e.pointerType !== "mouse") return;
-  e.preventDefault();
-  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, ghost: null };
+  const touch = e.pointerType && e.pointerType !== "mouse";
+  if (!touch) e.preventDefault();
+  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, touch, armed: !touch, timer: null };
+  if (touch) {
+    _ww26Drag.timer = setTimeout(function () {
+      const st = _ww26Drag;
+      if (!st || st.moved) return;
+      st.armed = true;
+      ww26ClearSel();
+      ww26StartGhost(st);
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch (err) {} }
+    }, 250);
+    document.addEventListener("touchmove", ww26Block, { passive: false });
+  }
   document.addEventListener("pointermove", ww26Move);
   document.addEventListener("pointerup", ww26Up);
-  document.addEventListener("pointercancel", ww26Up);
+  document.addEventListener("pointercancel", ww26Cancel);
 }
 function ww26Move(e) {
   const st = _ww26Drag;
   if (!st) return;
   const dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+  if (st.touch && !st.armed) {
+    if (Math.abs(dx) + Math.abs(dy) > 10) { const s = st; _ww26Drag = null; ww26Cleanup(s); }
+    return;
+  }
   if (!st.moved && Math.abs(dx) + Math.abs(dy) > 6) {
     st.moved = true;
-    /* полупрозрачный «призрак» поверх всего экрана — оригинал остаётся на месте */
-    const r = st.el.getBoundingClientRect();
-    const g = st.el.cloneNode(true);
-    g.classList.add("ww26-ghost");
-    g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:9999;pointer-events:none;transition:none`;
-    document.body.appendChild(g);
-    st.ghost = g;
-    st.el.classList.add("ww26-src");
+    if (!st.ghost) { ww26ClearSel(); ww26StartGhost(st); }
   }
   if (st.ghost) st.ghost.style.transform = `translate(${dx}px,${dy}px)`;
   const sel = st.kind === "acc" ? ".coin.cat" : ".coin.acc";
-  document.querySelectorAll(sel).forEach((c) => {
+  document.querySelectorAll(sel).forEach(function (c) {
     const r = c.getBoundingClientRect();
     const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     c.classList.toggle("drop-target", over);
   });
 }
-function ww26Up(e) {
-  document.removeEventListener("pointermove", ww26Move);
-  document.removeEventListener("pointerup", ww26Up);
-  document.removeEventListener("pointercancel", ww26Up);
-  if (!_ww26Drag) return;
+function ww26Cancel() {
   const st = _ww26Drag; _ww26Drag = null;
-  if (st.moved) { _ww26SkipClick = true; setTimeout(function () { _ww26SkipClick = false; }, 150); }
-  if (st.ghost) st.ghost.remove();
-  st.el.classList.remove("ww26-src");
-  document.querySelectorAll(".coin.drop-target").forEach((c) => c.classList.remove("drop-target"));
+  if (st) ww26Cleanup(st);
+}
+function ww26Up(e) {
+  const st = _ww26Drag; _ww26Drag = null;
+  if (!st) return;
+  const wasDrag = st.moved && st.armed;
+  ww26Cleanup(st);
+  if (!wasDrag) return; /* короткий тап — дальше отработает click (режим нажатий) */
+  _ww26SkipClick = true; setTimeout(function () { _ww26SkipClick = false; }, 150);
   const el = document.elementFromPoint(e.clientX, e.clientY);
   if (st.kind === "acc") {
     const catEl = el && el.closest(".coin.cat");
     if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat });
   } else {
     const accEl = el && el.closest(".coin.acc");
-    if (accEl && accEl !== st.el) { openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc }); return; }
+    if (accEl && accEl !== st.el) openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc });
   }
 }
 /* первый рендер новой панели после переопределения */
@@ -4944,5 +5023,6 @@ try {
 })();
 
 </script>
+<script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>
 </body>
 </html>
