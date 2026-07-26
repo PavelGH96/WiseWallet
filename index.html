@@ -217,6 +217,14 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
 .cal-ev.pay{background:var(--amber-bg);color:var(--amber)}
 .cal-ev.exp{background:var(--red-bg);color:var(--red)}
 .cal-ev.inc{background:var(--green-bg);color:var(--green)}
+/* ---- блокировка фона при открытом окне ввода ----
+   overflow:hidden одного only не хватает — iOS всё равно даёт «резиновый»
+   скролл и pinch-zoom фона под модалкой. position:fixed фиксирует страницу
+   целиком, touch-action:none добивает pinch-zoom и скролл жестами. Сама
+   модалка/диалог получает свой touch-action, чтобы прокрутка длинной формы
+   продолжала работать. */
+body.no-scroll{position:fixed;inset:0;overflow:hidden;touch-action:none;overscroll-behavior:none}
+body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior:contain}
 /* ---- собственные диалоги (замена системных alert/confirm/prompt) ----
    Отдельный слой над .overlay, чтобы подтверждение открывалось поверх уже
    открытой модалки (например «Удалить» внутри карточки кредита). */
@@ -596,12 +604,17 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 <main class="main">
   <!-- ================= DASHBOARD ================= -->
   <section class="page active" id="page-dashboard">
-    <div class="page-head"><div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
-      <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button></div>
+    <div class="page-head">
+      <div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
+      <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button>
+    </div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px">
+      <span class="ww319-per"><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий период">◀</button><button id="ww26-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период дашборда — управляет всем дашбордом">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий период">▶</button></span>
+    </div>
     <div id="dash-reminders" style="display:none"></div>
     <div id="ww318-hero"></div>
     <div class="section card coins-card" style="margin-top:0">
-      <h2><span class="ww319-per"><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="ww26-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий месяц">▶</button></span><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
+      <h2>Быстрый ввод<span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
       <div class="ww29-grid">
         <div class="ww29-col">
           <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
@@ -621,15 +634,15 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
         <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планирование</h2>
-        <span class="mnav" id="plan-mnav"></span>
+        <span class="sub" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
     </div>
     <div class="section grid grid-2">
-      <div class="card"><h2>Ближайшие платежи</h2><div id="dash-upcoming"></div></div>
-      <div class="card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Расходы по категориям<span class="chips" id="dash-cat-toggle" style="margin:0"><button class="chip active" onclick="setDashCatMode('fact',this)">Этот месяц</button><button class="chip" onclick="setDashCatMode('plan',this)">План на след.</button></span></h2><canvas id="dash-donut" height="200" style="max-width:100%"></canvas><div id="dash-cats"></div></div>
+      <div class="card"><h2 id="dash-upcoming-h2">Платежи в периоде</h2><div id="dash-upcoming"></div></div>
+      <div class="card"><h2 id="dash-cats-h2">Расходы по категориям</h2><canvas id="dash-donut" height="200" style="max-width:100%"></canvas><div id="dash-cats"></div></div>
     </div>
-    <div class="section card"><h2>Последние операции</h2><div id="dash-recent"></div></div>
+    <div class="section card"><h2 id="dash-recent-h2">Последние операции</h2><div id="dash-recent"></div></div>
   </section>
 
   <!-- ================= OPERATIONS ================= -->
@@ -1110,92 +1123,152 @@ function renderReminders() {
 }
 
 /* ===================== dashboard ===================== */
+function ymdToUTC(s) { const p = s.split("-").map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
+function daysBetween(a, b) { return Math.round((ymdToUTC(a) - ymdToUTC(b)) / 86400000); }
+function addDaysStr(s, n) { const d = new Date(ymdToUTC(s)); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+/* Человеко-читаемая фраза для периода дашборда — «в июле», «на этой неделе» и т.п. */
+function periodPhrase(p) {
+  const now = new Date();
+  if (p.type === "week") return "на этой неделе";
+  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " квартале";
+  if (p.type === "half") return now.getMonth() < 6 ? "в первом полугодии" : "во втором полугодии";
+  if (p.type === "year") return "в " + now.getFullYear() + " году";
+  if (p.type === "all") return "за всё время";
+  if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? "за " + ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "за период"; }
+  const PRE = ["январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"];
+  const _a = ww31MonthAnchor(p); return "в " + PRE[_a.m] + (_a.sameYear ? "" : " " + _a.y);
+}
+/* Кредитные и регулярные платежи, чья дата попадает в [from, to] (обе строки YYYY-MM-DD).
+   Используется и для «Платежей в периоде», и как источник для дефолтных «ближайших 30 дней». */
+function paymentsInRange(from, to) {
+  const list = []; const today = todayStr();
+  let ym = from.slice(0, 7); const toYm = to.slice(0, 7); let guard = 0;
+  while (ym <= toYm && guard < 240) {
+    guard++;
+    const [y, m] = ym.split("-").map(Number); const dim = new Date(y, m, 0).getDate();
+    for (const c of S.credits.filter((c) => c.status === "active" && c.payDay)) {
+      if (c.start && c.start.slice(0, 7) > ym) continue; // кредита ещё не существовало
+      const d = ym + "-" + String(Math.min(c.payDay, dim)).padStart(2, "0");
+      if (d < from || d > to) continue;
+      const grace = !!(c.graceFrom && c.graceTo && d >= c.graceFrom && d <= c.graceTo);
+      const amount = grace ? +c.gracePayment || 0 : +c.payment || 0;
+      const paid = S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym);
+      list.push({ date: d, name: c.name, amount, who: c.who, kind: "credit", grace, overdue: d < today && !paid });
+    }
+    for (const r of S.recurring) {
+      const d = ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0");
+      if (d < from || d > to) continue;
+      list.push({ date: d, name: r.name, amount: +r.amount, who: r.who, kind: r.type === "income" ? "recur-inc" : "recur-exp" });
+    }
+    ym = ymShift(ym, 1);
+  }
+  list.sort((a, b) => a.date.localeCompare(b.date));
+  return list;
+}
 function renderDash() {
   renderReminders();
-  const now = new Date(); const ym = now.toISOString().slice(0, 7);
+  const now = new Date();
   document.getElementById("dash-date").textContent = now.getDate() + " " + MONTHS_GEN[now.getMonth()] + " " + now.getFullYear() + " · " + ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"][now.getDay()];
-  const tx = monthTx(ym);
+
+  // ---- единый период дашборда (тот же выбор, что и в «Быстром вводе») ----
+  // Модуль ww26 (сам переключатель периода) определён ниже по файлу и на самом
+  // первом вызове renderDash() при загрузке ещё не готов — подстраховываемся
+  // разумным «месяц по умолчанию», а как только ww26 подключится, следующий
+  // renderDash() (после полной загрузки) отрисует уже полноценно.
+  const ww26Ready = typeof ww26Period === "function";
+  const period = ww26Ready ? ww26Period() : { type: "month" };
+  const range = ww26Ready ? ww26RangeFor(period) : { from: todayStr().slice(0, 8) + "01", to: todayStr() };
+  const today = todayStr();
+  const isMonthPeriod = !period.type || period.type === "month";
+  const phrase = ww26Ready ? periodPhrase(period) : "";
+  const tx = ww26Ready ? S.transactions.filter((t) => ww26In(t.date)) : monthTx(today.slice(0, 7));
   const inc = tx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
   const exp = tx.filter((t) => t.type === "expense").reduce((s, t) => s + +t.amount, 0);
   const debt = S.credits.filter((c) => c.status === "active").reduce((s, c) => s + +c.balance, 0);
   const plan = planExpenseMonth();
   const bal = balance();
   const capital = bal - debt;
-  const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayFrac = now.getDate() / dim;
-  const expectedByNow = plan * dayFrac;
-  const projected = dayFrac ? exp / dayFrac : 0;
-  const paceOver = exp > expectedByNow * 1.05;
-  const prevYm = ymShift(ym, -1);
-  const prevTx = monthTx(prevYm);
-  const prevInc = prevTx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
-  const paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстрее плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
-  const planInc = planIncomeMonth();
-  const incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
+
+  // Темп трат/сравнение с пред. месяцем считаем только когда период — «месяц»:
+  // для недели/квартала/года это сравнение потеряло бы смысл.
+  let incHint = "факт", paceTxt = `план на месяц: ${money(plan)}`, paceOver = false;
+  if (isMonthPeriod) {
+    const ym = (range.from || today).slice(0, 7);
+    const dim = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+    const dayFrac = ym === today.slice(0, 7) ? now.getDate() / dim : 1;
+    const expectedByNow = plan * dayFrac;
+    const projected = dayFrac ? exp / dayFrac : 0;
+    paceOver = exp > expectedByNow * 1.05;
+    const prevTx = monthTx(ymShift(ym, -1));
+    const prevInc = prevTx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
+    const planInc = planIncomeMonth();
+    incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
+    paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстрее плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
+  }
   const _stat = {
-    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
-    income: `<div class="card stat" data-sid="income"><div class="lbl">Доход за ${MONTHS[now.getMonth()]}</div><div class="val pos">+${money(inc)}</div><div class="hint">${incHint}</div></div>`,
-    expense: `<div class="card stat" data-sid="expense"><div class="lbl">Расход за ${MONTHS[now.getMonth()]}</div><div class="val neg">−${money(exp)}</div><div class="hint ${exp && paceOver ? "warn" : ""}">${paceTxt}</div></div>`,
-    debt: `<div class="card stat" data-sid="debt"><div class="lbl">Долг по кредитам</div><div class="val warn">${money(debt)}</div><div class="hint">${S.credits.filter((c) => c.status === "active").length} активных</div></div>`,
+    capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги, на сегодня</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
+    income: `<div class="card stat" data-sid="income"><div class="lbl">Доход${isMonthPeriod ? "" : " " + phrase}</div><div class="val pos">+${money(inc)}</div><div class="hint">${incHint}</div></div>`,
+    expense: `<div class="card stat" data-sid="expense"><div class="lbl">Расход${isMonthPeriod ? "" : " " + phrase}</div><div class="val neg">−${money(exp)}</div><div class="hint ${exp && paceOver ? "warn" : ""}">${paceTxt}</div></div>`,
+    debt: `<div class="card stat" data-sid="debt"><div class="lbl">Долг по кредитам</div><div class="val warn">${money(debt)}</div><div class="hint">${S.credits.filter((c) => c.status === "active").length} активных, на сегодня</div></div>`,
   };
   const _statOrder = (S.settings.statOrder && S.settings.statOrder.length ? S.settings.statOrder : ["capital", "income", "expense", "debt"]).filter((k) => _stat[k]);
   ["capital", "income", "expense", "debt"].forEach((k) => { if (!_statOrder.includes(k)) _statOrder.push(k); });
   document.getElementById("dash-stats").innerHTML = _statOrder.map((k) => _stat[k]).join("");
   renderCoins();
-  // upcoming payments (30 days): кредиты + регулярные платежи и доходы
-  const ups = [];
-  const horizon = new Date(now); horizon.setDate(horizon.getDate() + 30);
-  for (const c of S.credits.filter((c) => c.status === "active")) {
-    const d = nextPayDate(c); if (!d || d > horizon) continue;
-    const p = currentPayment(c);
-    ups.push({ date: d, name: c.name, amount: p.amount, grace: p.grace, who: c.who, kind: "credit", overdue: !p.grace && isOverdue(c) });
-  }
-  for (const r of S.recurring) {
-    let d = new Date(now.getFullYear(), now.getMonth(), Math.min(r.day, dim));
-    if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = nextMonthDate(d, r.day);
-    if (d > horizon) continue;
-    ups.push({ date: d, name: r.name, amount: r.amount, who: r.who, kind: r.type === "income" ? "recur-inc" : "recur-exp" });
-  }
-  ups.sort((a, b) => a.date - b.date);
-  const dayMs = 86400000;
+  renderPlanStats();
+
+  // ---- платежи в периоде (для «весь период» — ближайшие 30 дней, иначе бессмысленно) ----
+  const upH2 = document.getElementById("dash-upcoming-h2");
+  if (upH2) upH2.textContent = period.type === "all" ? "Ближайшие платежи" : "Платежи " + phrase;
+  const upFrom = (period.type === "all" || !range.from) ? today : range.from;
+  const upTo = (period.type === "all" || !range.to) ? addDaysStr(today, 30) : range.to;
+  const ups = paymentsInRange(upFrom, upTo);
   document.getElementById("dash-upcoming").innerHTML = ups.length ? ups.map((u) => {
-    const days = Math.ceil((u.date - now) / dayMs);
-    const soon = days <= 5;
+    const days = daysBetween(u.date, today);
+    const soon = days >= 0 && days <= 5;
     const icon = u.kind === "credit" ? WWI.bank : u.kind === "recur-inc" ? WWI.wallet : WWI.pin;
     const whoTag = u.who ? WHO_ICON[u.who] + " " : "";
     const flag = u.overdue ? ' <span class="badge amber">просрочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
     const amt = u.kind === "recur-inc" ? `<span class="pos">+${money(u.amount)}</span>` : money(u.amount);
-    return `<div class="row"><div class="ic">${icon}</div><div class="rmain"><div class="rt">${whoTag}${esc(u.name)}${flag}</div><div class="rs ${soon && u.kind !== "recur-inc" ? "warn" : ""}">${u.date.getDate()} ${MONTHS_GEN[u.date.getMonth()]}${soon ? " · через " + (days <= 0 ? "сегодня" : days + " дн.").replace("через сегодня","сегодня") : ""}</div></div><div class="ramt">${amt}</div></div>`;
-  }).join("") : '<div class="empty"><div class="big">' + WWI.check + '</div>Ближайших платежей нет</div>';
-  // categories of month (факт) или план на следующий месяц
-  let catRows, catTotal, donutLabel, isPlanCats = false;
-  if (dashCatMode === "plan") {
-    isPlanCats = true;
+    const [yy, mm, dd] = u.date.split("-").map(Number);
+    const whenTxt = days === 0 ? "сегодня" : days === 1 ? "завтра" : days > 1 ? "через " + days + " дн." : "";
+    return `<div class="row"><div class="ic">${icon}</div><div class="rmain"><div class="rt">${whoTag}${esc(u.name)}${flag}</div><div class="rs ${soon && u.kind !== "recur-inc" ? "warn" : ""}">${dd} ${MONTHS_GEN[mm - 1]}${whenTxt ? " · " + whenTxt : ""}</div></div><div class="ramt">${amt}</div></div>`;
+  }).join("") : '<div class="empty"><div class="big">' + WWI.check + '</div>Платежей в этом периоде нет</div>';
+
+  // ---- расходы по категориям: факт за период, а для периода целиком в будущем — план ----
+  const catH2 = document.getElementById("dash-cats-h2");
+  if (catH2) catH2.textContent = "Расходы" + (period.type === "all" ? "" : " " + phrase);
+  const isFuturePeriod = !!(range.from && range.from > today);
+  let catRows, catTotal, donutLabel;
+  if (isFuturePeriod) {
     const byCatPlan = {};
     S.recurring.filter((r) => r.type === "expense").forEach((r) => { byCatPlan[r.categoryId] = (byCatPlan[r.categoryId] || 0) + +r.amount; });
     for (const c of S.credits.filter((c) => c.status === "active")) { byCatPlan["c_credit"] = (byCatPlan["c_credit"] || 0) + currentPayment(c).amount; }
     catRows = Object.entries(byCatPlan).sort((a, b) => b[1] - a[1]).slice(0, 6);
     catTotal = catRows.reduce((s, [, v]) => s + v, 0);
-    donutLabel = "план на " + MONTHS_GEN[(now.getMonth() + 1) % 12];
+    donutLabel = "план · " + phrase;
   } else {
     const byCat = {};
     tx.filter((t) => t.type === "expense").forEach((t) => { byCat[t.categoryId] = (byCat[t.categoryId] || 0) + +t.amount; });
     catRows = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 6);
     catTotal = exp;
-    donutLabel = "расходы " + MONTHS_GEN[now.getMonth()];
+    donutLabel = phrase;
   }
   drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => { const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" }); return [c.name, sum, c.icon]; }), catTotal, donutLabel);
   document.getElementById("dash-cats").innerHTML = catRows.length ? catRows.map(([cid, sum]) => {
     const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" });
     const pct = catTotal ? Math.round((sum / catTotal) * 100) : 0;
-    const prevSum = isPlanCats ? 0 : catSpentMonth(cid, prevYm);
+    const prevSum = (!isFuturePeriod && isMonthPeriod) ? catSpentMonth(cid, ymShift((range.from || today).slice(0, 7), -1)) : 0;
     const dl = prevSum ? Math.round((sum - prevSum) / prevSum * 100) : null;
     const dlTxt = dl === null ? "" : ` <span class="sub">${dl > 0 ? "↑" : dl < 0 ? "↓" : "="}${Math.abs(dl)}%</span>`;
     return `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
-  }).join("") : (isPlanCats ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>В этом месяце расходов ещё нет.<br>Добавьте первую операцию кнопкой «+»</div>');
-  // recent
-  const recent = [...S.transactions].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
-  document.getElementById("dash-recent").innerHTML = recent.length ? recent.map(txRow).join("") : '<div class="empty"><div class="big">👋</div>Операций пока нет — начните с кнопки «+ Операция»</div>';
+  }).join("") : (isFuturePeriod ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>Расходов в этом периоде ещё нет.<br>Добавьте операцию кнопкой «+»</div>');
+
+  // ---- операции за период ----
+  const recH2 = document.getElementById("dash-recent-h2");
+  if (recH2) recH2.textContent = period.type === "all" ? "Последние операции" : "Операции " + phrase;
+  const recent = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+  document.getElementById("dash-recent").innerHTML = recent.length ? recent.map(txRow).join("") : '<div class="empty"><div class="big">👋</div>Операций в этом периоде нет</div>';
 }
 function txRow(t) {
   const c = cat(t.categoryId) || { icon: t.type === "income" ? "💵" : "📌", name: "Без категории" };
@@ -1958,7 +2031,28 @@ async function syncNow(manual) {
 }
 
 /* ===================== modals ===================== */
-function closeModal() { const ov = document.getElementById("overlay"); ov.classList.remove("open"); ov.classList.remove("center"); }
+/* ---- блокировка скролла/зума фона на время открытого окна ----
+   Счётчик, а не просто toggle: диалог подтверждения может открыться поверх
+   уже открытой модалки (например «Удалить» изнутри карточки кредита) —
+   фон должен остаться заблокированным, пока не закроются оба. */
+let _wwLockCount = 0, _wwScrollY = 0;
+function wwScrollLock() {
+  if (_wwLockCount === 0) {
+    _wwScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = -_wwScrollY + "px";
+    document.body.classList.add("no-scroll");
+  }
+  _wwLockCount++;
+}
+function wwScrollUnlock() {
+  _wwLockCount = Math.max(0, _wwLockCount - 1);
+  if (_wwLockCount === 0) {
+    document.body.classList.remove("no-scroll");
+    document.body.style.top = "";
+    window.scrollTo(0, _wwScrollY);
+  }
+}
+function closeModal() { const ov = document.getElementById("overlay"); const wasOpen = ov.classList.contains("open"); ov.classList.remove("open"); ov.classList.remove("center"); if (wasOpen) wwScrollUnlock(); }
 /* Фокус в поле сразу после открытия модалки.
    На iOS программный focus() открывает клавиатуру только если он вызван внутри
    стека обработчика нажатия. setTimeout из этого стека выходит — поле выглядит
@@ -1975,7 +2069,7 @@ function wwFocus(id, select) {
   if (go()) return;
   requestAnimationFrame(() => { if (!go()) setTimeout(go, 60); });
 }
-function showModal(html, opts) { document.getElementById("modal").innerHTML = html; const ov = document.getElementById("overlay"); ov.classList.toggle("center", !!(opts && opts.center)); ov.classList.add("open"); }
+function showModal(html, opts) { document.getElementById("modal").innerHTML = html; const ov = document.getElementById("overlay"); const wasOpen = ov.classList.contains("open"); ov.classList.toggle("center", !!(opts && opts.center)); ov.classList.add("open"); if (!wasOpen) wwScrollLock(); }
 
 /* ===================== собственные диалоги (вместо alert/confirm/prompt) =====================
    Возвращают Promise, поэтому вызывающий код должен быть async + await.
@@ -1995,6 +2089,7 @@ function _dlgEl() {
 }
 function _dlgClose(val) {
   _dlgEl().classList.remove("open");
+  wwScrollUnlock();
   const r = _dlgResolve; _dlgResolve = null;
   if (_dlgPrevFocus && _dlgPrevFocus.focus) { try { _dlgPrevFocus.focus(); } catch (e) {} }
   _dlgPrevFocus = null;
@@ -2005,6 +2100,7 @@ function _dlgOpen(html, onReady) {
   _dlgPrevFocus = document.activeElement;
   document.getElementById("ww-dlg").innerHTML = html;
   ov.classList.add("open");
+  wwScrollLock();
   // Синхронно — иначе на iOS не откроется клавиатура (см. wwFocus)
   if (onReady) { try { onReady(); } catch (e) {} }
   return new Promise((res) => { _dlgResolve = res; });
@@ -2275,12 +2371,8 @@ function ww319CalSheet() {
   const ym = calCur.getFullYear() + "-" + String(calCur.getMonth() + 1).padStart(2, "0");
   ww319MonthSheet("Месяц календаря", ym, (v) => { calCur = new Date(+v.slice(0, 4), +v.slice(5, 7) - 1, 1); renderCal(); });
 }
-function ww319DueSheet() {
-  ww319MonthSheet("Месяц платежей", ww316Ym(), (ym) => {
-    ww316DueYm = ym === todayStr().slice(0, 7) ? null : ym;
-    renderDuePanel();
-  });
-}
+/* ww319DueSheet удалена: у блока «К оплате» больше нет своего выбора месяца —
+   он всегда следует общему переключателю периода вверху дашборда. */
 function ww319Sync() {
   const pb = document.getElementById("ops-period-btn");
   if (pb) {
@@ -2584,19 +2676,9 @@ function delGoal(id) { if (isObserver()) return; const g = S.goals.find((x) => x
 
 /* ===================== planner (kanban, как в CRM) ===================== */
 let taskWho = "all";
-let dashCatMode = "fact";
-function setDashCatMode(m, btn) {
-  dashCatMode = m;
-  document.querySelectorAll("#dash-cat-toggle button").forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  renderDash();
-}
 let budgetYm = todayStr().slice(0, 7);
 function shiftBudgetMonth(delta) { budgetYm = ymShift(budgetYm, delta); renderBudgets(); }
 function resetBudgetMonth() { budgetYm = todayStr().slice(0, 7); renderBudgets(); }
-let planYm = todayStr().slice(0, 7);
-function shiftPlanMonth(delta) { planYm = ymShift(planYm, delta); renderPlanStats(); }
-function resetPlanMonth() { planYm = todayStr().slice(0, 7); renderPlanStats(); }
 /* ---- будущий месяц целиком по плану (регулярные платежи + кредиты, с учётом льготных периодов) ---- */
 function monthPlanFull(ym) {
   const income = planIncomeMonth();
@@ -2613,7 +2695,9 @@ function monthRemaining(ym) {
   if (ym < nowYm) return { income: 0, expense: 0 };
   if (ym > nowYm) return monthPlanFull(ym);
   let income = 0, expense = 0;
-  duePostings().forEach((d) => { const r = Math.max(0, +d.r.amount - d.posted); if (d.r.type === "income") income += r; else expense += r; });
+  if (typeof duePostings === "function") {
+    duePostings().forEach((d) => { const r = Math.max(0, +d.r.amount - d.posted); if (d.r.type === "income") income += r; else expense += r; });
+  }
   for (const c of S.credits.filter((c) => c.status === "active")) {
     const paid = S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym);
     if (!paid) expense += currentPayment(c).amount;
@@ -2639,11 +2723,12 @@ function projectedBalanceEnd(ym) {
 }
 function renderPlanStats() {
   const el = document.getElementById("plan-stats"); if (!el) return;
+  const planYm = (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7);
   const nowYm = todayStr().slice(0, 7);
   const isCur = planYm === nowYm;
   const [py, pm] = planYm.split("-").map(Number);
   const mnav = document.getElementById("plan-mnav");
-  if (mnav) mnav.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="shiftPlanMonth(-1)" title="Пред. месяц">←</button><b style="margin:0 6px">${MONTHS[pm - 1]} ${py}</b><button class="btn btn-ghost btn-sm" onclick="shiftPlanMonth(1)" title="След. месяц">→</button>${!isCur ? '<button class="btn btn-ghost btn-sm" onclick="resetPlanMonth()" style="margin-left:6px">Сегодня</button>' : ""}`;
+  if (mnav) mnav.textContent = `${MONTHS[pm - 1]} ${py}${isCur ? "" : " (по выбранному периоду)"}`;
   const fig = monthDisplayFigures(planYm);
   const need = fig.expense;
   const haveNow = balance();
@@ -3333,12 +3418,10 @@ function duePostings() {
     .filter((d) => d.posted < +d.r.amount);
 }
 /* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
-/* v3.16: выбор месяца в блоке «К оплате» */
-let ww316DueYm = null;
-function ww316Ym() { return ww316DueYm || todayStr().slice(0, 7); }
+/* v3.16→доработка: месяц «К оплате» и «Свободных денег» больше не выбирается отдельно —
+   он всегда следует общему переключателю периода вверху дашборда (periodAnchorYm). */
+function ww316Ym() { return (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7); }
 function ww316DimOf(ym) { return new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(); }
-function ww316DueShift(dir) { const next = ymShift(ww316Ym(), dir); ww316DueYm = next === todayStr().slice(0, 7) ? null : next; renderDuePanel(); }
-function ww316DueReset() { ww316DueYm = null; renderDuePanel(); }
 function ww316DueLabel() {
   const ym = ww316Ym(); const cur = todayStr().slice(0, 7);
   if (ym === cur) return "Текущий месяц";
@@ -3408,7 +3491,7 @@ function renderDuePanel() {
   const { exp, cr } = ww30Data();
   const unpaid = exp.filter((d) => !d.paid).length + cr.filter((d) => !d.paid).length;
   el.style.display = "block";
-  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>${WWI.inbox} К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><span class="ww319-per"><button class="ww31-navm" onclick="ww316DueShift(-1)" title="Предыдущий месяц">◀</button><button class="ww319-pill" onclick="ww319DueSheet()" title="Выбрать месяц">${ww316DueLabel().toUpperCase()} ▾</button><button class="ww31-navm" onclick="ww316DueShift(1)" title="Следующий месяц">▶</button></span>${ww316DueYm ? '<button class="btn btn-ghost btn-sm" onclick="ww316DueReset()" style="margin-left:2px">Сегодня</button>' : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи за выбранный месяц. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>${WWI.inbox} К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><span class="sub" style="font-weight:700;text-transform:uppercase;font-size:11.5px;letter-spacing:.04em">${ww316DueLabel().toUpperCase()}</span></h2><div class="sub" style="margin:2px 0 6px">Платежи за месяц, выбранный переключателем периода вверху дашборда. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
     `<div class="ww30-sec">Регулярные расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
     (exp.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет регулярных расходов в этом месяце.</div>') +
     `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal()">+ Добавить расход</button></div></div><div class="ww31-col">` +
@@ -3498,7 +3581,7 @@ function ww32DoPay(kind, id, amount) {
     base.payments = (base.payments || []).concat({ txId, amount: pay, principal });
     base.paid = (+base.paid || 0) + pay;
     S.ww30Cr[key] = base;
-    S.transactions.push({ id: txId, date: (ww316DueYm ? ym + "-" + String(Math.min(+c.payDay || 1, ww316DimOf(ym))).padStart(2, "0") : todayStr()), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
+    S.transactions.push({ id: txId, date: (ym !== todayStr().slice(0, 7) ? ym + "-" + String(Math.min(+c.payDay || 1, ww316DimOf(ym))).padStart(2, "0") : todayStr()), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
     c.balance = Math.max(0, Math.round(c.balance - principal));
     if (c.balanceFull) c.balanceFull = Math.max(c.balance, Math.round(c.balanceFull - pay));
     if (fullNow && c.balance === 0) c.status = "closed";
@@ -3671,7 +3754,7 @@ async function postAllRecur() {
   for (const d of duePostings()) await postRecur(d.r.id, Math.max(0, +d.r.amount - d.posted));
 }
 const _renderDash2 = renderDash;
-renderDash = function () { _renderDash2(); renderDuePanel(); renderPlanStats(); };
+renderDash = function () { _renderDash2(); renderDuePanel(); };
 
 /* ===================== 5. График погашения кредита + досрочное ===================== */
 function ww36AnnuityPayment(balance, mr, n) {
@@ -4927,7 +5010,7 @@ if (activePage() === "dashboard") renderDash();
 /* Период учёта (как в Monefy): неделя/месяц/квартал/полгода/год/весь период/произвольный */
 const WW26_KEY = "ww26_period_v1";
 function ww26Period() { try { return JSON.parse(localStorage.getItem(WW26_KEY)) || { type: "month" }; } catch (e) { return { type: "month" }; } }
-function ww26SetPeriod(p) { localStorage.setItem(WW26_KEY, JSON.stringify(p)); closeModal(); renderCoins(); }
+function ww26SetPeriod(p) { localStorage.setItem(WW26_KEY, JSON.stringify(p)); closeModal(); if (activePage() === "dashboard") render("dashboard"); else renderCoins(); }
 /* ===== v3.15: навигация по месяцам, PDF-отчёт, калькулятор досрочного погашения ===== */
 function ww31MonthAnchor(p) {
   const now = new Date();
@@ -5048,6 +5131,14 @@ function ww26RangeFor(p) {
   return { from: from ? ww26Iso(from) : null, to: to ? ww26Iso(to) : null };
 }
 function ww26Fmt(iso) { const p = iso.split("-").map(Number); return p[2] + " " + MONTHS_GEN[p[1] - 1]; }
+/* Месяц, к которому привязан текущий период дашборда. «Финансовое планирование»
+   устроено помесячно (шаги вперёд/назад, льготные периоды по датам) — для
+   недели/квартала и т.п. берём месяц, в который попадает начало периода. */
+function periodAnchorYm() {
+  if (typeof ww26Period !== "function") return todayStr().slice(0, 7);
+  const r = ww26RangeFor(ww26Period());
+  return (r.from || todayStr()).slice(0, 7);
+}
 function ww26RangeTxt(p) { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) + " " + r.to.slice(0, 4) : "все операции без ограничений"; }
 function ww26Label() {
   const p = ww26Period(); const now = new Date();
