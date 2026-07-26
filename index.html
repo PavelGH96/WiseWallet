@@ -18,6 +18,12 @@
 <style>
 /* ===== Шрифты и темы перенесены из CRM WiseBase ===== */
 :root{
+  /* Семантическая шкала слоёв. Используйте токены вместо чисел: перекрытия
+     тогда чинятся осмысленно, а не наращиванием 999 → 9999. */
+  --z-grip:4; --z-drag:6; --z-nav:50; --z-fab:60; --z-bottom-nav:70;
+  --z-drag-float:80; --z-dropdown:90; --z-overlay:100; --z-dialog:150;
+  --z-toast:200; --z-hint:250; --z-net:300; --z-drag-ghost:350;
+  --z-lock:400; --z-splash:500;
   --bg:#f7f7f5; --card:#ffffff; --border:#e8e8e4; --border-h:#c8c8c0;
   --text:#1a1a18; --t2:#595953; --t3:#8a8a82;
   --accent:#1a1a18; --accent-h:#333330; --accent-fg:#ffffff;
@@ -52,7 +58,7 @@ button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;backgrou
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .app{display:flex;min-height:100vh}
 /* ---- rail nav (desktop) ---- */
-.rail{position:fixed;left:0;top:0;bottom:0;width:230px;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:stretch;padding:20px 14px;gap:2px;z-index:50;overflow-y:auto}
+.rail{position:fixed;left:0;top:0;bottom:0;width:230px;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:stretch;padding:20px 14px;gap:2px;z-index:var(--z-nav);overflow-y:auto}
 .rail .logo{display:flex;align-items:center;gap:10px;padding:4px 8px;font-family:var(--font-d);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--text);margin-bottom:18px;flex-shrink:0}
 .rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#0055d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(0,113,227,.35);flex-shrink:0}
 .rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s}
@@ -92,10 +98,10 @@ h2{font-family:var(--font-d);font-size:17px;font-weight:600;letter-spacing:-.014
 .section{margin-top:24px}
 body.sorting,body.sorting *{-webkit-user-select:none!important;user-select:none!important}
 body.sorting{cursor:grabbing}
-.dragging{opacity:.35;transform:scale(.97);cursor:grabbing;position:relative;z-index:6}
+.dragging{opacity:.35;transform:scale(.97);cursor:grabbing;position:relative;z-index:var(--z-drag)}
 .rail-item.dragging{opacity:.35;transform:scale(.97)}
 .wg-sortable{position:relative;padding-left:30px!important;transition:transform .16s cubic-bezier(.22,1,.36,1),box-shadow .16s,opacity .16s}
-.wg-grip{position:absolute;left:4px;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;color:var(--t3);cursor:grab;opacity:.45;transition:opacity .15s,color .15s;touch-action:none;z-index:4}
+.wg-grip{position:absolute;left:4px;top:0;bottom:0;width:22px;display:flex;align-items:center;justify-content:center;color:var(--t3);cursor:grab;opacity:.45;transition:opacity .15s,color .15s;touch-action:none;z-index:var(--z-grip)}
 .wg-sortable:hover .wg-grip{opacity:.9}
 .wg-grip:hover{color:var(--accent);opacity:1}
 .wg-grip:active{cursor:grabbing}
@@ -110,6 +116,65 @@ body.sorting{cursor:grabbing}
 [data-sid]{scroll-margin:80px}
 /* ---- lists ---- */
 .row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border)}
+/* ---- системные SVG-иконки ---- */
+.wwi{width:1em;height:1em;display:inline-block;vertical-align:-.14em;flex-shrink:0}
+.empty .big .wwi{width:1em;height:1em;vertical-align:-.06em;opacity:.75}
+.btn .wwi,.chip .wwi{margin-right:.15em}
+/* Жёлтая точка льготного периода — вместо эмодзи 🟡 */
+.dot-grace{display:inline-block;width:.62em;height:.62em;border-radius:50%;background:var(--amber);vertical-align:.02em;margin-left:.25em}
+/* ---- цели нажатия на сенсорных экранах ----
+   Рекомендованный минимум для пальца — 44px. На мыши это лишний воздух,
+   поэтому правила включаются только при грубом указателе (палец, стилус). */
+@media (pointer: coarse){
+  .btn{min-height:44px;padding:11px 18px}
+  .btn-sm{min-height:40px;padding:8px 14px;font-size:13.5px}
+  .x{width:40px;height:40px;font-size:16px}
+  .chip{min-height:40px;padding:9px 16px}
+  .seg button{min-height:44px}
+  .row{padding:13px 6px}
+  .kb-add{padding:12px 10px}
+  /* 16px в полях — иначе iOS зумит страницу при фокусе */
+  .fg input,.fg select,.fg textarea{min-height:46px;font-size:16px}
+  /* Мелкие круглые кнопки и чекбоксы дотягиваем зоной нажатия, не раздувая вид */
+  .x,.task-check{position:relative}
+  .x::after,.task-check::after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px}
+}
+/* ---- скелетоны и индикатор синхронизации ---- */
+.skel{position:relative;overflow:hidden;color:transparent!important}
+.skel *{opacity:0!important}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--fill) 25%,var(--fill-h) 37%,var(--fill) 63%);background-size:400% 100%;animation:skelShine 1.3s ease-in-out infinite;border-radius:var(--radius-s)}
+@keyframes skelShine{0%{background-position:100% 50%}100%{background-position:0 50%}}
+#ww-syncing{position:fixed;left:50%;transform:translateX(-50%) translateY(-8px);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:var(--z-hint);display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);color:var(--t2);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;box-shadow:var(--sh-s);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+#ww-syncing.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ww-sync-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);animation:wwSyncPulse 1s ease-in-out infinite}
+@keyframes wwSyncPulse{0%,100%{opacity:.35}50%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.skel::after,.ww-sync-dot{animation:none}#ww-syncing{transition:none}}
+/* ---- сворачиваемые разделы настроек ----
+   Карточек здесь уже около десяти; свёрнутые заголовки дают обзор целиком,
+   а состояние каждого раздела запоминается между визитами. */
+#page-settings .card h2.set-h{cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:0;user-select:none}
+#page-settings .card:not(.collapsed) h2.set-h{margin-bottom:12px}
+#page-settings .set-caret{color:var(--t3);font-size:13px;transition:transform .18s ease;flex-shrink:0}
+#page-settings .card.collapsed .set-caret{transform:rotate(-90deg)}
+#page-settings .card.collapsed .set-body{display:none}
+#page-settings .card.collapsed{align-self:start}
+@media(prefers-reduced-motion:reduce){#page-settings .set-caret{transition:none}}
+/* ---- видимый фокус с клавиатуры ----
+   :focus-visible срабатывает только при навигации с клавиатуры: клик мышью
+   и тап пальцем рамку не оставляют, Tab — оставляет. */
+:where(button,a,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--blue);
+  outline-offset:2px;
+  border-radius:var(--radius-s);
+}
+.btn:focus-visible,.chip:focus-visible,.x:focus-visible{outline-offset:3px}
+.rail-item:focus-visible,.bn-item:focus-visible{outline-offset:-2px}
+.fab:focus-visible{outline-offset:4px}
+/* У карточек-строк кольцо внутрь читается лучше, чем наружу */
+.kbd-nav:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* На тёмных темах синее кольцо сливается с фоном — берём светлее */
+body[data-theme="t10"] :where(button,a,input,select,textarea,[tabindex]):focus-visible,
+body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-visible{outline-color:#7cc0ff}
 .row:last-child{border-bottom:none}
 .row .ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:var(--bg)}
 .row .rmain{flex:1;min-width:0}
@@ -152,8 +217,26 @@ body.sorting{cursor:grabbing}
 .cal-ev.pay{background:var(--amber-bg);color:var(--amber)}
 .cal-ev.exp{background:var(--red-bg);color:var(--red)}
 .cal-ev.inc{background:var(--green-bg);color:var(--green)}
+/* ---- собственные диалоги (замена системных alert/confirm/prompt) ----
+   Отдельный слой над .overlay, чтобы подтверждение открывалось поверх уже
+   открытой модалки (например «Удалить» внутри карточки кредита). */
+.dlg-ov{position:fixed;inset:0;background:rgba(0,0,0,.42);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:var(--z-dialog);display:none;align-items:flex-end;justify-content:center}
+.dlg-ov.open{display:flex}
+.dlg{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:440px;max-height:88dvh;overflow:auto;padding:22px 22px calc(22px + env(safe-area-inset-bottom));box-shadow:var(--sh);animation:dlgIn .18s cubic-bezier(.16,1,.3,1)}
+@media(min-width:640px){.dlg-ov{align-items:center}.dlg{border-radius:18px}}
+@keyframes dlgIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.dlg h3{font-family:var(--font-d);font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px}
+.dlg .dlg-msg{font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-line;margin-bottom:16px}
+.dlg .dlg-hint{font-size:12.5px;color:var(--t3);margin-top:10px;line-height:1.45}
+.dlg input{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);min-height:46px;font-size:16px}
+.dlg input:focus{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
+.dlg-quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.dlg-err{color:var(--red);font-size:12.5px;margin-top:8px;min-height:1em}
+.dlg-actions{display:flex;gap:10px;margin-top:18px}
+.dlg-actions .btn{flex:1;min-height:46px}
+@media(prefers-reduced-motion:reduce){.dlg{animation:none}}
 /* ---- forms & modal ---- */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:90;display:none;align-items:flex-end;justify-content:center}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);z-index:var(--z-overlay);display:none;align-items:flex-end;justify-content:center}
 .overlay.open{display:flex}
 .modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:88vh;max-height:88dvh;overflow:auto;padding:24px 24px calc(24px + env(safe-area-inset-bottom));box-shadow:var(--sh)}
 @media(min-width:640px){.overlay{align-items:center}.modal{border-radius:20px}}
@@ -202,7 +285,7 @@ body.sorting{cursor:grabbing}
 .cat-opt em{font-style:normal;font-size:19px}
 .cat-opt.active{border-color:var(--accent);background:var(--blue-bg);color:var(--text)}
 /* ---- fab & bottom nav ---- */
-.fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;font-size:26px;box-shadow:0 8px 24px rgba(22,163,74,.4);z-index:60;display:flex;align-items:center;justify-content:center;transition:transform .12s}
+.fab{position:fixed;right:24px;bottom:24px;width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;font-size:26px;box-shadow:0 8px 24px rgba(22,163,74,.4);z-index:var(--z-fab);display:flex;align-items:center;justify-content:center;transition:transform .12s}
 .fab:hover{transform:scale(1.06)}
 .bottom-nav{display:none}
 /* ---- themes ---- */
@@ -217,11 +300,60 @@ body.sorting{cursor:grabbing}
 .theme-sw i{display:block;width:44px;height:44px;border-radius:10px;border:2px solid var(--border)}
 .theme-sw.active{color:var(--text)}
 .theme-sw.active i{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+/* ---- v3.18: группы меню, главный блок, сворачивание, лоск ---- */
+.rail-grp{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:14px 12px 4px;user-select:none}
+.rail-grp:first-of-type{padding-top:2px}
+.more-grp{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 4px 4px}
+.ww318-hero{background:var(--card);border:1px solid var(--accent);border-radius:var(--radius-l);padding:18px 22px;box-shadow:var(--sh-s);margin-bottom:14px;display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-end}
+.ww318-hero .hmain{flex:1 1 200px;min-width:180px}
+.ww318-hero .hlbl{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
+.ww318-hero .hval{font-family:var(--font-d);font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--text)}
+.ww318-hero .hval.neg{color:var(--red)}
+.ww318-hero .hhint{font-size:12.5px;color:var(--t2);margin-top:4px}
+.ww318-hero .hside{min-width:120px}
+.ww318-hero .hside .sv{font-family:var(--font-d);font-size:20px;font-weight:800;letter-spacing:-.02em}
+.ww318-col{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--t2);cursor:pointer;font-size:13px;line-height:1;flex:none;padding:0;transition:transform .2s ease,color .15s}
+.ww318-col:hover{color:var(--text);border-color:var(--border-h)}
+.ww318-col.closed{transform:rotate(-90deg)}
+.ww318-hidden{display:none !important}
+.coin.inc,.coin.cat{cursor:grab}
+.coin.inc:active,.coin.cat:active{cursor:grabbing}
+.stat .val.val-sm{font-size:21px}
+#tx-cat-q{margin-bottom:8px}
+.cr-sect{border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;margin-bottom:10px}
+.cr-sect>summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--t2);list-style:none;padding:4px 0}
+.cr-sect>summary::-webkit-details-marker{display:none}
+.cr-sect>summary::before{content:"\25b8 ";color:var(--t3)}
+.cr-sect[open]>summary::before{content:"\25be "}
+.cr-sect[open]>summary{color:var(--text);margin-bottom:6px}
+@media(max-width:700px){
+  .ww318-hero{padding:16px 14px;gap:12px 18px}
+  .ww318-hero .hval{font-size:30px}
+  .ww318-hero .hside{min-width:104px}
+  .ww31-navm{min-width:34px;min-height:34px;font-size:13px}
+  .bn-item{font-size:10px}
+  .coin .camt{font-size:11px}
+  .stat .val.val-sm{font-size:17px}
+}
+@media(prefers-reduced-motion:reduce){.page.active{animation:none}.ww318-col{transition:none}}
+/* ---- v3.19: единый вид выбора периода ---- */
+.ww319-per{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.ww319-pill{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;white-space:nowrap;line-height:1.25}
+.ww319-pill:hover{border-color:var(--border-h)}
+.ww319-pill.cal-title{min-width:0;text-align:center}
+.ww319-hidden-inp{display:none!important}
+.ww319-msheet .yr{display:flex;align-items:center;justify-content:center;gap:12px;margin:4px 0 12px;font-family:var(--font-d);font-size:16px;font-weight:800}
+.ww319-msheet .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.ww319-msheet .mgrid button.m{padding:12px 4px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-weight:700;font-size:13.5px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer}
+.ww319-msheet .mgrid button.m:hover{border-color:var(--border-h)}
+.ww319-msheet .mgrid button.m.now{border-color:var(--blue);color:var(--blue)}
+.ww319-msheet .mgrid button.m.sel{background:var(--blue);border-color:var(--blue);color:#fff}
+@media(max-width:700px){.ww319-pill{font-size:13px;padding:5px 11px}.ww319-per{gap:5px}}
 /* ---- charts ---- */
 canvas{max-width:100%}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--t2);margin-top:10px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:rgba(50,50,54,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:500;z-index:100;box-shadow:var(--sh);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:rgba(50,50,54,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:500;z-index:var(--z-toast);box-shadow:var(--sh);opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 /* ---- responsive ---- */
 @media(max-width:820px){
@@ -232,7 +364,7 @@ canvas{max-width:100%}
   .stat .val{font-size:19px}
   .cal-cell{min-height:64px;padding:5px 4px}
   .cal-ev{font-size:10.5px;padding:1px 4px;line-height:1.3}
-  .bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:1px solid var(--border);z-index:70;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-top:1px solid var(--border);z-index:var(--z-bottom-nav);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
   .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;color:var(--t3);font-size:9.5px;font-weight:600;border-radius:8px;min-height:48px}
   .bn-item svg{width:21px;height:21px}
   .bn-item.active{color:var(--accent)}
@@ -268,7 +400,7 @@ canvas{max-width:100%}
 .coin.acc .disc{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-family:var(--font-d);font-weight:800;font-size:20px}
 .coin .cname{font-size:11px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74px}
 .coin .camt{font-size:10px;color:var(--t3);font-family:var(--font-d);font-weight:700}
-.coin.dragging{position:relative;z-index:80}
+.coin.dragging{position:relative;z-index:var(--z-drag-float)}
 .coin.dragging .disc{transform:scale(1.15);box-shadow:0 8px 22px rgba(0,0,0,.25)}
 .coin.drop-target .disc{border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
 .coin .disc svg{width:26px;height:26px;display:block}
@@ -309,8 +441,8 @@ canvas{max-width:100%}
 #dash-due .ww31-col{min-width:0}
 @media(max-width:900px){#dash-due .ww31-grid{grid-template-columns:1fr;gap:2px 0}}
 /* ---- v2.6: Monefy-панель и период учёта ---- */
-#ww26-period-btn{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
-#ww26-period-btn:hover{border-color:var(--border-h)}
+#ww26-period-btn,.ww319-pill{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
+#ww26-period-btn:hover,.ww319-pill:hover{border-color:var(--border-h)}
 .ww31-navm{font:inherit;font-size:12px;line-height:1;padding:4px 7px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--t2);cursor:pointer;flex:none}
 .ww31-navm:hover{border-color:var(--border-h);color:var(--text)}
 #credit-period-btn{font:inherit;font-size:13px;color:var(--t2);background:none;border:none;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-weight:600;text-align:left}
@@ -322,8 +454,8 @@ canvas{max-width:100%}
   .cal-ev{font-size:10.5px;padding:1px 4px;line-height:1.3}
   .cal-cell{min-height:64px;padding:5px 4px}
 }
-.ww37-tabhint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--text);z-index:120;opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
-.ww37-ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%) translateY(-60px);width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);z-index:120;display:flex;align-items:center;justify-content:center;opacity:0;transition:transform .2s ease,opacity .2s}
+.ww37-tabhint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--text);z-index:var(--z-hint);opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
+.ww37-ptr{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%) translateY(-60px);width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);z-index:var(--z-hint);display:flex;align-items:center;justify-content:center;opacity:0;transition:transform .2s ease,opacity .2s}
 .ww37-ptr-spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--accent);transition:transform .2s}
 .ww37-ptr.ready .ww37-ptr-spin{transform:rotate(180deg);border-top-color:var(--green)}
 .ww37-ptr.run .ww37-ptr-spin{animation:ww37spin .7s linear infinite}
@@ -409,7 +541,7 @@ canvas{max-width:100%}
 .link-url{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ---- переключатель "Вид" (карточки/список) ---- */
 .view-btn{display:inline-flex;align-items:center;gap:6px}
-.view-menu-pop{position:fixed;z-index:95;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--sh);padding:6px;min-width:160px;animation:fadein .12s ease}
+.view-menu-pop{position:fixed;z-index:var(--z-dropdown);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--sh);padding:6px;min-width:160px;animation:fadein .12s ease}
 .view-menu-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--text)}
 .view-menu-item:hover{background:var(--fill)}
 .view-menu-item.active{background:var(--blue-bg);color:var(--accent);font-weight:600}
@@ -438,20 +570,25 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 </style>
 </head>
 <body>
-<div id="ww-splash"><div class="ws-logo">💰</div><div class="ws-name">WiseWallet</div><div class="ws-spin"></div></div><style>#ww-splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#f6f7f9;transition:opacity .35s ease}#ww-splash .ws-logo{font-size:52px;animation:wsPulse 1.2s ease-in-out infinite}#ww-splash .ws-name{font-weight:800;font-size:20px;color:#1c2733;letter-spacing:.02em;font-family:-apple-system,system-ui,sans-serif}#ww-splash .ws-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(127,127,127,.25);border-top-color:#0f9d76;animation:wsRot .8s linear infinite}#ww-splash.hide{opacity:0;pointer-events:none}@media(prefers-color-scheme:dark){#ww-splash{background:#10151c}#ww-splash .ws-name{color:#e8edf2}}@keyframes wsRot{to{transform:rotate(360deg)}}@keyframes wsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}</style>
+<div id="ww-splash"><div class="ws-logo"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg></div><div class="ws-name">WiseWallet</div><div class="ws-spin"></div></div><style>#ww-splash{position:fixed;inset:0;z-index:var(--z-splash);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg,#f6f7f9);transition:opacity .35s ease}#ww-splash .ws-logo{font-size:52px;animation:wsPulse 1.2s ease-in-out infinite}#ww-splash .ws-name{font-weight:800;font-size:20px;color:var(--text,#1c2733);letter-spacing:.02em;font-family:-apple-system,system-ui,sans-serif}#ww-splash .ws-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(127,127,127,.25);border-top-color:var(--accent,#0f9d76);animation:wsRot .8s linear infinite}#ww-splash.hide{opacity:0;pointer-events:none}@media(prefers-color-scheme:dark){body:not([data-theme]) #ww-splash{background:#10151c}body:not([data-theme]) #ww-splash .ws-name{color:#e8edf2}}@keyframes wsRot{to{transform:rotate(360deg)}}@keyframes wsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}</style>
+<script>try{var _ws=JSON.parse(localStorage.getItem("ww_state_v1")||"{}");var _wt=(_ws.settings&&_ws.settings.theme)||"";if(_wt)document.body.dataset.theme=_wt;}catch(e){}</script>
 <div class="app">
 <aside class="rail">
   <div class="logo">WiseWallet</div>
-  <div id="observer-badge" style="display:none;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px">👀 Только просмотр</div>
+  <div id="observer-badge" style="display:none;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg> Только просмотр</div>
+  <div class="rail-grp">Деньги</div>
   <button class="rail-item active" data-nav="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span>Дашборд</span></button>
   <button class="rail-item" data-nav="ops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Операции</span></button>
   <button class="rail-item" data-nav="budgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 8.5 6H12z"/></svg><span>Бюджеты</span></button>
   <button class="rail-item" data-nav="goals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Цели</span></button>
-  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Кредиты/Расходы</span></button>
+  <div class="rail-grp">Планы</div>
+  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Кредиты и платежи</span></button>
   <button class="rail-item" data-nav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg><span>Календарь</span></button>
   <button class="rail-item" data-nav="planner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg><span>Планировщик</span></button>
+  <div class="rail-grp">Хранилище</div>
   <button class="rail-item" data-nav="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>Ссылки</span></button>
   <button class="rail-item" data-nav="passwords"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg><span>Пароли</span></button>
+  <div class="rail-grp">Прочее</div>
   <button class="rail-item" data-nav="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Аналитика</span></button>
   <button class="rail-item" data-nav="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg><span>Настройки</span></button>
 </aside>
@@ -462,8 +599,9 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="page-head"><div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
       <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button></div>
     <div id="dash-reminders" style="display:none"></div>
+    <div id="ww318-hero"></div>
     <div class="section card coins-card" style="margin-top:0">
-      <h2><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="ww26-period-btn" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий месяц">▶</button><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
+      <h2><span class="ww319-per"><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="ww26-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период учёта">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий месяц">▶</button></span><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
       <div class="ww29-grid">
         <div class="ww29-col">
           <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
@@ -482,7 +620,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="grid grid-4" id="dash-stats"></div>
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <h2 style="margin:0">💰 Финансовое планирование</h2>
+        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планирование</h2>
         <span class="mnav" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
@@ -498,9 +636,8 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page" id="page-ops">
     <div class="page-head"><h1>Операции</h1><div style="display:flex;gap:8px"><span id="view-btn-ops"></span><button class="btn btn-primary" onclick="openTxModal()">+ Операция</button></div></div>
     <div class="toolbar">
-      <button class="ww31-navm" onclick="opsShiftMonth(-1)" title="Предыдущий месяц">◀</button>
-      <input type="month" id="ops-month" onchange="renderOps()">
-      <button class="ww31-navm" onclick="opsShiftMonth(1)" title="Следующий месяц">▶</button>
+      <span class="ww319-per"><button class="ww31-navm" onclick="opsShiftMonth(-1)" title="Предыдущий месяц">◀</button><input type="month" id="ops-month" class="ww319-hidden-inp" onchange="renderOps()"><button id="ops-period-btn" class="ww319-pill" onclick="ww319OpsSheet()" title="Выбрать месяц">Месяц ▾</button><button class="ww31-navm" onclick="opsShiftMonth(1)" title="Следующий месяц">▶</button></span>
+      <button class="btn btn-ghost btn-sm" onclick="opsToday()">Сегодня</button>
       <select id="ops-type" onchange="renderOps()"><option value="">Все типы</option><option value="expense">Расходы</option><option value="income">Доходы</option></select>
       <select id="ops-cat" onchange="renderOps()"><option value="">Все категории</option></select>
       <input type="search" id="ops-q" placeholder="Поиск…" oninput="renderOps()" style="flex:1;min-width:130px">
@@ -511,12 +648,12 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 
   <!-- ================= CREDITS ================= -->
   <section class="page" id="page-credits">
-    <div class="page-head"><h1>Кредиты/Расходы</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" onclick="openCreditModal()">+ Кредит</button></div></div>
+    <div class="page-head"><h1>Кредиты и платежи</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" onclick="openCreditModal()">+ Кредит</button></div></div>
     <div class="grid grid-4" id="credit-stats"></div>
     <h2 style="margin:6px 0 2px">Кредиты</h2><div class="sub" style="margin:0 0 12px">Кредиты и график платежей. Статусы оплаты берутся из дашборда.</div>
     <div class="section card" id="credit-month-progress" style="display:none"></div>
     <div class="section" id="credit-list"></div>
-    <div class="section card" id="recur-section"><h2>Регулярные платежи</h2><div class="sub" style="margin:-4px 0 12px">Повторяются каждый месяц. Автоматически учитываются в плане на месяц, в календаре и в аналитике.</div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px"><span style="display:inline-flex;align-items:center;gap:4px"><button class="ww31-navm" onclick="rcShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="rc-period-btn" onclick="rcPeriodSheet()" title="Выбрать период" style="font:inherit;font-size:13px;color:var(--t2);background:none;border:none;padding:0;cursor:pointer;font-weight:600">Месяц ▾</button><button class="ww31-navm" onclick="rcShiftMonth(1)" title="Следующий месяц">▶</button></span><b id="rc-period-count" style="font-size:13px"></b></div><div id="recur-list"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="openRecurModal(null)">+ Регулярный платёж</button></div>
+    <div class="section card" id="recur-section"><h2>Регулярные платежи</h2><div class="sub" style="margin:-4px 0 12px">Повторяются каждый месяц. Автоматически учитываются в плане на месяц, в календаре и в аналитике.</div><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:10px"><span class="ww319-per"><button class="ww31-navm" onclick="rcShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="rc-period-btn" class="ww319-pill" onclick="rcPeriodSheet()" title="Выбрать период">Месяц ▾</button><button class="ww31-navm" onclick="rcShiftMonth(1)" title="Следующий месяц">▶</button></span><b id="rc-period-count" style="font-size:13px"></b></div><div id="recur-list"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="openRecurModal(null)">+ Регулярный платёж</button></div>
   </section>
 
   <!-- ================= BUDGETS ================= -->
@@ -536,9 +673,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page" id="page-calendar">
     <div class="page-head"><h1>Календарь</h1></div>
     <div class="cal-head">
-      <button class="btn btn-ghost btn-sm" onclick="calShift(-1)">←</button>
-      <div class="cal-title" id="cal-title"></div>
-      <button class="btn btn-ghost btn-sm" onclick="calShift(1)">→</button>
+      <span class="ww319-per"><button class="ww31-navm" onclick="calShift(-1)" title="Предыдущий месяц">◀</button><button class="ww319-pill cal-title" id="cal-title" onclick="ww319CalSheet()" title="Выбрать месяц"></button><button class="ww31-navm" onclick="calShift(1)" title="Следующий месяц">▶</button></span>
       <button class="btn btn-ghost btn-sm" onclick="calToday()">Сегодня</button>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
@@ -593,8 +728,8 @@ body.observer .task-card,.observer .credit-card{cursor:default}
       <div class="card"><h2>Режим этого устройства</h2>
         <div class="sub" style="margin:-4px 0 12px">Наблюдатель видит все данные в реальном времени, но не может ничего менять. Настраивается отдельно на каждом устройстве.</div>
         <div class="seg" style="max-width:280px">
-          <button id="obs-editor-btn" class="active" onclick="setObserverMode(false)">✎ Редактор</button>
-          <button id="obs-viewer-btn" onclick="setObserverMode(true)">👀 Наблюдатель</button>
+          <button id="obs-editor-btn" class="active" onclick="setObserverMode(false)"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.8 5.2l4 4"/><path d="M4.5 19.5l1-4.2 9.6-9.6a1.6 1.6 0 0 1 2.3 0l1.9 1.9a1.6 1.6 0 0 1 0 2.3l-9.6 9.6z"/></svg> Редактор</button>
+          <button id="obs-viewer-btn" onclick="setObserverMode(true)"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg> Наблюдатель</button>
         </div>
       </div>
       <div class="card"><h2>Синхронизация Supabase</h2>
@@ -612,7 +747,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
           <button class="btn btn-ghost btn-sm" onclick="exportJson()">Экспорт JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="exportCsv()">Экспорт CSV</button>
           <button class="btn btn-ghost btn-sm" onclick="exportXlsx()">Экспорт XLSX</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportPdf()" title="Отчёт за выбранный на дашборде период">📄 PDF-отчёт</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportPdf()" title="Отчёт за выбранный на дашборде период"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h8.5L18.5 8v12.5H6z"/><path d="M14 3.6V8h4.4"/><path d="M8.8 12.5h6.4M8.8 15.8h4.4"/></svg> PDF-отчёт</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">Импорт JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-xlsx-file').click()">Импорт XLSX</button>
           <button class="btn btn-danger btn-sm" onclick="resetAll()">Сбросить всё</button>
@@ -620,7 +755,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
-        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v<span id="ww-foot-ver">3.17</span></div>
+        <div class="sub" style="margin-top:4px">Данные хранятся локально на устройстве и работают офлайн. WiseWallet v<span id="ww-foot-ver">3.19</span></div>
       </div>
     </div>
   </section>
@@ -631,7 +766,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <button class="bn-item active" data-nav="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Дашборд</button>
   <button class="bn-item" data-nav="ops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Операции</button>
   <button class="bn-item" data-nav="budgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 8.5 6H12z"/></svg>Бюджеты</button>
-  <button class="bn-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>Кредиты/Расходы</button>
+  <button class="bn-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>Кредиты</button>
   <button class="bn-item" onclick="openMore()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Ещё</button>
 </nav>
 
@@ -742,9 +877,9 @@ function applyObserverMode() {
   const badge = document.getElementById("observer-badge");
   if (badge) badge.style.display = S.settings.observerMode ? "flex" : "none";
 }
-function setObserverMode(v) {
+async function setObserverMode(v) {
   if (v === S.settings.observerMode) return;
-  if (v && !confirm("Включить режим наблюдателя на этом устройстве?\n\nРедактирование данных будет недоступно — только просмотр с автообновлением. Синхронизацию (URL/key/ключ) нужно настроить как обычно.")) return;
+  if (v && !await wwConfirm("Редактирование станет недоступно — только просмотр с автообновлением. Синхронизацию (URL, ключ, syncId) нужно настроить как обычно.", { title: "Включить режим наблюдателя?", okText: "Включить" })) return;
   S.settings.observerMode = v;
   localStorage.setItem(LS_KEY, JSON.stringify(S));
   applyObserverMode();
@@ -758,6 +893,35 @@ const money = (n) => fmtM.format(Math.round(n)) + "\u00a0₽";
 const moneySign = (n, type) => (type === "income" ? "+" : "−") + money(Math.abs(n));
 const cat = (id) => S.categories.find((c) => c.id === id);
 const acc = (id) => S.accounts.find((a) => a.id === id);
+/* ===================== системные SVG-иконки =====================
+   Эмодзи остаются там, где иконку выбирает пользователь (категории, счета,
+   цели). Служебные значки — кнопки, статусы, пустые состояния — рисуем сами:
+   они одинаковы на всех платформах, красятся под тему через currentColor
+   и масштабируются по font-size родителя (width:1em). */
+const wwiSvg = (d) => `<svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const WWI = {
+  bank: wwiSvg('<path d="M3.5 9L12 4.5 20.5 9"/><path d="M4.5 9.5h15"/><path d="M6.5 10v6.5M10.2 10v6.5M13.8 10v6.5M17.5 10v6.5"/><path d="M4 19.5h16"/>'),
+  calendar: wwiSvg('<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17"/><path d="M8 3.5v3M16 3.5v3"/>'),
+  wallet: wwiSvg('<rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/>'),
+  inbox: wwiSvg('<path d="M5.6 5.2h12.8l2.1 8.3v4a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2v-4z"/><path d="M3.5 13.5h4l1.5 3h6l1.5-3h4"/>'),
+  lock: wwiSvg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/>'),
+  unlock: wwiSvg('<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 7.6-1.7"/>'),
+  eye: wwiSvg('<path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>'),
+  pencil: wwiSvg('<path d="M14.8 5.2l4 4"/><path d="M4.5 19.5l1-4.2 9.6-9.6a1.6 1.6 0 0 1 2.3 0l1.9 1.9a1.6 1.6 0 0 1 0 2.3l-9.6 9.6z"/>'),
+  trash: wwiSvg('<path d="M4.5 6.8h15"/><path d="M9.5 6.8V5.2a1.4 1.4 0 0 1 1.4-1.4h2.2a1.4 1.4 0 0 1 1.4 1.4v1.6"/><path d="M6.5 6.8l.9 12a1.6 1.6 0 0 0 1.6 1.5h6a1.6 1.6 0 0 0 1.6-1.5l.9-12"/><path d="M10.4 10.5v6M13.6 10.5v6"/>'),
+  link: wwiSvg('<path d="M10.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.2 1.2"/><path d="M13.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.2-1.2"/>'),
+  chart: wwiSvg('<path d="M4 20h16"/><rect x="5.5" y="11" width="3.4" height="6.5" rx=".8"/><rect x="10.3" y="7" width="3.4" height="10.5" rx=".8"/><rect x="15.1" y="13.5" width="3.4" height="4" rx=".8"/>'),
+  calculator: wwiSvg('<rect x="5" y="3.5" width="14" height="17" rx="2"/><rect x="7.8" y="6.3" width="8.4" height="3.2" rx=".7"/><path d="M8.2 13h.01M12 13h.01M15.8 13h.01M8.2 16.6h.01M12 16.6h.01M15.8 16.6h.01"/>'),
+  bulb: wwiSvg('<path d="M9.2 17.5h5.6"/><path d="M10 20.3h4"/><path d="M12 3.5a5.6 5.6 0 0 1 3.4 10.1c-.6.5-.9 1.1-.9 1.8H9.5c0-.7-.3-1.3-.9-1.8A5.6 5.6 0 0 1 12 3.5z"/>'),
+  folder: wwiSvg('<path d="M3.5 7.2a2 2 0 0 1 2-2h3.4l2 2.4h7.6a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),
+  trophy: wwiSvg('<path d="M8 4.5h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.6a2.4 2.4 0 0 0 2.4 4"/><path d="M16 6h2.4a2.4 2.4 0 0 1-2.4 4"/><path d="M12 13.5v3.2"/><path d="M9 19.8h6"/>'),
+  target: wwiSvg('<circle cx="12" cy="12" r="7.6"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1.1"/>'),
+  check: wwiSvg('<circle cx="12" cy="12" r="8.2"/><path d="M8.6 12.3l2.4 2.4 4.4-4.8"/>'),
+  doc: wwiSvg('<path d="M6 3.5h8.5L18.5 8v12.5H6z"/><path d="M14 3.6V8h4.4"/><path d="M8.8 12.5h6.4M8.8 15.8h4.4"/>'),
+  clipboard: wwiSvg('<rect x="5.5" y="5" width="13" height="15.5" rx="2"/><rect x="9" y="3" width="6" height="3.4" rx="1.1"/><path d="M9 11h6M9 14.6h4"/>'),
+  bolt: wwiSvg('<path d="M13 2.5L5.5 13H11l-1 8.5L18.5 11H13z"/>'),
+  pin: wwiSvg('<path d="M12 16.5V21"/><path d="M8.5 3.5h7l-.9 6 2.6 3.2a1 1 0 0 1-.8 1.6H7.6a1 1 0 0 1-.8-1.6l2.6-3.2z"/>'),
+};
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
 const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
@@ -856,7 +1020,7 @@ function toggleViewMenu(page, btn) {
   menu.id = "view-menu-pop"; menu.className = "view-menu-pop"; menu.dataset.page = page;
   const mode = viewMode(page);
   menu.innerHTML = `
-    <button class="view-menu-item${mode !== "list" ? " active" : ""}" onclick="setViewMode('${page}','cards')">🗂️ Карточки</button>
+    <button class="view-menu-item${mode !== "list" ? " active" : ""}" onclick="setViewMode('${page}','cards')">${WWI.folder} Карточки</button>
     <button class="view-menu-item${mode === "list" ? " active" : ""}" onclick="setViewMode('${page}','list')">≡ Список</button>`;
   document.body.appendChild(menu);
   const r = btn.getBoundingClientRect();
@@ -997,12 +1161,12 @@ function renderDash() {
   document.getElementById("dash-upcoming").innerHTML = ups.length ? ups.map((u) => {
     const days = Math.ceil((u.date - now) / dayMs);
     const soon = days <= 5;
-    const icon = u.kind === "credit" ? "🏦" : u.kind === "recur-inc" ? "💰" : "📌";
+    const icon = u.kind === "credit" ? WWI.bank : u.kind === "recur-inc" ? WWI.wallet : WWI.pin;
     const whoTag = u.who ? WHO_ICON[u.who] + " " : "";
     const flag = u.overdue ? ' <span class="badge amber">просрочен</span>' : u.grace ? ' <span class="badge amber">льготный</span>' : "";
     const amt = u.kind === "recur-inc" ? `<span class="pos">+${money(u.amount)}</span>` : money(u.amount);
     return `<div class="row"><div class="ic">${icon}</div><div class="rmain"><div class="rt">${whoTag}${esc(u.name)}${flag}</div><div class="rs ${soon && u.kind !== "recur-inc" ? "warn" : ""}">${u.date.getDate()} ${MONTHS_GEN[u.date.getMonth()]}${soon ? " · через " + (days <= 0 ? "сегодня" : days + " дн.").replace("через сегодня","сегодня") : ""}</div></div><div class="ramt">${amt}</div></div>`;
-  }).join("") : '<div class="empty"><div class="big">✅</div>Ближайших платежей нет</div>';
+  }).join("") : '<div class="empty"><div class="big">' + WWI.check + '</div>Ближайших платежей нет</div>';
   // categories of month (факт) или план на следующий месяц
   let catRows, catTotal, donutLabel, isPlanCats = false;
   if (dashCatMode === "plan") {
@@ -1028,7 +1192,7 @@ function renderDash() {
     const dl = prevSum ? Math.round((sum - prevSum) / prevSum * 100) : null;
     const dlTxt = dl === null ? "" : ` <span class="sub">${dl > 0 ? "↑" : dl < 0 ? "↓" : "="}${Math.abs(dl)}%</span>`;
     return `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
-  }).join("") : (isPlanCats ? '<div class="empty"><div class="big">🗓️</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>В этом месяце расходов ещё нет.<br>Добавьте первую операцию кнопкой «+»</div>');
+  }).join("") : (isPlanCats ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>В этом месяце расходов ещё нет.<br>Добавьте первую операцию кнопкой «+»</div>');
   // recent
   const recent = [...S.transactions].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 6);
   document.getElementById("dash-recent").innerHTML = recent.length ? recent.map(txRow).join("") : '<div class="empty"><div class="big">👋</div>Операций пока нет — начните с кнопки «+ Операция»</div>';
@@ -1038,7 +1202,7 @@ function txRow(t) {
   const tagsHtml = (t.tags && t.tags.length) ? " " + t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join("") : "";
   return `<div class="row" data-sid="${t.id}"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button></div>`;
 }
-function delTx(id) { if (isObserver()) return; if (!confirm("Удалить операцию?")) return; S.transactions = S.transactions.filter((t) => t.id !== id); save(); render(activePage()); }
+async function delTx(id) { if (isObserver()) return; if (!await wwConfirm("Операцию можно будет вернуть только вручную.", { title: "Удалить операцию?", okText: "Удалить", danger: true })) return; S.transactions = S.transactions.filter((t) => t.id !== id); save(); render(activePage()); }
 function activePage() { return (document.querySelector(".page.active") || {}).id?.replace("page-", "") || "dashboard"; }
 </script>
 <script>
@@ -1073,7 +1237,7 @@ function renderOps() {
   const exp = tx.filter((t) => t.type === "expense").reduce((s, t) => s + +t.amount, 0);
   document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div></div>`;
   const listEl = document.getElementById("ops-list");
-  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🗂️</div>Нет операций по выбранным фильтрам</div>'; return; }
+  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.folder + '</div>Нет операций по выбранным фильтрам</div>'; return; }
   if (viewMode("ops") === "list") {
     listEl.className = "card";
     const byDay = {};
@@ -1150,7 +1314,7 @@ function creditCardHtml(c) {
         ${c.graceTo && !p.grace && todayStr() < c.graceFrom ? `<span class="k">Льготный период</span><b>с ${c.graceFrom.split("-").reverse().join(".")}</b>` : ""}
         ${p.grace ? `<span class="k">Льгота до</span><b>${c.graceTo.split("-").reverse().join(".")}</b>` : ""}
       </div>
-      ${c.status === "active" ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="payCredit('${c.id}')">Отметить платёж ${money(p.amount)}</button><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button><button class="btn btn-ghost btn-sm" onclick="openScheduleModal('${c.id}')">📅 График</button></div>` : `<div><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button></div>`}
+      ${c.status === "active" ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="payCredit('${c.id}')">Отметить платёж ${money(p.amount)}</button><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button><button class="btn btn-ghost btn-sm" onclick="openScheduleModal('${c.id}')">${WWI.calendar} График</button></div>` : `<div><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button></div>`}
     </div>`;
 }
 function creditRow(c) {
@@ -1162,12 +1326,12 @@ function creditRow(c) {
   const paidPct = Math.round(paidShare * 100);
   const statusTag = c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>';
   return `<div class="row" data-sid="${c.id}" style="cursor:pointer" onclick="openCreditModal('${c.id}')">
-    <div class="ic">🏦</div>
+    <div class="ic">${WWI.bank}</div>
     <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}${crPeriodTag(c)}</div><div class="rs">${next && c.status === "active" ? "платёж " + _cd.getDate() + " " + MONTHS_GEN[_cd.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
     <div class="progress" style="margin-top:6px;height:5px"><i style="width:${paidPct}%${overdue ? ";background:var(--amber)" : ""}"></i></div></div>
     <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выполнено ${paidPct}% \u00b7 ${money(crPaidRub(c))} / ${money(c.balance)}</div></div>
-    <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameCredit('${c.id}')" title="Переименовать">✎</button>
-    ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">📅</button>` : ""}
+    <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameCredit('${c.id}')" title="Переименовать">${WWI.pencil}</button>
+    ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">${WWI.calendar}</button>` : ""}
   </div>`;
 }
 function renderCredits() {
@@ -1197,11 +1361,11 @@ function renderCredits() {
     else {
       progEl.style.display = "block";
       const pct = Math.round((paidCount / totalCount) * 100);
-      progEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px"><span style="display:inline-flex;align-items:center;gap:4px"><button class="ww31-navm" onclick="crShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="credit-period-btn" onclick="crPeriodSheet()" title="Выбрать период">Оплачено ${crPeriodPhrase()} ▾</button><button class="ww31-navm" onclick="crShiftMonth(1)" title="Следующий месяц">▶</button></span><b>${paidCount} из ${totalCount} · ${money(paidSum)}</b></div><div class="progress"><i style="width:${pct}%${pct === 100 ? "" : ";background:var(--amber)"}"></i></div>`;
+      progEl.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px"><span class="ww319-per"><span style="font-size:13px;color:var(--t2);font-weight:600">Оплачено</span><button class="ww31-navm" onclick="crShiftMonth(-1)" title="Предыдущий месяц">◀</button><button id="credit-period-btn" class="ww319-pill" onclick="crPeriodSheet()" title="Выбрать период">${ww319Label(crPeriod())} ▾</button><button class="ww31-navm" onclick="crShiftMonth(1)" title="Следующий месяц">▶</button></span><b>${paidCount} из ${totalCount} · ${money(paidSum)}</b></div><div class="progress"><i style="width:${pct}%${pct === 100 ? "" : ";background:var(--amber)"}"></i></div>`;
     }
   }
   const listEl = document.getElementById("credit-list");
-  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">🏦</div>Кредитов пока нет</div>'; return; }
+  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.bank + '</div>Кредитов пока нет</div>'; return; }
   const _crShown = S.credits.filter(crCreditInPeriod);
   if (!_crShown.length) {
     listEl.className = "section card";
@@ -1262,16 +1426,16 @@ function buildSchedule(c) {
 function openScheduleModal(id) {
   const c = S.credits.find((x) => x.id === id); if (!c) return;
   if (!c.payDay) {
-    showModal(`<div class="mhead"><h3>График платежей</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">📅</div>Не указан день платежа — добавьте его в карточке кредита («Изменить»), чтобы построить график.</div>`);
+    showModal(`<div class="mhead"><h3>График платежей</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">${WWI.calendar}</div>Не указан день платежа — добавьте его в карточке кредита («Изменить»), чтобы построить график.</div>`);
     return;
   }
   const rows = buildSchedule(c);
   const totalInterest = rows.reduce((s, r) => s + r.interest, 0);
   const closeDate = rows.length ? rows[rows.length - 1].date : null;
-  const body = rows.map((r) => `<tr><td style="padding:7px 8px">${r.date.split("-").reverse().join(".")}${r.grace ? " 🟡" : ""}</td><td style="padding:7px 8px">${money(r.payment)}</td><td style="padding:7px 8px;color:var(--t2)">${money(r.interest)}</td><td style="padding:7px 8px;color:var(--t2)">${money(r.principal)}</td><td style="padding:7px 8px;font-weight:600">${money(r.balance)}</td></tr>`).join("");
+  const body = rows.map((r) => `<tr><td style="padding:7px 8px">${r.date.split("-").reverse().join(".")}${r.grace ? '<span class="dot-grace" title="Льготный период"></span>' : ""}</td><td style="padding:7px 8px">${money(r.payment)}</td><td style="padding:7px 8px;color:var(--t2)">${money(r.interest)}</td><td style="padding:7px 8px;color:var(--t2)">${money(r.principal)}</td><td style="padding:7px 8px;font-weight:600">${money(r.balance)}</td></tr>`).join("");
   showModal(`
     <div class="mhead"><h3>График платежей — ${esc(c.name)}</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="openPayoffModal('${c.id}')">🧮 Калькулятор досрочного погашения</button>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:12px" onclick="openPayoffModal('${c.id}')">${WWI.calculator} Калькулятор досрочного погашения</button>
     <div class="grid grid-2" style="margin-bottom:14px">
       <div class="card stat" style="padding:12px 14px"><div class="lbl">Ожидаемое погашение</div><div class="val" style="font-size:16px">${closeDate ? closeDate.split("-").reverse().join(".") : (rows.length >= 480 ? "> 40 лет" : "—")}</div></div>
       <div class="card stat" style="padding:12px 14px"><div class="lbl">Переплата по % дальше</div><div class="val warn" style="font-size:16px">${money(totalInterest)}</div></div>
@@ -1284,7 +1448,7 @@ function openScheduleModal(id) {
         <tbody>${body || '<tr><td colspan="5" style="padding:14px;text-align:center;color:var(--t3)">Кредит уже погашен</td></tr>'}</tbody>
       </table>
     </div>
-    <div class="sub" style="margin-top:10px">Оценочный график на основе текущих условий: не учитывает будущие изменения ставки, окончание льготного периода сверх заданного и досрочные погашения.${rows.some((r) => r.grace) ? " 🟡 — платежи в рамках льготного периода." : ""}</div>`);
+    <div class="sub" style="margin-top:10px">Оценочный график на основе текущих условий: не учитывает будущие изменения ставки, окончание льготного периода сверх заданного и досрочные погашения.${rows.some((r) => r.grace) ? " <span class='dot-grace' title='Льготный период'></span> — платежи в рамках льготного периода." : ""}</div>`);
 }
 
 /* ===================== calendar ===================== */
@@ -1293,7 +1457,7 @@ function calShift(n) { calCur.setMonth(calCur.getMonth() + n); renderCal(); }
 function calToday() { calCur = new Date(); renderCal(); }
 function renderCal() {
   const y = calCur.getFullYear(), m = calCur.getMonth();
-  document.getElementById("cal-title").textContent = MONTHS[m] + " " + y;
+  document.getElementById("cal-title").textContent = MONTHS[m].toUpperCase() + " " + y + " ▾";
   const first = new Date(y, m, 1);
   const startDow = (first.getDay() + 6) % 7;
   const dim = new Date(y, m + 1, 0).getDate();
@@ -1397,7 +1561,7 @@ function renderAnalytics() {
     isPlan = true;
     S.recurring.filter((r) => r.type === "expense").forEach((r) => { data[r.name] = +r.amount; icons[r.name] = (cat(r.categoryId) || { icon: "📌" }).icon; });
     const cp = S.credits.filter((c) => c.status === "active").reduce((s, c) => s + currentPayment(c).amount, 0);
-    if (cp) { data["Платежи по кредитам"] = cp; icons["Платежи по кредитам"] = "🏦"; }
+    if (cp) { data["Платежи по кредитам"] = cp; icons["Платежи по кредитам"] = WWI.bank; }
   }
   const entries = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const total = entries.reduce((s, e) => s + e[1], 0);
@@ -1520,19 +1684,19 @@ function ww314SyncCreditNote(oldName, newName) {
     else if (t.note === oldName + " (частично)") t.note = newName + " (частично)";
   });
 }
-function renameCredit(id) {
+async function renameCredit(id) {
   if (typeof isObserver === "function" && isObserver()) return;
   const c = S.credits.find((x) => x.id === id); if (!c) return;
-  const n = prompt("Название:", c.name); if (n === null) return;
+  const n = await wwPrompt("", { title: "Название кредита", defaultValue: c.name, okText: "Сохранить" }); if (n === null) return;
   const nn = n.trim(); if (!nn || nn === c.name) return;
   const old = c.name; c.name = nn; ww314SyncCreditNote(old, nn); save();
   try { renderCredits(); } catch (e) {}
   try { toast("Название обновлено"); } catch (e) {}
 }
-function renameRecur(id) {
+async function renameRecur(id) {
   if (typeof isObserver === "function" && isObserver()) return;
   const r = S.recurring.find((x) => x.id === id); if (!r) return;
-  const n = prompt("Название платежа:", r.name); if (n === null) return;
+  const n = await wwPrompt("", { title: "Название платежа", defaultValue: r.name, okText: "Сохранить" }); if (n === null) return;
   const nn = n.trim(); if (!nn || nn === r.name) return;
   r.name = nn; save();
   try { renderRecurList(); } catch (e) {}
@@ -1544,7 +1708,7 @@ function renderRecurList() {
   const per = rcPeriod();
   const rng = ww26RangeFor(per);
   window._rcFilter = { from: rng.from, to: rng.to, isAll: per.type === "all" };
-  const btn = document.getElementById("rc-period-btn"); if (btn) btn.textContent = rcLabel() + " ▾";
+  const btn = document.getElementById("rc-period-btn"); if (btn) btn.textContent = ww319Label(rcPeriod()) + " ▾";
   const cntEl = document.getElementById("rc-period-count");
   if (!S.recurring.length) { el.innerHTML = '<div class="empty">Пока нет регулярных платежей</div>'; if (cntEl) cntEl.textContent = ""; return; }
   const list = S.recurring.filter(rcInPeriod);
@@ -1558,7 +1722,7 @@ function renderRecurList() {
   el.innerHTML = list.map((r) => {
     const c = cat(r.categoryId) || { icon: r.type === "income" ? "💵" : "📌", name: "Без категории" };
     const who = (r.who && typeof WHO_ICON !== "undefined" && WHO_ICON[r.who]) ? WHO_ICON[r.who] + " " : "";
-    return `<div class="row" data-sid="${r.id}"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${who}${esc(r.name)}${rcPeriodTag(r)}</div><div class="rs">${esc(c.name)} · ${r.day} числа</div></div><div class="ramt" style="color:var(--${r.type === "income" ? "green" : "red"})">${r.type === "income" ? "+" : "−"}${money(r.amount)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameRecur('${r.id}')" title="Переименовать">✎</button><button class="btn btn-ghost btn-sm" onclick="openRecurModal('${r.id}')" title="Изменить">⚙</button></div>`;
+    return `<div class="row" data-sid="${r.id}"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${who}${esc(r.name)}${rcPeriodTag(r)}</div><div class="rs">${esc(c.name)} · ${r.day} числа</div></div><div class="ramt" style="color:var(--${r.type === "income" ? "green" : "red"})">${r.type === "income" ? "+" : "−"}${money(r.amount)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameRecur('${r.id}')" title="Переименовать">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="openRecurModal('${r.id}')" title="Изменить">⚙</button></div>`;
   }).join("");
 }
 
@@ -1579,7 +1743,7 @@ function openRecurModal(id) {
     <div class="fg"><label>Кому (для бейджа в календаре и платежах)</label><select id="rc-who">${[["", "— не указано"], ["me", "👤 Я"], ["wife", "👩 Жена"], ["both", "👥 Общее"]].map(([k, l]) => `<option value="${k}"${(r?.who || "") === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
     <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="saveRecur('${id || ""}')">Сохранить</button>${r ? `<button class="btn btn-danger" onclick="delRecur('${r.id}')">Удалить</button>` : ""}</div>`);
   recurCatOptions(r ? r.categoryId : null);
-  setTimeout(() => document.getElementById("rc-name").focus(), 50);
+  wwFocus("rc-name");
 }
 function recurCatOptions(sel) {
   const type = document.getElementById("rc-type").value;
@@ -1594,20 +1758,42 @@ function saveRecur(id) {
   const categoryId = document.getElementById("rc-cat").value;
   const who = document.getElementById("rc-who").value || "";
   let day = Math.round(+document.getElementById("rc-day").value || 1); day = Math.min(31, Math.max(1, day));
-  if (!name || !amount) { alert("Введите название и сумму"); return; }
+  if (!name || !amount) { toast("Введите название и сумму"); return; }
   if (id) { const r = S.recurring.find((x) => x.id === id); if (r) Object.assign(r, { name, amount, type, categoryId, day, who }); }
   else S.recurring.push({ id: uid(), name, type, amount, categoryId, day, who });
   save(); closeModal(); renderSettings();
 }
 function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x) => x.id === id); if (!r) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); ww2UndoToast("Регулярный платёж удалён", () => { S.recurring.push(r); save(); renderSettings(); }); }
-function addAccount() { if (isObserver()) return; const n = prompt("Название счёта:"); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
-function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = prompt("Название счёта:", a.name); if (!n) return; a.name = n; save(); renderSettings(); }
+async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
+async function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = await wwPrompt("", { title: "Название счёта", defaultValue: a.name, okText: "Сохранить" }); if (!n) return; a.name = n; save(); renderSettings(); }
 function addCategory() {
   if (isObserver()) return;
-  const n = prompt("Название категории:"); if (!n) return;
-  const type = confirm("Это категория дохода? (OK — доход, Отмена — расход)") ? "income" : "expense";
-  const icon = prompt("Эмодзи-иконка:", type === "income" ? "💵" : "📌") || "📌";
-  S.categories.push({ id: uid(), name: n, type, icon }); save(); renderSettings();
+  // Раньше тип спрашивался через confirm («OK — доход, Отмена — расход»),
+  // что читалось как загадка. Теперь это обычная форма с явными полями.
+  showModal(`<div class="mhead"><h3>Новая категория</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Название</label><input id="nc-name" placeholder="Например: Спорт"></div>
+    <div class="fg"><label>Тип</label><div class="seg" id="nc-seg">
+      <button class="active exp" onclick="ncSetType('expense',this)">Расход</button>
+      <button onclick="ncSetType('income',this)">Доход</button></div></div>
+    <div class="fg"><label>Иконка</label><input id="nc-icon" value="📌" maxlength="4" style="max-width:96px;text-align:center;font-size:22px"></div>
+    <div class="sub" style="margin-bottom:14px">Подойдёт любой эмодзи — вставьте с клавиатуры телефона или скопируйте.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveNewCategory()">Добавить категорию</button>`);
+  window._ncType = "expense";
+  wwFocus("nc-name");
+}
+function ncSetType(t, btn) {
+  window._ncType = t;
+  document.querySelectorAll("#nc-seg button").forEach((b) => b.classList.remove("active", "exp", "inc"));
+  btn.classList.add("active", t === "expense" ? "exp" : "inc");
+  const ic = document.getElementById("nc-icon");
+  if (ic && (ic.value === "📌" || ic.value === "💵")) ic.value = t === "income" ? "💵" : "📌";
+}
+function saveNewCategory() {
+  const name = (document.getElementById("nc-name").value || "").trim();
+  if (!name) { toast("Введите название категории"); return; }
+  const icon = (document.getElementById("nc-icon").value || "").trim() || "📌";
+  S.categories.push({ id: uid(), name, type: window._ncType || "expense", icon });
+  save(); closeModal(); renderSettings(); toast("Категория добавлена");
 }
 function exportJson() {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
@@ -1656,7 +1842,7 @@ function importXlsx(inp) {
     const r = new FileReader();
     r.onload = () => {
       let wb;
-      try { wb = XLSX.read(r.result, { type: "array" }); } catch (e) { alert("Не удалось прочитать файл — проверьте, что это .xlsx"); inp.value = ""; return; }
+      try { wb = XLSX.read(r.result, { type: "array" }); } catch (e) { wwAlert("Проверьте, что это файл .xlsx или .xls.", { title: "Не удалось прочитать файл" }); inp.value = ""; return; }
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
       const bodyRows = data.slice(1).filter((row) => row.length && String(row[0]).trim());
@@ -1676,7 +1862,7 @@ function importXlsx(inp) {
         added++;
       }
       inp.value = "";
-      if (!added) { alert("Не найдено ни одной строки для импорта. Ожидаются колонки: Дата, Тип, Категория, Счёт, Сумма, Заметка, Метки (первая строка — заголовок)."); return; }
+      if (!added) { wwAlert("Ожидаются колонки: Дата, Тип, Категория, Счёт, Сумма, Заметка, Метки. Первая строка должна быть заголовком.", { title: "Не найдено строк для импорта" }); return; }
       save(); render(activePage());
       toast(`Импортировано операций: ${added}` + (skipped ? `, пропущено: ${skipped}` : ""));
     };
@@ -1695,10 +1881,10 @@ function importJson(inp) {
   if (isObserver()) { inp.value = ""; return; }
   const f = inp.files[0]; if (!f) return;
   const r = new FileReader();
-  r.onload = () => { try { const d = JSON.parse(r.result); if (!d.categories || !d.transactions) throw 0; S = d; save(); location.reload(); } catch (e) { alert("Неверный файл резервной копии"); } };
+  r.onload = () => { try { const d = JSON.parse(r.result); if (!d.categories || !d.transactions) throw 0; S = d; save(); location.reload(); } catch (e) { wwAlert("Файл не похож на резервную копию WiseWallet — в нём нет операций и категорий.", { title: "Неверный файл" }); } };
   r.readAsText(f);
 }
-function resetAll() { if (isObserver()) return; if (!confirm("Удалить все данные и вернуть начальные?")) return; localStorage.removeItem(LS_KEY); location.reload(); }
+async function resetAll() { if (isObserver()) return; if (!await wwConfirm("Операции, кредиты, цели и настройки на этом устройстве будут заменены начальным набором. Если данные нужны — сначала сделайте экспорт.", { title: "Сбросить все данные?", okText: "Сбросить всё", danger: true })) return; localStorage.removeItem(LS_KEY); location.reload(); }
 
 /* ===================== supabase sync ===================== */
 function saveSb() {
@@ -1773,7 +1959,121 @@ async function syncNow(manual) {
 
 /* ===================== modals ===================== */
 function closeModal() { const ov = document.getElementById("overlay"); ov.classList.remove("open"); ov.classList.remove("center"); }
+/* Фокус в поле сразу после открытия модалки.
+   На iOS программный focus() открывает клавиатуру только если он вызван внутри
+   стека обработчика нажатия. setTimeout из этого стека выходит — поле выглядит
+   активным, но клавиатура не появляется, и первый ввод «пропадает». Поэтому
+   фокусируем синхронно, а отложенные попытки оставляем лишь как подстраховку
+   на случай, если элемент ещё не отрисован. */
+function wwFocus(id, select) {
+  const go = () => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    try { el.focus({ preventScroll: false }); if (select && el.select) el.select(); } catch (e) { el.focus(); }
+    return document.activeElement === el;
+  };
+  if (go()) return;
+  requestAnimationFrame(() => { if (!go()) setTimeout(go, 60); });
+}
 function showModal(html, opts) { document.getElementById("modal").innerHTML = html; const ov = document.getElementById("overlay"); ov.classList.toggle("center", !!(opts && opts.center)); ov.classList.add("open"); }
+
+/* ===================== собственные диалоги (вместо alert/confirm/prompt) =====================
+   Возвращают Promise, поэтому вызывающий код должен быть async + await.
+   Зачем: системные окна нельзя оформить, в PWA на iPhone они выглядят чужеродно
+   и не дают ни валидации, ни подсказок, ни осмысленных подписей на кнопках. */
+let _dlgResolve = null, _dlgPrevFocus = null;
+function _dlgEl() {
+  let ov = document.getElementById("ww-dlg-ov");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.className = "dlg-ov"; ov.id = "ww-dlg-ov";
+    ov.innerHTML = '<div class="dlg" id="ww-dlg" role="dialog" aria-modal="true"></div>';
+    ov.addEventListener("click", (e) => { if (e.target === ov) _dlgClose(null); });
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+function _dlgClose(val) {
+  _dlgEl().classList.remove("open");
+  const r = _dlgResolve; _dlgResolve = null;
+  if (_dlgPrevFocus && _dlgPrevFocus.focus) { try { _dlgPrevFocus.focus(); } catch (e) {} }
+  _dlgPrevFocus = null;
+  if (r) r(val);
+}
+function _dlgOpen(html, onReady) {
+  const ov = _dlgEl();
+  _dlgPrevFocus = document.activeElement;
+  document.getElementById("ww-dlg").innerHTML = html;
+  ov.classList.add("open");
+  // Синхронно — иначе на iOS не откроется клавиатура (см. wwFocus)
+  if (onReady) { try { onReady(); } catch (e) {} }
+  return new Promise((res) => { _dlgResolve = res; });
+}
+// Esc — отмена, как в системных диалогах
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && _dlgResolve) { e.preventDefault(); e.stopPropagation(); _dlgClose(null); }
+}, true);
+
+function wwAlert(message, opts) {
+  opts = opts || {};
+  return _dlgOpen(
+    `<h3>${esc(opts.title || "WiseWallet")}</h3>
+     <div class="dlg-msg">${esc(String(message))}</div>
+     <div class="dlg-actions"><button class="btn btn-primary" id="ww-dlg-ok">${esc(opts.okText || "Понятно")}</button></div>`,
+    () => { const b = document.getElementById("ww-dlg-ok"); if (b) { b.focus(); b.onclick = () => _dlgClose(true); } }
+  );
+}
+function wwConfirm(message, opts) {
+  opts = opts || {};
+  return _dlgOpen(
+    `<h3>${esc(opts.title || "Подтвердите действие")}</h3>
+     <div class="dlg-msg">${esc(String(message))}</div>
+     <div class="dlg-actions">
+       <button class="btn btn-ghost" id="ww-dlg-cancel">${esc(opts.cancelText || "Отмена")}</button>
+       <button class="btn ${opts.danger ? "btn-danger" : "btn-primary"}" id="ww-dlg-ok">${esc(opts.okText || "Подтвердить")}</button>
+     </div>`,
+    () => {
+      const ok = document.getElementById("ww-dlg-ok"), no = document.getElementById("ww-dlg-cancel");
+      // При разрушительном действии фокус на безопасной кнопке: случайный Enter не удалит данные
+      (opts.danger ? no : ok).focus();
+      ok.onclick = () => _dlgClose(true);
+      no.onclick = () => _dlgClose(false);
+    }
+  ).then((v) => v === true);
+}
+function wwPrompt(message, opts) {
+  opts = opts || {};
+  const type = opts.type || "text";
+  const val = opts.defaultValue == null ? "" : String(opts.defaultValue);
+  const quick = (opts.quick || []).map((q, i) => `<button class="btn btn-ghost btn-sm" data-q="${i}">${esc(q.label)}</button>`).join("");
+  return _dlgOpen(
+    `<h3>${esc(opts.title || "Введите значение")}</h3>
+     ${message ? `<div class="dlg-msg">${esc(String(message))}</div>` : ""}
+     <input id="ww-dlg-in" type="${type}"${type === "number" ? ' inputmode="decimal"' : ""}${type === "password" ? ' autocomplete="off"' : ""} value="${esc(val)}" placeholder="${esc(opts.placeholder || "")}">
+     ${quick ? `<div class="dlg-quick" id="ww-dlg-quick">${quick}</div>` : ""}
+     ${opts.hint ? `<div class="dlg-hint">${esc(opts.hint)}</div>` : ""}
+     <div class="dlg-err" id="ww-dlg-err"></div>
+     <div class="dlg-actions">
+       <button class="btn btn-ghost" id="ww-dlg-cancel">Отмена</button>
+       <button class="btn btn-primary" id="ww-dlg-ok">${esc(opts.okText || "Готово")}</button>
+     </div>`,
+    () => {
+      const inp = document.getElementById("ww-dlg-in"), ok = document.getElementById("ww-dlg-ok"),
+            no = document.getElementById("ww-dlg-cancel"), err = document.getElementById("ww-dlg-err");
+      inp.focus(); inp.select();
+      const submit = () => {
+        const v = inp.value;
+        if (opts.validate) { const msg = opts.validate(v); if (msg) { err.textContent = msg; inp.focus(); return; } }
+        _dlgClose(v);
+      };
+      ok.onclick = submit;
+      no.onclick = () => _dlgClose(null);
+      inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } };
+      const qw = document.getElementById("ww-dlg-quick");
+      if (qw) qw.querySelectorAll("[data-q]").forEach((b) => { b.onclick = () => { inp.value = opts.quick[+b.dataset.q].value; err.textContent = ""; inp.focus(); }; });
+    }
+  );
+}
 let txType = "expense", txCat = null;
 function openTxModal(pre) {
   if (isObserver()) return;
@@ -1786,7 +2086,7 @@ function openTxModal(pre) {
       <button class="${txType === "expense" ? "active exp" : ""}" onclick="setTxType('expense',this)">Расход</button>
       <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>
     <div class="fg"><input class="amount-in" id="tx-amount" type="number" inputmode="decimal" placeholder="0 ₽" value="${pre.amount || ""}" autofocus></div>
-    <div class="fg"><label>Категория</label><div class="cat-grid" id="tx-cats"></div></div>
+    <div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>
     <div class="fg-row">
       <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${todayStr()}"></div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
@@ -1795,7 +2095,7 @@ function openTxModal(pre) {
     <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTx()">Сохранить</button>`);
   renderTxCats();
-  setTimeout(() => document.getElementById(pre.amount ? "tx-amount" : "tx-quick").focus(), 50);
+  wwFocus(pre.amount ? "tx-amount" : "tx-quick");
 }
 function parseQuick() {
   const raw = (document.getElementById("tx-quick").value || "").trim();
@@ -1820,9 +2120,16 @@ function setTxType(t, btn) {
   renderTxCats();
 }
 function renderTxCats() {
-  const cats = S.categories.filter((c) => c.type === txType);
+  const box = document.getElementById("tx-cats"); if (!box) return;
+  const freq = (typeof ww318CatFreq === "function") ? ww318CatFreq() : {};
+  const cats = S.categories.filter((c) => c.type === txType).slice().sort((a, b) => (freq[b.id] || 0) - (freq[a.id] || 0));
   if (!txCat && cats.length) txCat = cats[0].id;
-  document.getElementById("tx-cats").innerHTML = cats.map((c) => `<button class="cat-opt${txCat === c.id ? " active" : ""}" onclick="txCat='${c.id}';renderTxCats()"><em>${c.icon}</em>${esc(c.name.length > 13 ? c.name.slice(0, 12) + "…" : c.name)}</button>`).join("");
+  const qEl = document.getElementById("tx-cat-q");
+  const q = ((qEl && qEl.value) || "").trim().toLowerCase();
+  const shown = q ? cats.filter((c) => c.name.toLowerCase().includes(q)) : cats;
+  box.innerHTML = shown.length
+    ? shown.map((c) => `<button class="cat-opt${txCat === c.id ? " active" : ""}" onclick="txCat='${c.id}';renderTxCats()"><em>${c.icon}</em>${esc(c.name.length > 13 ? c.name.slice(0, 12) + "…" : c.name)}</button>`).join("")
+    : `<div class="sub" style="grid-column:1/-1;padding:6px 2px">Ничего не найдено</div>`;
 }
 let _ww317 = [];
 function ww317Suggest() {
@@ -1851,6 +2158,168 @@ function ww317Apply(i) {
   if (tg && !tg.value && t.tags && t.tags.length) tg.value = t.tags.join(", ");
   const box = document.getElementById("ww317-sugg"); if (box) box.innerHTML = "";
 }
+/* ===================== v3.18: главный блок, сворачивание, удобство ===================== */
+function ww318Free() {
+  let total = 0;
+  for (const a of S.accounts.filter((x) => !x.archived)) total += accBalance(a.id);
+  let due = 0;
+  try {
+    const d = ww30Data();
+    for (const r of d.exp.concat(d.cr)) if (!r.paid) due += Math.max(0, +r.amount || 0);
+  } catch (e) {}
+  return { total, due, free: total - due };
+}
+function ww318Hero() {
+  const host = document.getElementById("ww318-hero"); if (!host) return;
+  const f = ww318Free();
+  host.className = "ww318-hero";
+  host.innerHTML = '<div class="hmain"><div class="hlbl">\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u044b\u0435 \u0434\u0435\u043d\u044c\u0433\u0438</div><div class="hval' + (f.free < 0 ? " neg" : "") + '">' + money(f.free) + '</div><div class="hhint">' + (f.due > 0 ? "\u043f\u043e\u0441\u043b\u0435 \u0432\u0441\u0435\u0445 \u043f\u043b\u0430\u0442\u0435\u0436\u0435\u0439 \u043c\u0435\u0441\u044f\u0446\u0430" : "\u0432\u0441\u0435 \u043f\u043b\u0430\u0442\u0435\u0436\u0438 \u043c\u0435\u0441\u044f\u0446\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u044b \u2713") + '</div></div>' +
+    '<div class="hside"><div class="hlbl">\u041d\u0430 \u0441\u0447\u0435\u0442\u0430\u0445</div><div class="sv">' + money(f.total) + '</div></div>' +
+    '<div class="hside"><div class="hlbl">\u041e\u0441\u0442\u0430\u043b\u043e\u0441\u044c \u043e\u043f\u043b\u0430\u0442\u0438\u0442\u044c</div><div class="sv" style="color:' + (f.due > 0 ? "var(--amber)" : "var(--green)") + '">' + money(f.due) + '</div></div>';
+}
+function ww318ColKey(h2) { return (h2.textContent || "").replace(/[^\p{L}]/gu, "").slice(0, 24); }
+function ww318Toggle(key) {
+  S.settings.collapsed = S.settings.collapsed || {};
+  S.settings.collapsed[key] = !S.settings.collapsed[key];
+  save();
+  ww318ApplyCollapse();
+}
+function ww318ApplyCollapse() {
+  const col = S.settings.collapsed || {};
+  document.querySelectorAll("#page-dashboard .section.card").forEach((card) => {
+    const h2 = card.querySelector("h2"); if (!h2) return;
+    const key = ww318ColKey(h2); if (!key) return;
+    let btn = h2.querySelector(".ww318-col");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ww318-col";
+      btn.textContent = "\u2304";
+      btn.title = "\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0438\u043b\u0438 \u0440\u0430\u0437\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0431\u043b\u043e\u043a";
+      btn.setAttribute("aria-label", "\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0438\u043b\u0438 \u0440\u0430\u0437\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0431\u043b\u043e\u043a");
+      btn.style.marginLeft = "auto";
+      btn.onclick = function (e) { e.stopPropagation(); ww318Toggle(key); };
+      if (!h2.style.display) h2.style.display = "flex";
+      h2.style.alignItems = "center";
+      if (!h2.style.gap) h2.style.gap = "8px";
+      h2.appendChild(btn);
+    }
+    const closed = !!col[key];
+    btn.classList.toggle("closed", closed);
+    Array.prototype.forEach.call(card.children, function (ch) { if (ch !== h2) ch.classList.toggle("ww318-hidden", closed); });
+  });
+}
+function ww318Compact() {
+  document.querySelectorAll("#page-dashboard .stat .val").forEach((el) => {
+    const txt = (el.textContent || "").trim();
+    const m = txt.match(/^([+\u2212-]?)([\d\s\u00a0]+)\s*\u20bd$/);
+    if (!m) return;
+    const n = +m[2].replace(/[\s\u00a0]/g, "");
+    if (!isFinite(n)) return;
+    if (n >= 1000000) {
+      el.title = txt;
+      el.textContent = m[1] + (n / 1000000).toFixed(n >= 10000000 ? 0 : 1).replace(".", ",") + "\u00a0\u043c\u043b\u043d\u00a0\u20bd";
+    } else if (txt.length > 12) {
+      el.classList.add("val-sm");
+    }
+  });
+}
+function ww318Aria() {
+  document.querySelectorAll("button[title]:not([aria-label])").forEach((el) => el.setAttribute("aria-label", el.getAttribute("title")));
+}
+/* ===================== v3.19: единый вид выбора периода ===================== */
+let _ww319Y = new Date().getFullYear();
+let _ww319Sel = "";
+let _ww319Title = "Период";
+let _ww319Cb = null;
+function ww319Label(p) {
+  p = p || { type: "month" };
+  const now = new Date();
+  if (p.type === "week") return "НЕДЕЛЯ";
+  if (p.type === "quarter") return ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " КВАРТАЛ";
+  if (p.type === "half") return "ПОЛГОДА";
+  if (p.type === "year") return String(now.getFullYear());
+  if (p.type === "all") return "ВЕСЬ ПЕРИОД";
+  if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "ПРОИЗВОЛЬНЫЙ"; }
+  const a = ww31MonthAnchor(p);
+  return MONTHS[a.m].toUpperCase() + (a.sameYear ? "" : " " + a.y);
+}
+function ww319SheetHtml() {
+  const cur = todayStr().slice(0, 7);
+  const cells = MONTHS.map((n, i) => {
+    const ym = _ww319Y + "-" + String(i + 1).padStart(2, "0");
+    const cls = (ym === _ww319Sel ? " sel" : "") + (ym === cur ? " now" : "");
+    return `<button class="m${cls}" onclick="ww319Pick('${ym}')">${n.slice(0, 3)}</button>`;
+  }).join("");
+  return `<div class="mhead"><h3>${esc(_ww319Title)}</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="ww319-msheet">
+      <div class="yr"><button class="ww31-navm" onclick="ww319YearShift(-1)" title="Предыдущий год">◀</button><b>${_ww319Y}</b><button class="ww31-navm" onclick="ww319YearShift(1)" title="Следующий год">▶</button></div>
+      <div class="mgrid">${cells}</div>
+      <button class="btn btn-ghost btn-sm" style="width:100%" onclick="ww319Pick('${cur}')">Текущий месяц</button>
+    </div>`;
+}
+function ww319MonthSheet(title, ym, cb) {
+  _ww319Title = title || "Период";
+  _ww319Sel = ym || todayStr().slice(0, 7);
+  _ww319Y = +_ww319Sel.slice(0, 4);
+  _ww319Cb = cb;
+  showModal(ww319SheetHtml());
+}
+function ww319YearShift(d) { _ww319Y += d; showModal(ww319SheetHtml()); }
+function ww319Pick(ym) { const cb = _ww319Cb; closeModal(); if (cb) cb(ym); }
+function ww319OpsSheet() {
+  const el = document.getElementById("ops-month"); if (!el) return;
+  ww319MonthSheet("Месяц операций", el.value || todayStr().slice(0, 7), (ym) => { el.value = ym; renderOps(); });
+}
+function ww319CalSheet() {
+  const ym = calCur.getFullYear() + "-" + String(calCur.getMonth() + 1).padStart(2, "0");
+  ww319MonthSheet("Месяц календаря", ym, (v) => { calCur = new Date(+v.slice(0, 4), +v.slice(5, 7) - 1, 1); renderCal(); });
+}
+function ww319DueSheet() {
+  ww319MonthSheet("Месяц платежей", ww316Ym(), (ym) => {
+    ww316DueYm = ym === todayStr().slice(0, 7) ? null : ym;
+    renderDuePanel();
+  });
+}
+function ww319Sync() {
+  const pb = document.getElementById("ops-period-btn");
+  if (pb) {
+    const el = document.getElementById("ops-month");
+    const ym = (el && el.value) || todayStr().slice(0, 7);
+    const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+    const sameYear = y === new Date().getFullYear();
+    pb.textContent = MONTHS[m].toUpperCase() + (sameYear ? "" : " " + y) + " ▾";
+    pb.style.opacity = typeof ww23OpsAll !== "undefined" && ww23OpsAll ? ".45" : "1";
+  }
+}
+let _ww319Wrapped = false;
+function ww319WrapOps() {
+  if (_ww319Wrapped || typeof renderOps !== "function") return;
+  _ww319Wrapped = true;
+  const _orig = renderOps;
+  renderOps = function () { const r = _orig.apply(this, arguments); try { ww319Sync(); } catch (e) {} return r; };
+}
+function ww318After() {
+  try { ww318Hero(); } catch (e) {}
+  try { ww318ApplyCollapse(); } catch (e) {}
+  try { ww318Compact(); } catch (e) {}
+  try { ww318Aria(); } catch (e) {}
+  try { ww319WrapOps(); } catch (e) {}
+  try { ww319Sync(); } catch (e) {}
+}
+const _ww318Render = render;
+render = function (page) { _ww318Render(page); ww318After(); };
+function opsToday() { const el = document.getElementById("ops-month"); if (!el) return; el.value = todayStr().slice(0, 7); renderOps(); }
+function ww318CatFreq() {
+  const f = {}; const now = Date.now(); const lim = 90 * 86400000;
+  for (const t of S.transactions) {
+    if (!t.categoryId) continue;
+    const ts = t.createdAt || Date.parse(t.date || "") || 0;
+    if (ts && now - ts > lim) continue;
+    f[t.categoryId] = (f[t.categoryId] || 0) + 1;
+  }
+  return f;
+}
 function saveTx() {
   const amount = parseFloat(document.getElementById("tx-amount").value);
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
@@ -1877,15 +2346,19 @@ function openCreditModal(id) {
       <div class="fg"><label>Ставка, %</label><input id="cr-rate" type="number" step="0.1" value="${c?.rate ?? ""}"></div>
       <div class="fg"><label>День платежа</label><input id="cr-payday" type="number" min="1" max="31" value="${c?.payDay ?? 15}"></div>
     </div>
-    <div class="fg-row">
-      <div class="fg"><label>Льготный период с</label><input id="cr-gfrom" type="date" value="${c?.graceFrom || ""}"></div>
-      <div class="fg"><label>по</label><input id="cr-gto" type="date" value="${c?.graceTo || ""}"></div>
-    </div>
-    <div class="fg-row">
-      <div class="fg"><label>Дата начала</label><input id="cr-start" type="date" value="${c?.start || todayStr()}"></div>
-      <div class="fg"><label>Дата окончания</label><input id="cr-end" type="date" value="${c?.end || ""}"></div>
-    </div>
-    <div class="fg"><label>Льготный платёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
+    <details class="cr-sect"${c && (c.graceFrom || c.graceTo || c.gracePayment) ? " open" : ""}><summary>Льготный период</summary>
+      <div class="fg-row">
+        <div class="fg"><label>С</label><input id="cr-gfrom" type="date" value="${c?.graceFrom || ""}"></div>
+        <div class="fg"><label>По</label><input id="cr-gto" type="date" value="${c?.graceTo || ""}"></div>
+      </div>
+      <div class="fg"><label>Льготный платёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
+    </details>
+    <details class="cr-sect"${c && c.end ? " open" : ""}><summary>Сроки кредита</summary>
+      <div class="fg-row">
+        <div class="fg"><label>Дата начала</label><input id="cr-start" type="date" value="${c?.start || todayStr()}"></div>
+        <div class="fg"><label>Дата окончания</label><input id="cr-end" type="date" value="${c?.end || ""}"></div>
+      </div>
+    </details>
     <div class="fg"><label>Кому (для бейджа в календаре и платежах)</label><select id="cr-who">${[["", "— не указано"], ["me", "👤 Я"], ["wife", "👩 Жена"], ["both", "👥 Общее"]].map(([k, l]) => `<option value="${k}"${(c?.who || "") === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary" style="flex:1" onclick="saveCredit('${c?.id || ""}')">Сохранить</button>
@@ -1985,7 +2458,7 @@ function renderBudgets() {
     <div class="card stat"><div class="lbl">Осталось</div><div class="val ${totalLimit - totalSpent < 0 ? "neg" : "pos"}">${money(Math.max(0, totalLimit - totalSpent))}</div><div class="hint">до конца месяца</div></div>
     <div class="card stat"><div class="lbl">Превышено</div><div class="val ${over ? "warn" : ""}">${over}</div><div class="hint">категорий</div></div>`;
   const listEl = document.getElementById("budget-list");
-  if (!list.length) { listEl.className = ""; listEl.innerHTML = '<div class="empty"><div class="big">🎯</div>Лимитов пока нет — задайте бюджеты по категориям</div>'; return; }
+  if (!list.length) { listEl.className = ""; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.target + '</div>Лимитов пока нет — задайте бюджеты по категориям</div>'; return; }
   const cardsMode = viewMode("budgets") === "cards";
   listEl.className = cardsMode ? "grid grid-2" : "";
   listEl.innerHTML = list.map((b) => {
@@ -2044,7 +2517,7 @@ function renderGoals() {
   const list = S.goals || [];
   document.getElementById("goals-sub").textContent = list.length ? `${list.length} — накоплено ${money(list.reduce((s, g) => s + +g.saved, 0))}` : "";
   const listEl = document.getElementById("goals-list");
-  if (!list.length) { listEl.className = ""; listEl.innerHTML = '<div class="empty"><div class="big">🏆</div>Целей пока нет — добавьте первую</div>'; return; }
+  if (!list.length) { listEl.className = ""; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.trophy + '</div>Целей пока нет — добавьте первую</div>'; return; }
   const now = new Date();
   if (viewMode("goals") === "list") {
     listEl.className = "card";
@@ -2070,10 +2543,15 @@ function renderGoals() {
     </div>`;
   }).join("");
 }
-function addToGoal(id) {
+async function addToGoal(id) {
   if (isObserver()) return;
   const g = S.goals.find((x) => x.id === id); if (!g) return;
-  const v = prompt(`Сколько добавить к цели «${g.name}»? (отрицательное — снять)`, "");
+  const left = Math.max(0, +g.target - +g.saved);
+  const v = await wwPrompt(`Накоплено ${money(g.saved)} из ${money(g.target)}. Отрицательная сумма — снять с цели.`, {
+    title: `Пополнить «${g.name}»`, type: "number", okText: "Пополнить", placeholder: "0",
+    quick: left > 0 ? [{ label: "До цели " + money(left), value: left }] : [],
+    validate: (x) => parseFloat(String(x).replace(",", ".")) ? "" : "Введите сумму",
+  });
   if (v === null) return;
   const n = parseFloat((v || "").replace(",", ".").replace(/\s/g, ""));
   if (!n) return;
@@ -2210,7 +2688,7 @@ function taskCard(t) {
     <button class="task-check" onclick="event.stopPropagation();toggleTask('${t.id}')" title="Отметить выполненной"></button>
     <div class="task-main">
       <div class="task-top"><div class="task-text">${esc(t.text)}</div>
-      <div class="task-acts"><button onclick="event.stopPropagation();openTaskModal('${t.id}')" title="Редактировать">✎</button><button onclick="event.stopPropagation();dupTask('${t.id}')" title="Дублировать">⧉</button><button onclick="event.stopPropagation();delTask('${t.id}')" title="Удалить">✕</button></div></div>
+      <div class="task-acts"><button onclick="event.stopPropagation();openTaskModal('${t.id}')" title="Редактировать">${WWI.pencil}</button><button onclick="event.stopPropagation();dupTask('${t.id}')" title="Дублировать">⧉</button><button onclick="event.stopPropagation();delTask('${t.id}')" title="Удалить">✕</button></div></div>
       <div class="task-meta"><span class="tchip">Задача</span>${WHO_LABEL[t.who] ? `<span class="tchip">${WHO_LABEL[t.who]}</span>` : ""}<span class="tchip prio" style="color:${pr[1]}">● ${pr[0]}</span></div>
       ${t.date ? `<div class="task-due${od ? " od" : ""}">${od ? "просрочено · " : (isToday ? "сегодня · " : "")}${fmtDue2(t.date)}</div>` : ""}
     </div></div>`;
@@ -2238,7 +2716,7 @@ function renderPlanner() {
     const act = S.tasks.filter((t) => !t.done && (taskWho === "all" || t.who === taskWho));
     const srt = (a) => a.sort((x, y) => (PRIO_RANK[x.prio] ?? 1) - (PRIO_RANK[y.prio] ?? 1) || String(x.date || "9").localeCompare(String(y.date || "9")));
     const sorted = srt(act);
-    document.getElementById("planner-list").innerHTML = sorted.length ? `<div style="display:flex;flex-direction:column;gap:8px">${sorted.map(taskCard).join("")}</div>` : '<div class="empty"><div class="big">📋</div>Нет активных задач</div>';
+    document.getElementById("planner-list").innerHTML = sorted.length ? `<div style="display:flex;flex-direction:column;gap:8px">${sorted.map(taskCard).join("")}</div>` : '<div class="empty"><div class="big">' + WWI.clipboard + '</div>Нет активных задач</div>';
   } else {
     document.getElementById("kanban").innerHTML = taskCols().map((c) => `
     <div class="kb-col"><div class="kb-head"><span>${c.title}</span><span class="kb-count">${c.tasks.length}</span></div>
@@ -2246,7 +2724,7 @@ function renderPlanner() {
     <button class="kb-add" onclick="openTaskModal(null,'${c.key}')">＋ Добавить задачу</button></div>`).join("");
   }
   const done = S.tasks.filter((t) => t.done && (taskWho === "all" || t.who === taskWho)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 20);
-  document.getElementById("tasks-done").innerHTML = done.length ? done.map((t) => `<div class="row done-list"><button class="task-check done" onclick="toggleTask('${t.id}')" title="Вернуть в работу">✓</button><div class="rmain"><div class="task-text" style="font-size:13.5px">${esc(t.text)}</div><div class="rs">${WHO_LABEL[t.who] || ""}</div></div><button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')">🗑</button></div>`).join("") : '<div class="empty">Выполненных задач пока нет</div>';
+  document.getElementById("tasks-done").innerHTML = done.length ? done.map((t) => `<div class="row done-list"><button class="task-check done" onclick="toggleTask('${t.id}')" title="Вернуть в работу">✓</button><div class="rmain"><div class="task-text" style="font-size:13.5px">${esc(t.text)}</div><div class="rs">${WHO_LABEL[t.who] || ""}</div></div><button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')">${WWI.trash}</button></div>`).join("") : '<div class="empty">Выполненных задач пока нет</div>';
 }
 function taskDrag(e, id) { _dragTaskId = id; e.dataTransfer.effectAllowed = "move"; }
 function taskDrop(e, col) {
@@ -2268,11 +2746,11 @@ function openTaskModal(id, col) {
     </div>
     <div class="fg"><label>Приоритет</label><div class="seg" id="tk-prio">${[["high", "Высокий"], ["mid", "Средний"], ["low", "Низкий"]].map(([k, l]) => `<button class="${(t ? t.prio : "mid") === k ? "active" : ""}" data-p="${k}" onclick="segPick(this)">${l}</button>`).join("")}</div></div>
     <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="saveTask('${id || ""}')">Сохранить</button>${t ? `<button class="btn btn-danger" onclick="delTask('${t.id}')">Удалить</button>` : ""}</div>`);
-  setTimeout(() => document.getElementById("tk-text").focus(), 50);
+  wwFocus("tk-text");
 }
 function segPick(b) { b.parentElement.querySelectorAll("button").forEach((x) => x.classList.remove("active")); b.classList.add("active"); }
 function saveTask(id) {
-  const text = document.getElementById("tk-text").value.trim(); if (!text) { alert("Введите текст задачи"); return; }
+  const text = document.getElementById("tk-text").value.trim(); if (!text) { toast("Введите текст задачи"); return; }
   const who = document.getElementById("tk-who").value;
   const date = document.getElementById("tk-date").value;
   const prioBtn = document.querySelector("#tk-prio button.active");
@@ -2291,10 +2769,10 @@ function fixUrl(u) { return /^https?:\/\//i.test(u) ? u : "https://" + u; }
 function linkCard(l) {
   return `<div class="card" data-sid="${l.id}" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-      <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">🔗</div><div class="rt" style="min-width:0"><a href="${esc(fixUrl(l.url))}" target="_blank" rel="noopener">${esc(l.title)}</a></div></div>
+      <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">${WWI.link}</div><div class="rt" style="min-width:0"><a href="${esc(fixUrl(l.url))}" target="_blank" rel="noopener">${esc(l.title)}</a></div></div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        <button class="btn btn-ghost btn-sm" onclick="openLinkModal('${l.id}')" title="Редактировать">✎</button>
-        <button class="btn btn-ghost btn-sm" onclick="delLink('${l.id}')" title="Удалить">🗑</button>
+        <button class="btn btn-ghost btn-sm" onclick="openLinkModal('${l.id}')" title="Редактировать">${WWI.pencil}</button>
+        <button class="btn btn-ghost btn-sm" onclick="delLink('${l.id}')" title="Удалить">${WWI.trash}</button>
       </div>
     </div>
     <div class="rs link-url">${l.category ? `<span class="tag">${esc(l.category)}</span>` : ""}${esc(l.url)}</div>
@@ -2308,15 +2786,15 @@ function renderLinks() {
   document.getElementById("link-cats").innerHTML = [`<button class="chip${linkCat === "all" ? " active" : ""}" onclick="setLinkCat('all')">Все</button>`].concat(cats.map((c) => `<button class="chip${linkCat === c ? " active" : ""}" data-c="${esc(c)}" onclick="setLinkCat(this.dataset.c)">${esc(c)}</button>`)).join("");
   const list = S.links.filter((l) => (linkCat === "all" || l.category === linkCat) && (!q || (l.title + " " + l.url + " " + (l.category || "")).toLowerCase().includes(q)));
   const listEl = document.getElementById("links-list");
-  if (!list.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🔗</div>Добавьте первую ссылку кнопкой «＋ Ссылка»</div>'; return; }
+  if (!list.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.link + '</div>Добавьте первую ссылку кнопкой «＋ Ссылка»</div>'; return; }
   if (viewMode("links") === "list") {
     listEl.className = "card";
     listEl.innerHTML = list.map((l) => `<div class="row link-row" data-sid="${l.id}">
-      <div class="ic">🔗</div>
+      <div class="ic">${WWI.link}</div>
       <div class="rmain"><div class="rt"><a href="${esc(fixUrl(l.url))}" target="_blank" rel="noopener">${esc(l.title)}</a></div>
       <div class="rs link-url">${l.category ? `<span class="tag">${esc(l.category)}</span>` : ""}${esc(l.url)}</div></div>
-      <button class="btn btn-ghost btn-sm" onclick="openLinkModal('${l.id}')" title="Редактировать">✎</button>
-      <button class="btn btn-ghost btn-sm" onclick="delLink('${l.id}')" title="Удалить">🗑</button></div>`).join("");
+      <button class="btn btn-ghost btn-sm" onclick="openLinkModal('${l.id}')" title="Редактировать">${WWI.pencil}</button>
+      <button class="btn btn-ghost btn-sm" onclick="delLink('${l.id}')" title="Удалить">${WWI.trash}</button></div>`).join("");
   } else {
     listEl.className = "grid grid-2";
     listEl.innerHTML = list.map(linkCard).join("");
@@ -2331,27 +2809,31 @@ function openLinkModal(id) {
     <div class="fg"><label>Категория</label><input id="ln-cat" list="ln-cat-list" value="${esc(l ? l.category : "")}" placeholder="напр.: Финансы"><datalist id="ln-cat-list">${cats.map((c) => `<option value="${esc(c)}">`).join("")}</datalist></div>
     <div class="fg"><label>Ссылка (URL)</label><input id="ln-url" type="url" inputmode="url" value="${esc(l ? l.url : "")}" placeholder="https://..."></div>
     <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="saveLink('${id || ""}')">Сохранить</button>${l ? `<button class="btn btn-danger" onclick="delLink('${l.id}')">Удалить</button>` : ""}</div>`);
-  setTimeout(() => document.getElementById("ln-title").focus(), 50);
+  wwFocus("ln-title");
 }
 function saveLink(id) {
   const title = document.getElementById("ln-title").value.trim();
   const category = document.getElementById("ln-cat").value.trim();
   const url = document.getElementById("ln-url").value.trim();
-  if (!title || !url) { alert("Заполните описание и ссылку"); return; }
+  if (!title || !url) { toast("Заполните описание и ссылку"); return; }
   if (id) { const l = S.links.find((x) => x.id === id); if (l) Object.assign(l, { title, category, url }); }
   else S.links.push({ id: uid(), title, category, url, created: Date.now() });
   save(); closeModal(); renderLinks();
 }
-function delLink(id) { if (isObserver()) return; if (!confirm("Удалить ссылку?")) return; S.links = S.links.filter((x) => x.id !== id); save(); closeModal(); renderLinks(); }
+async function delLink(id) { if (isObserver()) return; if (!await wwConfirm("Ссылка будет удалена из списка.", { title: "Удалить ссылку?", okText: "Удалить", danger: true })) return; S.links = S.links.filter((x) => x.id !== id); save(); closeModal(); renderLinks(); }
 
 /* ===================== more sheet (mobile) ===================== */
 function openMore() {
   showModal(`<div class="mhead"><h3>Ещё</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="more-grp">Деньги</div>
     <button class="more-item" onclick="closeModal();nav('goals')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg>Цели и накопления</button>
+    <div class="more-grp">Планы</div>
     <button class="more-item" onclick="closeModal();nav('calendar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg>Календарь</button>
     <button class="more-item" onclick="closeModal();nav('planner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg>Планировщик</button>
+    <div class="more-grp">Хранилище</div>
     <button class="more-item" onclick="closeModal();nav('links')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>Ссылки</button>
     <button class="more-item" onclick="closeModal();nav('passwords')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg>Пароли</button>
+    <div class="more-grp">Прочее</div>
     <button class="more-item" onclick="closeModal();nav('analytics')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Аналитика</button>
     <button class="more-item" onclick="closeModal();nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>Настройки</button>`);
 }
@@ -2424,6 +2906,7 @@ function bindStaticSorters() {
 function applyNavOrder() {
   const order = S.settings.navOrder; if (!order || !order.length) return;
   const host = document.querySelector(".rail"); if (!host) return;
+  host.querySelectorAll(".rail-grp").forEach((g) => { g.style.display = "none"; });
   const map = {}; host.querySelectorAll(".rail-item[data-nav]").forEach((el) => { map[el.dataset.nav] = el; });
   order.forEach((k) => { if (map[k]) host.appendChild(map[k]); });
 }
@@ -2547,10 +3030,10 @@ setInterval(() => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey
 </script>
 <style>
 /* ===================== v2.0 styles ===================== */
-#ww-lock{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);align-items:center;justify-content:center}
+#ww-lock{display:none;position:fixed;inset:0;z-index:var(--z-lock);background:var(--bg);align-items:center;justify-content:center}
 .ww-lock-card{width:min(320px,86vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.18)}
 #ww-lock-in{width:100%;text-align:center;font-size:22px;letter-spacing:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:var(--font-d)}
-#ww-net{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--amber-bg);border:1px solid var(--amber);color:var(--text);padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:400;align-items:center;gap:6px;box-shadow:0 6px 20px rgba(0,0,0,.15)}
+#ww-net{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--amber-bg);border:1px solid var(--amber);color:var(--text);padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:var(--z-net);align-items:center;gap:6px;box-shadow:0 6px 20px rgba(0,0,0,.15)}
 #toast{pointer-events:auto}
 .cs-table{width:100%;border-collapse:collapse;font-size:12px}
 .cs-table th,.cs-table td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--font-d);white-space:nowrap}
@@ -2590,8 +3073,8 @@ ww2Migrate();
 
 /* ---------- разметка: экран блокировки + офлайн-бейдж ---------- */
 document.body.insertAdjacentHTML("beforeend", `
-<div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px">🔒</div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><button class="btn btn-primary" id="ww-lock-face" style="width:100%;margin-bottom:10px;display:none" onclick="ww36TryFaceId()">🆔 Face ID / Touch ID</button><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div><div class="sub" style="margin-top:12px"><a href="#" onclick="ww2ForgotPin();return false" style="color:inherit;text-decoration:underline">Забыли PIN? Сбросить</a></div></div></div>
-<div id="ww-net">⚡ Офлайн — данные сохраняются локально</div>`);
+<div id="ww-lock"><div class="ww-lock-card"><div style="font-size:34px"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg></div><h3 style="margin:8px 0 2px">WiseWallet</h3><div class="sub" style="margin-bottom:12px">Введите PIN-код</div><button class="btn btn-primary" id="ww-lock-face" style="width:100%;margin-bottom:10px;display:none" onclick="ww36TryFaceId()">🆔 Face ID / Touch ID</button><input id="ww-lock-in" type="password" inputmode="numeric" maxlength="8" autocomplete="off" onkeydown="if(event.key==='Enter')ww2TryUnlock()"><button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww2TryUnlock()">Открыть</button><div class="sub" id="ww-lock-msg" style="margin-top:8px;color:var(--red)"></div><div class="sub" style="margin-top:12px"><a href="#" onclick="ww2ForgotPin();return false" style="color:inherit;text-decoration:underline">Забыли PIN? Сбросить</a></div></div></div>
+<div id="ww-net"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2.5L5.5 13H11l-1 8.5L18.5 11H13z"/></svg> Офлайн — данные сохраняются локально</div>`);
 
 /* ===================== 2. PIN-код ===================== */
 async function ww2Hash(s) {
@@ -2606,13 +3089,16 @@ async function ww2Hash(s) {
 }
 function pinSet() { return !!localStorage.getItem(WW2K.pin); }
 async function ww2SetupPin() {
-  const p1 = prompt(pinSet() ? "Новый PIN-код (4–8 цифр):" : "Придумайте PIN-код (4–8 цифр):"); if (p1 === null) return;
-  if (!/^\d{4,8}$/.test(p1)) { toast("PIN — от 4 до 8 цифр"); return; }
-  const p2 = prompt("Повторите PIN-код:"); if (p2 !== p1) { toast("PIN-коды не совпадают"); return; }
+  const p1 = await wwPrompt("От 4 до 8 цифр.", { title: pinSet() ? "Новый PIN-код" : "Придумайте PIN-код", type: "password", okText: "Далее",
+    validate: (v) => /^\d{4,8}$/.test(v) ? "" : "PIN — от 4 до 8 цифр" });
+  if (p1 === null) return;
+  const p2 = await wwPrompt("", { title: "Повторите PIN-код", type: "password", okText: "Установить",
+    validate: (v) => v === p1 ? "" : "PIN-коды не совпадают" });
+  if (p2 === null) return;
   localStorage.setItem(WW2K.pin, await ww2Hash(p1)); toast("PIN-код установлен"); fillV2Settings();
 }
 async function ww2DisablePin() {
-  const p = prompt("Введите текущий PIN-код для отключения:"); if (p === null) return;
+  const p = await wwPrompt("Введите текущий PIN-код, чтобы снять блокировку.", { title: "Отключить PIN-код", type: "password", okText: "Отключить" }); if (p === null) return;
   if (await ww2Hash(p) !== localStorage.getItem(WW2K.pin)) { toast("Неверный PIN"); return; }
   localStorage.removeItem(WW2K.pin); toast("PIN-код отключён"); fillV2Settings();
 }
@@ -2732,8 +3218,53 @@ function ww2SignOut() { localStorage.removeItem(WW2K.sess); toast("Вы вышл
 /* ===================== 1+3. Синхронизация v2 (auth + защита от конфликтов) ===================== */
 let _confAsked = false;
 async function syncNow(manual) {
-  const { sbUrl, sbKey, syncId } = S.settings;
+  // Обёртка над реальной синхронизацией: на первой загрузке показываем скелетоны,
+  // дальше — лёгкий индикатор, чтобы подмена цифр не выглядела необъяснимой.
+  const { sbUrl, sbKey } = S.settings;
   if (!sbUrl || !sbKey || !navigator.onLine) { if (manual) toast(!navigator.onLine ? "Нет сети" : "Сначала заполните URL и ключ"); return; }
+  const firstLoad = !window._wwSyncedOnce;
+  if (firstLoad) wwSkeleton(true); else wwSyncBusy(true);
+  try { return await _syncNowInner(manual); }
+  finally {
+    window._wwSyncedOnce = true;
+    if (firstLoad) wwSkeleton(false); else wwSyncBusy(false);
+  }
+}
+/* ---- скелетоны на первой загрузке ----
+   Только на первой: при каждом фоновом обновлении мерцание раздражало бы
+   сильнее, чем помогало. */
+function wwSkeleton(on) {
+  if (typeof activePage !== "function" || activePage() !== "dashboard") return;
+  ["dash-stats", "plan-stats", "dash-upcoming", "dash-recent", "dash-cats"].forEach((id) => {
+    const el = document.getElementById(id); if (!el) return;
+    if (on) el.querySelectorAll(".card.stat, .row").forEach((nd) => nd.classList.add("skel"));
+    else el.querySelectorAll(".skel").forEach((nd) => nd.classList.remove("skel"));
+  });
+}
+/* ---- индикатор фоновой синхронизации ----
+   Показываем только если запрос идёт дольше 400 мс, иначе на быстрой сети
+   получилось бы мигание. */
+let _syncBusy = 0, _syncTimer = null;
+function wwSyncBusy(on) {
+  _syncBusy = Math.max(0, _syncBusy + (on ? 1 : -1));
+  clearTimeout(_syncTimer);
+  if (_syncBusy > 0) {
+    _syncTimer = setTimeout(() => {
+      let el = document.getElementById("ww-syncing");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "ww-syncing";
+        el.innerHTML = '<span class="ww-sync-dot"></span>Обновляем данные…';
+        document.body.appendChild(el);
+      }
+      el.classList.add("show");
+    }, 400);
+  } else {
+    const el = document.getElementById("ww-syncing"); if (el) el.classList.remove("show");
+  }
+}
+async function _syncNowInner(manual) {
+  const { sbUrl, sbKey, syncId } = S.settings;
   const sess = await ww2Session();
   const table = sess ? "ww_user_state" : "ww_state";
   const keyCol = sess ? "user_id" : "id";
@@ -2769,7 +3300,12 @@ async function syncNow(manual) {
       if (remote && remote.data && remoteChanged && localDirty && (remote.data.updatedAt || 0) !== S.updatedAt) {
         if (manual || !_confAsked) {
           _confAsked = true;
-          const keepMine = confirm(`⚠️ Конфликт синхронизации\n\nДанные менялись и на этом устройстве, и на другом.\nВаша версия: ${new Date(S.updatedAt).toLocaleString("ru-RU")}\nНа сервере: ${new Date(remote.data.updatedAt || 0).toLocaleString("ru-RU")}\n\nOK — оставить версию ЭТОГО устройства (сервер будет перезаписан)\nОтмена — взять версию С СЕРВЕРА (локальные изменения будут потеряны)`);
+          // Кнопки подписаны действием, а не «ОК/Отмена»: при риске потерять
+          // данные выбор должен читаться с первого раза.
+          const keepMine = await wwConfirm(
+            `Данные менялись и на этом устройстве, и на другом.\n\nЗдесь: ${new Date(S.updatedAt).toLocaleString("ru-RU")}\nНа сервере: ${new Date(remote.data.updatedAt || 0).toLocaleString("ru-RU")}\n\nВерсия, которую вы не выберете, будет потеряна.`,
+            { title: "⚠️ Конфликт синхронизации", okText: "Оставить эту", cancelText: "Взять с сервера" }
+          );
           if (keepMine) { await doPush(); toast("Сохранена ваша версия"); } else { doPull(); toast("Загружена версия с сервера"); }
           _confAsked = false;
         }
@@ -2872,7 +3408,7 @@ function renderDuePanel() {
   const { exp, cr } = ww30Data();
   const unpaid = exp.filter((d) => !d.paid).length + cr.filter((d) => !d.paid).length;
   el.style.display = "block";
-  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>📥 К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><button class="ww31-navm" onclick="ww316DueShift(-1)" title="Предыдущий месяц">◀</button><b style="font-size:12.5px;white-space:nowrap">${ww316DueLabel()}</b><button class="ww31-navm" onclick="ww316DueShift(1)" title="Следующий месяц">▶</button>${ww316DueYm ? '<button class="btn btn-ghost btn-sm" onclick="ww316DueReset()" style="margin-left:2px">Сегодня</button>' : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи за выбранный месяц. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
+  el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>${WWI.inbox} К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><span class="ww319-per"><button class="ww31-navm" onclick="ww316DueShift(-1)" title="Предыдущий месяц">◀</button><button class="ww319-pill" onclick="ww319DueSheet()" title="Выбрать месяц">${ww316DueLabel().toUpperCase()} ▾</button><button class="ww31-navm" onclick="ww316DueShift(1)" title="Следующий месяц">▶</button></span>${ww316DueYm ? '<button class="btn btn-ghost btn-sm" onclick="ww316DueReset()" style="margin-left:2px">Сегодня</button>' : ""}</h2><div class="sub" style="margin:2px 0 6px">Платежи за выбранный месяц. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
     `<div class="ww30-sec">Регулярные расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
     (exp.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет регулярных расходов в этом месяце.</div>') +
     `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal()">+ Добавить расход</button></div></div><div class="ww31-col">` +
@@ -2985,7 +3521,7 @@ function ww32AskAmount(name, remaining, full, posted, onConfirm) {
     <div class="ww32-info">${info}</div>
     <div class="fg"><label>Сумма оплаты, ₽</label><input class="amount-in" id="ww32-amt" type="number" inputmode="decimal" min="0" step="1" value="${remaining}" onkeydown="if(event.key==='Enter')ww32ConfirmPay()"></div>
     <div class="ww32-actions"><button class="btn btn-ghost" onclick="ww32CancelPay()">Отмена</button><button class="btn btn-primary" onclick="ww32ConfirmPay()">Оплатить</button></div>`, { center: true });
-  setTimeout(() => { const el = document.getElementById("ww32-amt"); if (el) { el.focus(); el.select(); } }, 60);
+  wwFocus("ww32-amt", true);
 }
 function ww32CancelPay() { window._ww32Confirm = null; closeModal(); }
 function ww32ConfirmPay() {
@@ -3094,7 +3630,7 @@ function ww32Reset(kind, id) {
   toast("Оплата сброшена");
   save(); render(activePage());
 }
-function postRecur(id, amountOverride) {
+async function postRecur(id, amountOverride) {
   if (isObserver()) return;
   const ym = todayStr().slice(0, 7);
   const r = S.recurring.find((x) => x.id === id); if (!r) return;
@@ -3104,7 +3640,12 @@ function postRecur(id, amountOverride) {
   if (remaining <= 0) return;
   let amount = amountOverride;
   if (amount == null) {
-    const raw = prompt(`Сумма оплаты «${r.name}»${postedSoFar > 0 ? ` (уже оплачено ${money(postedSoFar)} из ${money(r.amount)})` : ""}:`, remaining);
+    const quick = [{ label: "Весь остаток " + money(remaining), value: remaining }];
+    if (remaining > 1) quick.push({ label: "Половина " + money(Math.round(remaining / 2)), value: Math.round(remaining / 2) });
+    const raw = await wwPrompt(
+      postedSoFar > 0 ? `Уже оплачено ${money(postedSoFar)} из ${money(r.amount)}. Осталось ${money(remaining)}.` : `Плановая сумма — ${money(r.amount)}. Можно оплатить частично.`,
+      { title: `Оплата «${r.name}»`, type: "number", defaultValue: remaining, okText: "Оплатить", quick,
+        validate: (x) => { const v = parseFloat(String(x).replace(",", ".")); return (!v || v <= 0) ? "Введите сумму больше нуля" : ""; } });
     if (raw === null) return;
     amount = parseFloat(String(raw).replace(",", "."));
   }
@@ -3123,9 +3664,11 @@ function skipRecur(id) {
   S.skipped[id + ":" + ww316Ym()] = true;
   save(); renderDuePanel();
 }
-function postAllRecur() {
+async function postAllRecur() {
   if (isObserver()) return;
-  duePostings().forEach((d) => postRecur(d.r.id, Math.max(0, +d.r.amount - d.posted)));
+  // Последовательно, а не forEach: postRecur стал асинхронным, и параллельные
+  // вызовы затирали бы друг другу S.posted при сохранении.
+  for (const d of duePostings()) await postRecur(d.r.id, Math.max(0, +d.r.amount - d.posted));
 }
 const _renderDash2 = renderDash;
 renderDash = function () { _renderDash2(); renderDuePanel(); renderPlanStats(); };
@@ -3157,7 +3700,7 @@ function creditSchedule(c, extraMonthly, oneTime, overridePayment) {
 }
 function openCreditSchedule(id) {
   const c = S.credits.find((x) => x.id === id); if (!c) return;
-  showModal(`<div class="mhead"><h3>📊 ${esc(c.name)}</h3><button class="x" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="mhead"><h3>${WWI.chart} ${esc(c.name)}</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="fg-row">
       <div class="fg"><label>Досрочно сейчас, ₽</label><input id="cs-once" type="number" value="0" min="0"></div>
       <div class="fg"><label>Доп. платёж/мес, ₽</label><input id="cs-extra" type="number" value="0" min="0"></div>
@@ -3192,8 +3735,8 @@ function renderSchedule(id) {
   if (plan !== base && !base.never) {
     const savedInt = Math.max(0, base.totalInt - plan.totalInt);
     const savedM = Math.max(0, base.rows.length - plan.rows.length);
-    if (savedM > 0) cmp = `<div class="reminder-row income" style="margin:10px 0"><div class="ic">💡</div><div class="rmain"><div class="rt">Экономия на процентах: ${money(savedInt)}</div><div class="rs">закроете быстрее на ${savedM} мес.</div></div></div>`;
-    else if (savedInt > 0) cmp = `<div class="reminder-row income" style="margin:10px 0"><div class="ic">💡</div><div class="rmain"><div class="rt">Экономия на процентах: ${money(savedInt)}</div><div class="rs">срок как прежде, платёж меньше</div></div></div>`;
+    if (savedM > 0) cmp = `<div class="reminder-row income" style="margin:10px 0"><div class="ic">${WWI.bulb}</div><div class="rmain"><div class="rt">Экономия на процентах: ${money(savedInt)}</div><div class="rs">закроете быстрее на ${savedM} мес.</div></div></div>`;
+    else if (savedInt > 0) cmp = `<div class="reminder-row income" style="margin:10px 0"><div class="ic">${WWI.bulb}</div><div class="rmain"><div class="rt">Экономия на процентах: ${money(savedInt)}</div><div class="rs">срок как прежде, платёж меньше</div></div></div>`;
   }
   out.innerHTML = newPaymentNote + `<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:10px">
       <div><div class="sub">Закроете</div><b>${payoff}</b><div class="sub">${plan.rows.length} платежей</div></div>
@@ -3209,7 +3752,7 @@ openCreditModal = function (id) {
   if (!id || S.settings.observerMode) return;
   const m = document.getElementById("modal"); if (!m) return;
   const saveBtn = m.querySelector('button.btn-primary[onclick^="saveCredit"]');
-  if (saveBtn && saveBtn.parentElement) saveBtn.parentElement.insertAdjacentHTML("beforebegin", `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="openCreditSchedule('${id}')">📊 График платежей и досрочное погашение</button>`);
+  if (saveBtn && saveBtn.parentElement) saveBtn.parentElement.insertAdjacentHTML("beforebegin", `<button class="btn btn-ghost" style="width:100%;margin-bottom:8px" onclick="openCreditSchedule('${id}')">${WWI.chart} График платежей и досрочное погашение</button>`);
 };
 
 /* ===================== 6. Авто-бэкапы + отмена удаления ===================== */
@@ -3222,10 +3765,10 @@ function ww2Snapshot(force) {
   try { localStorage.setItem(WW2K.snap, JSON.stringify(snaps)); } catch (e) {}
   if (document.getElementById("ww-snap-list")) fillV2Settings();
 }
-function ww2Restore(t) {
+async function ww2Restore(t) {
   if (isObserver()) return;
   const s = ww2Snapshots().find((x) => x.t === t); if (!s) return;
-  if (!confirm("Восстановить данные из копии от " + new Date(t).toLocaleString("ru-RU") + "?\n\nТекущие данные будут заменены (перед этим создадим ещё одну копию).")) return;
+  if (!await wwConfirm("Текущие данные будут заменены. Перед заменой создадим ещё одну копию, так что откатиться будет можно.", { title: "Восстановить копию от " + new Date(t).toLocaleString("ru-RU") + "?", okText: "Восстановить" })) return;
   ww2Snapshot(true);
   try { S = JSON.parse(s.data); localStorage.setItem(LS_KEY, JSON.stringify(S)); location.reload(); } catch (e) { toast("Ошибка восстановления"); }
 }
@@ -3318,7 +3861,7 @@ function openTransferModal() {
       <div class="fg"><label>Комментарий</label><input id="tr-note" placeholder="Необязательно"></div>
     </div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTransfer()">Перевести</button>`);
-  setTimeout(() => { const el = document.getElementById("tr-amount"); if (el) el.focus(); }, 60);
+  wwFocus("tr-amount");
 }
 function saveTransfer() {
   if (isObserver()) return;
@@ -3351,7 +3894,7 @@ function renderOps() {
   const exp = tx.filter((t) => t.type === "expense" && !t.transfer).reduce((s, t) => s + +t.amount, 0);
   document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div></div>`;
   const listEl = document.getElementById("ops-list");
-  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🗂️</div>Нет операций по выбранным фильтрам</div>'; return; }
+  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.folder + '</div>Нет операций по выбранным фильтрам</div>'; return; }
   if (viewMode("ops") === "list") {
     listEl.className = "card";
     const byDay = {};
@@ -3410,7 +3953,7 @@ function renderV2Settings() {
   const grid = document.querySelector("#page-settings .grid.grid-2"); if (!grid) return;
   if (!document.getElementById("ww-sec-card")) {
     grid.insertAdjacentHTML("beforeend", `
-    <div class="card" id="ww-sec-card"><h2>🔒 Безопасность</h2>
+    <div class="card" id="ww-sec-card"><h2>${WWI.lock} Безопасность</h2>
       <div class="sub" style="margin:2px 0 12px">PIN-код запрашивается при открытии приложения на этом устройстве.</div>
       <div id="ww-pin-ui"></div>
       <div class="sub" style="margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px">Face ID / Touch ID — быстрая разблокировка вместо PIN (на iPhone/Mac с биометрией). Данные для разблокировки хранятся только на этом устройстве, это не замена входа в аккаунт Supabase.</div>
@@ -3489,7 +4032,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.17";
+const WW_VERSION = "3.19";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -3556,8 +4099,8 @@ function renderPasswords() {
       <div class="rs">${p.category ? `<span class="tag">${esc(p.category)}</span>` : ""}<span>${esc(p.login || "—")}</span><button class="pw-mini" onclick="ww21Copy('${p.id}','login')" title="Скопировать логин">📋</button><span>·</span><span class="pass-val" id="pw-${p.id}" data-shown="0">••••••••</span><button class="pw-mini" onclick="ww21Toggle('${p.id}', this)" title="Показать/скрыть">👁</button><button class="pw-mini" onclick="ww21Copy('${p.id}','password')" title="Скопировать пароль">📋</button></div>
       ${p.note ? `<div class="rs">${esc(p.note)}</div>` : ""}
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="openPassModal('${p.id}')" title="Редактировать">✎</button>
-    <button class="btn btn-ghost btn-sm" onclick="delPass('${p.id}')" title="Удалить">🗑</button></div>`).join("");
+    <button class="btn btn-ghost btn-sm" onclick="openPassModal('${p.id}')" title="Редактировать">${WWI.pencil}</button>
+    <button class="btn btn-ghost btn-sm" onclick="delPass('${p.id}')" title="Удалить">${WWI.trash}</button></div>`).join("");
 }
 function ww21Toggle(id, btn) {
   const p = S.passwords.find((x) => x.id === id); const el = document.getElementById("pw-" + id); if (!p || !el) return;
@@ -3593,7 +4136,7 @@ function openPassModal(id) {
     <div class="fg"><label>Ссылка на сервис (URL)</label><input id="pw-url" type="url" inputmode="url" value="${esc(p ? p.url || "" : "")}" placeholder="https://..."></div>
     <div class="fg"><label>Заметка</label><input id="pw-note" value="${esc(p ? p.note || "" : "")}" placeholder="необязательно"></div>
     <div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="savePass('${id || ""}')">Сохранить</button>${p ? `<button class="btn btn-danger" onclick="delPass('${p.id}')">Удалить</button>` : ""}</div>`);
-  setTimeout(() => document.getElementById("pw-title").focus(), 50);
+  wwFocus("pw-title");
 }
 function savePass(id) {
   const title = document.getElementById("pw-title").value.trim();
@@ -3602,7 +4145,7 @@ function savePass(id) {
   const password = document.getElementById("pw-pass").value;
   const url = document.getElementById("pw-url").value.trim();
   const note = document.getElementById("pw-note").value.trim();
-  if (!title || (!login && !password)) { alert("Заполните сервис и логин или пароль"); return; }
+  if (!title || (!login && !password)) { toast("Заполните сервис и логин или пароль"); return; }
   if (id) { const p = S.passwords.find((x) => x.id === id); if (p) Object.assign(p, { title, category, login, password, url, note }); }
   else S.passwords.push({ id: uid(), title, category, login, password, url, note, created: Date.now() });
   save(); closeModal(); renderPasswords();
@@ -3734,10 +4277,10 @@ function ww22DemoState() {
 }
 
 /* ---- переключение профилей ---- */
-function ww22Switch(p) {
+async function ww22Switch(p) {
   if (p === ww22Profile()) return;
   if (p === "main" && typeof pinSet === "function" && pinSet()) {
-    const pin = prompt("Введите PIN-код для доступа к профилю «Моя»:");
+    const pin = await wwPrompt("", { title: "PIN-код для профиля «Моя»", type: "password", okText: "Войти" });
     if (pin === null) return;
     ww2Hash(pin).then((h) => {
       if (h !== localStorage.getItem(WW2K.pin)) { toast("❌ Неверный PIN"); return; }
@@ -3745,13 +4288,13 @@ function ww22Switch(p) {
     });
     return;
   }
-  if (p === "parents" && !confirm("Переключиться в режим «Просмотр»?\n\nДанные будут доступны только для просмотра, без редактирования. Для возврата понадобится PIN-код (если установлен).")) return;
-  if (p === "demo" && !confirm("Включить демо-режим?\n\nЭто отдельные вымышленные данные для показа, доступные в рамках учётной записи «Моя». Ваши данные не изменятся.")) return;
+  if (p === "parents" && !await wwConfirm("Данные будут доступны только для просмотра, без редактирования. Для возврата понадобится PIN-код, если он установлен.", { title: "Переключиться в режим «Просмотр»?", okText: "Переключиться" })) return;
+  if (p === "demo" && !await wwConfirm("Это отдельные вымышленные данные для показа. Ваши настоящие данные не изменятся и никуда не денутся.", { title: "Включить демо-режим?", okText: "Включить" })) return;
   if (p === "demo" && typeof ww2Snapshot === "function") { try { ww2Snapshot(true); } catch (e) {} }
   localStorage.setItem(WW22_PROF_KEY, p); localStorage.setItem(WW22_SW_FLAG, "1"); location.reload();
 }
-function ww22DemoReset() {
-  if (!confirm("Сбросить демо-данные к исходному примеру?")) return;
+async function ww22DemoReset() {
+  if (!await wwConfirm("Демо-данные вернутся к исходному примеру. На ваши настоящие данные это не влияет.", { title: "Сбросить демо-данные?", okText: "Сбросить" })) return;
   localStorage.removeItem(WW22_DEMO_KEY);
   location.reload();
 }
@@ -3832,7 +4375,7 @@ function ww342Guard() {
       S = JSON.parse(good.data);
       localStorage.setItem(LS_KEY, JSON.stringify(S));
       localStorage.removeItem("ww342_alerted");
-      alert("Обнаружено, что в основную учётную запись попали демо-данные.\n\nДанные автоматически восстановлены из резервной копии от " + new Date(good.t).toLocaleString("ru-RU") + ".\n\nЕсли копия не самая свежая — выполните синхронизацию в настройках, чтобы подтянуть последнюю версию из облака.");
+      wwAlert("Обнаружено, что в основную учётную запись попали демо-данные.\n\nДанные автоматически восстановлены из резервной копии от " + new Date(good.t).toLocaleString("ru-RU") + ".\n\nЕсли копия не самая свежая — выполните синхронизацию в настройках, чтобы подтянуть последнюю версию из облака.");
       location.reload();
       return;
     } catch (e) {}
@@ -3842,7 +4385,7 @@ function ww342Guard() {
   localStorage.setItem(LS_KEY, JSON.stringify(S));
   if (!localStorage.getItem("ww342_alerted")) {
     localStorage.setItem("ww342_alerted", "1");
-    alert("В основную учётную запись попали демо-данные, а локальной резервной копии не нашлось.\n\nЕсли вы пользуетесь синхронизацией: откройте Настройки → Синхронизация, проверьте URL и ключ и запустите синхронизацию — настоящие данные вернутся из облака.\n\nЗащита включена: демо-данные НЕ будут отправлены в облако.");
+    wwAlert("В основную учётную запись попали демо-данные, а локальной резервной копии не нашлось.\n\nЕсли вы пользуетесь синхронизацией: откройте Настройки → Синхронизация, проверьте URL и ключ и запустите синхронизацию — настоящие данные вернутся из облака.\n\nЗащита включена: демо-данные НЕ будут отправлены в облако.");
   }
 }
 
@@ -3899,10 +4442,10 @@ function ww342Guard() {
 /* ===================== WiseWallet v2.3: шифрование, поиск, тренды, теги, CSV ===================== */
 
 /* ---------- 0. «Забыли PIN?» ---------- */
-function ww2ForgotPin() {
-  const ok = confirm("Сбросить PIN-код?\n\nЛокальные данные на этом устройстве будут удалены. После входа в аккаунт и синхронизации всё вернётся из облака Supabase.\n\nНесинхронизированные изменения будут потеряны.");
+async function ww2ForgotPin() {
+  const ok = await wwConfirm("Локальные данные на этом устройстве будут удалены. После входа и синхронизации всё вернётся из Supabase, но несинхронизированные изменения пропадут.", { title: "Сбросить PIN-код?", okText: "Сбросить PIN", danger: true });
   if (!ok) return;
-  if (!confirm("Точно продолжить? Отменить это действие нельзя.")) return;
+  if (!await wwConfirm("Отменить это действие будет нельзя.", { title: "Точно продолжить?", okText: "Да, продолжить", danger: true })) return;
   let sb = null;
   try { const st = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (st && st.settings) sb = { u: st.settings.sbUrl || "", k: st.settings.sbKey || "" }; } catch (e) {}
   try { localStorage.clear(); } catch (e) {}
@@ -3939,10 +4482,13 @@ async function ww23Persist() { if (ww23Enabled() && WW23.key) await ww23Seal(); 
 async function ww23Enable() {
   if (isObserver()) return;
   if (!window.crypto || !crypto.subtle) { toast("Шифрование не поддерживается этим браузером"); return; }
-  const p1 = prompt("Придумайте мастер-пароль шифрования (минимум 4 символа).\n\n⚠️ Запишите его: без мастер-пароля пароли восстановить НЕВОЗМОЖНО — даже из облака.");
+  const p1 = await wwPrompt("Минимум 4 символа.", { title: "Мастер-пароль шифрования", type: "password", okText: "Далее",
+    hint: "⚠️ Запишите его отдельно: без мастер-пароля восстановить пароли невозможно — ни из облака, ни через поддержку.",
+    validate: (v) => (v && v.length >= 4) ? "" : "Минимум 4 символа" });
   if (p1 === null) return;
   if (p1.length < 4) { toast("Минимум 4 символа"); return; }
-  const p2 = prompt("Повторите мастер-пароль:");
+  const p2 = await wwPrompt("", { title: "Повторите мастер-пароль", type: "password", okText: "Включить шифрование",
+    validate: (v) => v === p1 ? "" : "Пароли не совпадают" });
   if (p2 !== p1) { toast("Пароли не совпадают"); return; }
   const salt = ww23B64(crypto.getRandomValues(new Uint8Array(16)));
   WW23.key = await ww23Derive(p1, salt);
@@ -3954,7 +4500,7 @@ async function ww23Enable() {
 }
 async function ww23Disable() {
   if (isObserver() || !WW23.key) return;
-  if (!confirm("Отключить шифрование? Пароли снова будут храниться и синхронизироваться в открытом виде.")) return;
+  if (!await wwConfirm("Пароли снова будут храниться и синхронизироваться в открытом виде.", { title: "Отключить шифрование?", okText: "Отключить", danger: true })) return;
   S.passwords = WW23.cache || [];
   S.pwVault = null; WW23.key = null; WW23.cache = null;
   save(); renderPasswords(); toast("Шифрование отключено");
@@ -3969,9 +4515,11 @@ async function ww23Unlock() {
 function ww23LockNow() { WW23.key = null; WW23.cache = null; renderPasswords(); }
 async function ww23ChangeMp() {
   if (!WW23.key) return;
-  const p1 = prompt("Новый мастер-пароль (минимум 4 символа):"); if (p1 === null) return;
+  const p1 = await wwPrompt("Минимум 4 символа.", { title: "Новый мастер-пароль", type: "password", okText: "Далее",
+    validate: (v) => (v && v.length >= 4) ? "" : "Минимум 4 символа" }); if (p1 === null) return;
   if (p1.length < 4) { toast("Минимум 4 символа"); return; }
-  const p2 = prompt("Повторите:"); if (p2 !== p1) { toast("Пароли не совпадают"); return; }
+  const p2 = await wwPrompt("", { title: "Повторите новый мастер-пароль", type: "password", okText: "Сменить",
+    validate: (v) => v === p1 ? "" : "Пароли не совпадают" }); if (p2 === null) return;
   const salt = ww23B64(crypto.getRandomValues(new Uint8Array(16)));
   WW23.key = await ww23Derive(p1, salt);
   S.pwVault.salt = salt;
@@ -3979,9 +4527,9 @@ async function ww23ChangeMp() {
 }
 function ww23FillToolbar() {
   const el = document.getElementById("ww23-enc-btns"); if (!el) return;
-  if (!ww23Enabled()) el.innerHTML = isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Enable()" title="Зашифровать логины и пароли (AES-256)">🔓 Включить шифрование</button>';
-  else if (!WW23.key) el.innerHTML = '<span class="tag">🔒 AES-256</span>';
-  else el.innerHTML = '<span class="tag">🔓 открыто</span><button class="btn btn-ghost btn-sm" onclick="ww23LockNow()" title="Заблокировать раздел">🔒 Закрыть</button><button class="btn btn-ghost btn-sm" onclick="ww23ChangeMp()" title="Сменить мастер-пароль">🔑</button>' + (isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Disable()" title="Отключить шифрование">✕</button>');
+  if (!ww23Enabled()) el.innerHTML = isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Enable()" title="Зашифровать логины и пароли (AES-256)">' + WWI.unlock + ' Включить шифрование</button>';
+  else if (!WW23.key) el.innerHTML = '<span class="tag">' + WWI.lock + ' AES-256</span>';
+  else el.innerHTML = '<span class="tag">' + WWI.unlock + ' открыто</span><button class="btn btn-ghost btn-sm" onclick="ww23LockNow()" title="Заблокировать раздел">🔒 Закрыть</button><button class="btn btn-ghost btn-sm" onclick="ww23ChangeMp()" title="Сменить мастер-пароль">🔑</button>' + (isObserver() ? "" : '<button class="btn btn-ghost btn-sm" onclick="ww23Disable()" title="Отключить шифрование">✕</button>');
 }
 const _renderPasswords23 = renderPasswords;
 renderPasswords = function () {
@@ -3993,7 +4541,7 @@ renderPasswords = function () {
     const el = document.getElementById("pass-list");
     el.className = "card";
     el.innerHTML = '<div class="empty"><div class="big">🔐</div>Раздел зашифрован (AES-256).<div style="max-width:300px;margin:12px auto 0;display:flex;gap:8px"><input id="ww23-mp" type="password" placeholder="Мастер-пароль" autocomplete="off" style="flex:1" onkeydown="if(event.key===&quot;Enter&quot;)ww23Unlock()"><button class="btn btn-primary" onclick="ww23Unlock()">Открыть</button></div><div class="sub" id="ww23-unlock-msg" style="margin-top:8px;color:var(--red)"></div></div>';
-    setTimeout(() => { const i = document.getElementById("ww23-mp"); if (i) i.focus(); }, 50);
+    wwFocus("ww23-mp");
     return;
   }
   if (ww23Enabled()) { const tmp = S.passwords; S.passwords = WW23.cache; try { _renderPasswords23(); } finally { S.passwords = tmp; } }
@@ -4018,7 +4566,7 @@ savePass = function (id) {
   const password = document.getElementById("pw-pass").value;
   const url = document.getElementById("pw-url").value.trim();
   const note = document.getElementById("pw-note").value.trim();
-  if (!title || (!login && !password)) { alert("Заполните сервис и логин или пароль"); return; }
+  if (!title || (!login && !password)) { toast("Заполните сервис и логин или пароль"); return; }
   if (id) { const p = list.find((x) => x.id === id); if (p) Object.assign(p, { title, category, login, password, url, note }); }
   else list.push({ id: uid(), title, category, login, password, url, note, created: Date.now() });
   ww23Persist().then(() => { closeModal(); renderPasswords(); });
@@ -4070,7 +4618,7 @@ renderOps = function () {
   }
   document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div><div><div class="sub">Операций</div><div style="font-size:17px;font-weight:700">${found}</div></div></div>` + capNote;
   const listEl = document.getElementById("ops-list");
-  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">🗂️</div>Нет операций по выбранным фильтрам</div>'; return; }
+  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.folder + '</div>Нет операций по выбранным фильтрам</div>'; return; }
   if (viewMode("ops") === "list") {
     listEl.className = "card";
     const byDay = {};
@@ -4096,7 +4644,7 @@ renderCredits = function () {
       if (el.querySelector("[data-ww23-sched]")) return;
       const id = el.getAttribute("data-sid");
       const cal = el.querySelector('button[onclick*="openScheduleModal"]');
-      const label = cal && cal.textContent.includes("График") ? "📊 Досрочно" : "📊";
+      const label = cal && cal.textContent.includes("График") ? WWI.chart + " Досрочно" : WWI.chart;
       const html = `<button class="btn btn-ghost btn-sm" data-ww23-sched onclick="event.stopPropagation();openCreditSchedule('${id}')" title="Досрочное погашение: расчёт экономии">${label}</button>`;
       if (cal) cal.insertAdjacentHTML("afterend", html);
       else el.insertAdjacentHTML("beforeend", html);
@@ -4166,7 +4714,7 @@ function ww23Compare() {
   const sums = (m) => { const o = {}; S.transactions.filter((t) => t.type === "expense" && !t.transfer && t.date.slice(0, 7) === m).forEach((t) => { o[t.categoryId] = (o[t.categoryId] || 0) + +t.amount; }); return o; };
   const cur = sums(ym), prev = sums(pym);
   const ids = [...new Set([...Object.keys(cur), ...Object.keys(prev)])].sort((a, b) => (cur[b] || 0) - (cur[a] || 0)).slice(0, 10);
-  if (!ids.length) { el.innerHTML = '<div class="empty"><div class="big">📊</div>Недостаточно данных для сравнения</div>'; return; }
+  if (!ids.length) { el.innerHTML = '<div class="empty"><div class="big">' + WWI.chart + '</div>Недостаточно данных для сравнения</div>'; return; }
   const curT = Object.values(cur).reduce((s, v) => s + v, 0), prevT = Object.values(prev).reduce((s, v) => s + v, 0);
   const avgCur = curT / now.getDate();
   const avgPrev = prevT / new Date(pd.getFullYear(), pd.getMonth() + 1, 0).getDate();
@@ -4204,7 +4752,7 @@ renderSettings = function () {
     if (inp) {
       const card = inp.closest(".card") || inp.parentElement;
       const nearBtn = card.querySelector('button[onclick*="import-xlsx-file"]');
-      const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">🏦 Импорт CSV</button>';
+      const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">' + WWI.bank + ' Импорт CSV</button>';
       if (nearBtn) nearBtn.insertAdjacentHTML("afterend", " " + html); else card.insertAdjacentHTML("beforeend", html);
       if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,text/csv" style="display:none" onchange="ww23CsvPick(this)">');
     }
@@ -4311,7 +4859,7 @@ function ww23CsvModal() {
     }
     return h;
   };
-  showModal(`<div class="mhead"><h3>🏦 Импорт выписки CSV</h3><button class="x" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="mhead"><h3>${WWI.bank} Импорт выписки CSV</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.</div>
     <div class="fg-row">
       <div class="fg"><label>Дата</label><select id="csv-date" onchange="ww23CsvPreview()">${opts(g.date)}</select></div>
@@ -4457,7 +5005,7 @@ function ww31PayoffSim(c, extra, lump) {
 }
 function openPayoffModal(id) {
   const c = S.credits.find((x) => x.id === id); if (!c) return;
-  if (!c.payDay || !(+c.payment > 0)) { showModal('<div class="mhead"><h3>Досрочное погашение</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">🧮</div>Укажите день платежа и ежемесячный платёж в карточке кредита, чтобы рассчитать.</div>'); return; }
+  if (!c.payDay || !(+c.payment > 0)) { showModal('<div class="mhead"><h3>Досрочное погашение</h3><button class="x" onclick="closeModal()">✕</button></div><div class="empty"><div class="big">' + WWI.calculator + '</div>Укажите день платежа и ежемесячный платёж в карточке кредита, чтобы рассчитать.</div>'); return; }
   const inp = 'width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--bg);color:var(--text);font:inherit';
   showModal('<div class="mhead"><h3>Досрочное погашение — ' + esc(c.name) + '</h3><button class="x" onclick="closeModal()">✕</button></div>' +
     '<div class="sub" style="margin:-4px 0 12px">Остаток ' + money(+c.balance) + ' · платёж ' + money(+c.payment) + (+c.rate ? " · ставка " + (+c.rate) + "%" : "") + '</div>' +
@@ -4644,7 +5192,7 @@ function ww29Add(kind) {
     ? '<div class="fg"><label>Начальный баланс, ₽</label><input id="ww29-bal" type="number" value="0"></div>'
     : `<div class="fg"><label>Эмодзи-иконка (необязательно)</label><input id="ww29-icon" placeholder="${kind === "income" ? "💵" : "📌"}"></div>`}
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Отмена</button><button class="btn btn-primary" onclick="ww29Save('${kind}')">Добавить</button></div>`);
-  setTimeout(() => { const i = document.getElementById("ww29-name"); if (i) i.focus(); }, 50);
+  wwFocus("ww29-name");
 }
 function ww29Save(kind) {
   const n = (document.getElementById("ww29-name").value || "").trim();
@@ -4699,7 +5247,7 @@ function ww26StartGhost(st) {
   const r = st.el.getBoundingClientRect();
   const g = st.el.cloneNode(true);
   g.classList.add("ww26-ghost");
-  g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:9999;pointer-events:none;transition:none`;
+  g.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;margin:0;z-index:var(--z-drag-ghost);pointer-events:none;transition:none`;
   document.body.appendChild(g);
   st.ghost = g;
   st.el.classList.add("ww26-src");
@@ -5019,6 +5567,55 @@ try {
   if (typeof renderSettings === "function") {
     var _rs39 = renderSettings;
     window.renderSettings = function () { _rs39(); try { addCard(); } catch (e) {} };
+  }
+})();
+
+/* ===================== сворачиваемые разделы настроек =====================
+   Карточки настроек досыпаются несколькими модулями асинхронно, поэтому не
+   перестраиваем разметку, а превращаем в аккордеон уже готовый DOM. */
+(function () {
+  var OPEN_BY_DEFAULT = ["Тема", "Синхронизация"];
+  function accordion() {
+    var grid = document.querySelector("#page-settings .grid.grid-2");
+    if (!grid) return;
+    var saved = (S.settings && S.settings.setOpen) || {};
+    grid.querySelectorAll(".card").forEach(function (card) {
+      var h = card.querySelector("h2");
+      if (!h || card.dataset.acc) return;
+      card.dataset.acc = "1";
+      var key = (h.textContent || "").trim().slice(0, 40);
+      var body = document.createElement("div");
+      body.className = "set-body";
+      while (h.nextSibling) body.appendChild(h.nextSibling);
+      card.appendChild(body);
+      h.classList.add("set-h");
+      h.setAttribute("tabindex", "0");
+      h.setAttribute("role", "button");
+      h.insertAdjacentHTML("beforeend", '<span class="set-caret">⌄</span>');
+      var isOpen = key in saved ? !!saved[key] : OPEN_BY_DEFAULT.some(function (k) { return key.indexOf(k) >= 0; });
+      card.classList.toggle("collapsed", !isOpen);
+      h.setAttribute("aria-expanded", String(isOpen));
+      function toggle() {
+        var willOpen = card.classList.contains("collapsed");
+        card.classList.toggle("collapsed", !willOpen);
+        h.setAttribute("aria-expanded", String(willOpen));
+        S.settings.setOpen = S.settings.setOpen || {};
+        S.settings.setOpen[key] = willOpen;
+        try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+      }
+      h.addEventListener("click", toggle);
+      h.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+      });
+    });
+  }
+  // Несколько проходов: часть карточек создаётся позже другими модулями.
+  if (typeof renderSettings === "function") {
+    var _rsAcc = renderSettings;
+    window.renderSettings = function () {
+      _rsAcc();
+      [0, 60, 250, 800].forEach(function (d) { setTimeout(function () { try { accordion(); } catch (e) {} }, d); });
+    };
   }
 })();
 
