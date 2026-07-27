@@ -289,6 +289,11 @@ body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior
 .seg button.active.exp{color:var(--red)}.seg button.active.inc{color:var(--green)}
 .amount-in{font-family:var(--font-d);font-size:26px !important;font-weight:800;text-align:center}
 .cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tx-locked-cat{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--fill)}
+.tx-locked-cat .disc{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--border);flex-shrink:0}
+.tx-locked-cat .disc svg{width:22px;height:22px}
+.tx-locked-cat b{font-size:14px}
+.tx-locked-cat .sub{font-size:12px;margin-top:1px}
 .cat-opt{border:1px solid var(--border);border-radius:var(--radius);padding:9px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--t2);min-height:58px}
 .cat-opt em{font-style:normal;font-size:19px}
 .cat-opt.active{border-color:var(--accent);background:var(--blue-bg);color:var(--text)}
@@ -403,14 +408,22 @@ canvas{max-width:100%}
 .coins-row{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 4px;-webkit-overflow-scrolling:touch}
 .coin{flex-shrink:0;width:74px;display:flex;flex-direction:column;align-items:center;gap:4px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .coin .disc{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--border);background:var(--card);box-shadow:var(--sh-s);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.coin.acc{cursor:grab}
-.coin.acc:active{cursor:grabbing}
+.coin.acc,.coin.inc,.coin.cat{cursor:grab;position:relative}
+.coin-menu-btn{position:absolute;top:-4px;right:0;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);line-height:1;box-shadow:var(--sh-s);z-index:2}
+.coin-menu-btn:active{background:var(--fill)}
+@media (pointer: coarse){.coin-menu-btn{position:relative}.coin-menu-btn::after{content:"";position:absolute;inset:-12px}}
+/* Подсказка «сюда можно» на противоположной колонке — покачивание, как у
+   иконок iOS при удержании пальца, обводка и свечение цветом темы (--accent). */
+.coin.drop-target .disc{animation:coinJiggle .26s ease-in-out infinite}
+@keyframes coinJiggle{0%,100%{transform:scale(1.08) rotate(-2.2deg)}50%{transform:scale(1.08) rotate(2.2deg)}}
+@media(prefers-reduced-motion:reduce){.coin.drop-target .disc{animation:none}}
+.coin.acc:active,.coin.inc:active,.coin.cat:active{cursor:grabbing}
 .coin.acc .disc{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-family:var(--font-d);font-weight:800;font-size:20px}
 .coin .cname{font-size:11px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:74px}
 .coin .camt{font-size:10px;color:var(--t3);font-family:var(--font-d);font-weight:700}
 .coin.dragging{position:relative;z-index:var(--z-drag-float)}
 .coin.dragging .disc{transform:scale(1.15);box-shadow:0 8px 22px rgba(0,0,0,.25)}
-.coin.drop-target .disc{border-color:var(--blue);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
+.coin.drop-target .disc{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent)}
 .coin .disc svg{width:26px;height:26px;display:block}
 .coin.cat .disc{color:var(--text)}
 .coin.inc .disc{color:var(--green)}
@@ -1162,6 +1175,7 @@ function paymentsInRange(from, to) {
     for (const r of S.recurring) {
       const d = ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0");
       if (d < from || d > to) continue;
+      if (typeof WW_HISTORY_START === "string" && ym < WW_HISTORY_START) continue;
       list.push({ date: d, name: r.name, amount: +r.amount, who: r.who, kind: r.type === "income" ? "recur-inc" : "recur-exp" });
     }
     ym = ymShift(ym, 1);
@@ -1701,7 +1715,7 @@ const THEMES = [
 ];
 function renderSettings() {
   document.getElementById("theme-grid").innerHTML = THEMES.map((t) => `<button class="theme-sw${(S.settings.theme || "t9") === t.id ? " active" : ""}" onclick="setTheme('${t.id}')" aria-label="Тема ${t.name}"><i style="background:linear-gradient(135deg,${t.colors[0]} 50%,${t.colors[1]} 50%)"></i><span>${t.name}</span></button>`).join("");
-  document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${typeof WW28_ICONS !== "undefined" ? (a.type === "cash" ? WW28_ICONS.banknote : WW28_ICONS.card) : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div><button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
+  document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${typeof WW28_ICONS !== "undefined" ? (a.type === "cash" ? WW28_ICONS.banknote : WW28_ICONS.card) : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div>${a.archived ? `<button class="btn btn-ghost btn-sm" onclick="restoreAccount('${a.id}')" title="Вернуть в список">↩ Вернуть</button>` : ""}<button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
   document.getElementById("cat-list").innerHTML = S.categories.map((c) => `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}</div><div class="rs">${c.type === "income" ? "доход" : "расход"}</div></div></div>`).join("");
   document.getElementById("sb-url").value = S.settings.sbUrl || "";
   document.getElementById("sb-key").value = S.settings.sbKey || "";
@@ -1843,6 +1857,7 @@ function saveRecur(id) {
 function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x) => x.id === id); if (!r) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); ww2UndoToast("Регулярный платёж удалён", () => { S.recurring.push(r); save(); renderSettings(); }); }
 async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
 async function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = await wwPrompt("", { title: "Название счёта", defaultValue: a.name, okText: "Сохранить" }); if (!n) return; a.name = n; save(); renderSettings(); }
+function restoreAccount(id) { if (isObserver()) return; const a = acc(id); if (!a) return; a.archived = false; a.archivedFrom = null; save(); renderSettings(); renderCoins(); toast("Счёт «" + a.name + "» снова в списке"); }
 function addCategory() {
   if (isObserver()) return;
   // Раньше тип спрашивался через confirm («OK — доход, Отмена — расход»),
@@ -2180,13 +2195,15 @@ function openTxModal(pre) {
   pre = pre || {};
   if (!pre._edit) window._txEditId = null;
   txType = pre.type || "expense"; txCat = pre.categoryId || (S.settings.lastCat && S.settings.lastCat[txType]) || null;
+  const lockedCat = pre.lockCategory ? cat(txCat) : null;
   showModal(`<div class="mhead"><h3>Новая операция</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="quick-add"><input id="tx-quick" placeholder="Быстро: 450 обед #работа" onkeydown="if(event.key==='Enter')parseQuick()"><button class="btn btn-ghost btn-sm" onclick="parseQuick()">→</button></div>
+    ${lockedCat ? `<div class="fg"><div class="tx-locked-cat"><div class="disc">${ww28Icon(lockedCat.icon, lockedCat.name)}</div><div><b>${esc(lockedCat.name)}</b><div class="sub">${txType === "income" ? "Доход" : "Расход"} — категория выбрана иконкой</div></div></div></div>` : `
     <div class="fg"><div class="seg" id="tx-seg">
       <button class="${txType === "expense" ? "active exp" : ""}" onclick="setTxType('expense',this)">Расход</button>
-      <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>
+      <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>`}
     <div class="fg"><input class="amount-in" id="tx-amount" type="number" inputmode="decimal" placeholder="0 ₽" value="${pre.amount || ""}" autofocus></div>
-    <div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>
+    ${lockedCat ? "" : `<div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>`}
     <div class="fg-row">
       <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${todayStr()}"></div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
@@ -2194,7 +2211,7 @@ function openTxModal(pre) {
     <div class="fg"><label>Метки (через запятую)</label><input id="tx-tags" placeholder="напр.: работа, катя"></div>
     <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTx()">Сохранить</button>`);
-  renderTxCats();
+  if (!lockedCat) renderTxCats();
   wwFocus(pre.amount ? "tx-amount" : "tx-quick");
 }
 function parseQuick() {
@@ -2206,10 +2223,12 @@ function parseQuick() {
   if (tags.length) document.getElementById("tx-tags").value = tags.join(", ");
   let rest = raw.replace(/-?\d+[.,]?\d*/, "").replace(/#[\p{L}\d_]+/gu, "").trim();
   if (rest) {
-    const words = rest.toLowerCase().split(/\s+/);
-    const cats = S.categories.filter((c) => c.type === txType);
-    const found = cats.find((c) => words.some((w) => c.name.toLowerCase().includes(w) || w.includes(c.name.toLowerCase().split(" ")[0])));
-    if (found) { txCat = found.id; renderTxCats(); }
+    if (document.getElementById("tx-cats")) {
+      const words = rest.toLowerCase().split(/\s+/);
+      const cats = S.categories.filter((c) => c.type === txType);
+      const found = cats.find((c) => words.some((w) => c.name.toLowerCase().includes(w) || w.includes(c.name.toLowerCase().split(" ")[0])));
+      if (found) { txCat = found.id; renderTxCats(); }
+    }
     document.getElementById("tx-note").value = rest; ww317Suggest();
   }
 }
@@ -2262,7 +2281,7 @@ function ww317Apply(i) {
 function ww318Free() {
   const asOf = ww318AsOfDate();
   let total = 0;
-  for (const a of S.accounts.filter((x) => !x.archived)) total += accBalanceAsOf(a.id, asOf);
+  for (const a of S.accounts.filter((x) => accVisibleFor(x, ww316Ym()))) total += accBalanceAsOf(a.id, asOf);
   let due = 0;
   try {
     const d = ww30Data();
@@ -2477,6 +2496,13 @@ function accBalance(id) {
   let b = +a.balance0 || 0;
   for (const t of S.transactions) { if (t.accountId !== id) continue; b += t.type === "income" ? +t.amount : -(+t.amount); }
   return b;
+}
+/* Виден ли счёт для периода `ym` (YYYY-MM). Редактирование суммы и «удаление»
+   счёта не должны переписывать прошлое: если счёт скрыли/удалили сегодня, за
+   предыдущие месяцы он всё равно должен быть виден таким, каким был тогда. */
+function accVisibleFor(a, ym) {
+  if (a.archivedFrom && ym >= a.archivedFrom.slice(0, 7)) return false;
+  return true;
 }
 /* Баланс счёта на конец выбранного периода (а не «прямо сейчас, суммарно за всё время»).
    Нужен для шапки «Свободные деньги», которая должна показывать срез на конец
@@ -3440,6 +3466,12 @@ function duePostings() {
 /* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
 /* v3.16→доработка: месяц «К оплате» и «Свободных денег» больше не выбирается отдельно —
    он всегда следует общему переключателю периода вверху дашборда (periodAnchorYm). */
+/* Месяц, раньше которого в приложении принципиально не может быть данных —
+   ни регулярных платежей, ни кредитов, ни доходов/расходов. Используется
+   панелью «К оплате» и шапкой «Свободные деньги», чтобы при просмотре
+   давних месяцев не показывать текущие обязательства так, будто они
+   существовали всегда. */
+const WW_HISTORY_START = "2025-01";
 function ww316Ym() { return (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7); }
 function ww316DimOf(ym) { return new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate(); }
 function ww316DueLabel() {
@@ -3459,6 +3491,11 @@ function ww30Data() {
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
   const ym = ww316Ym(); const today = todayStr();
+  // До появления учёта в приложении (см. WW_HISTORY_START) не может быть
+  // ни регулярных платежей, ни кредитов — иначе месяц ДО даты начала кредита
+  // ошибочно показывал бы его «к оплате» (это и вызвало реальный баг с
+  // лишними платежами по кредитам Сбербанка в январе-марте).
+  if (typeof WW_HISTORY_START === "string" && ym < WW_HISTORY_START) return { exp: [], cr: [] };
   const dim = ww316DimOf(ym);
   const exp = S.recurring
     .filter((r) => r.type === "expense" && !S.skipped[r.id + ":" + ym])
@@ -3469,6 +3506,7 @@ function ww30Data() {
       return { kind: "recur", id: r.id, name: r.name, icon: (cat(r.categoryId) || { icon: "📌" }).icon, date, amount: paid ? +r.amount : Math.max(0, +r.amount - posted), full: +r.amount, posted, paid, overdue: !paid && date < today, grace: false };
     });
   const cr = S.credits
+    .filter((c) => (c.start ? c.start.slice(0, 7) <= ym : true))
     .filter((c) => (c.status === "active" || S.ww30Cr[c.id + ":" + ym]) && !S.skipped["cr" + c.id + ":" + ym])
     .map((c) => {
       const p = ww316CrPay(c, ym);
@@ -4135,7 +4173,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.20-ux";
+const WW_VERSION = "3.23-ux";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5242,10 +5280,10 @@ renderCoins = function () {
   }
   const incCats = S.categories.filter((c) => c.type === "income");
   if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onclick="ww26Tap('inc','${c.id}')" onpointerdown="ww26Down(event,'inc','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('income')" title="Новый источник дохода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
-  const accs = S.accounts.filter((a) => !a.archived);
-  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  const accs = S.accounts.filter((a) => accVisibleFor(a, (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7)));
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><button class="coin-menu-btn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();ww26AccMenu(event,'${a.id}')" title="Изменить или удалить счёт">⋮</button><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const expCats = S.categories.filter((c) => c.type === "expense");
-  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')" onpointerdown="ww26Down(event,'cat','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const it = document.getElementById("ww26-inc-total"), at = document.getElementById("ww26-acc-total"), et = document.getElementById("ww26-exp-total");
   if (it) it.textContent = "+" + money(incTotal);
   if (at) at.textContent = money(accs.reduce((s, a) => s + accBalance(a.id), 0));
@@ -5320,21 +5358,85 @@ function ww29Save(kind) {
 /* Перетаскивание: кошелёк → категория расхода (расход), доход → кошелёк (пополнение) */
 /* v3.15: тап-режим (iPhone): нажмите источник, затем цель. Перетаскивание мышью остаётся на ПК */
 let _ww26Sel = null, _ww26SkipClick = false;
+/* ===== v3.20: меню кошелька на дашборде — изменить сумму / удалить счёт ===== */
+function ww26AccMenu(e, id) {
+  if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
+  ww26ClearSel();
+  const existing = document.getElementById("ww26-acc-menu");
+  if (existing) { existing.remove(); if (existing.dataset.id === id) return; }
+  const menu = document.createElement("div");
+  menu.id = "ww26-acc-menu"; menu.className = "view-menu-pop"; menu.dataset.id = id;
+  menu.innerHTML = `
+    <button class="view-menu-item" onclick="ww26EditAccBalance('${id}')">✎ Изменить сумму</button>
+    <button class="view-menu-item" onclick="ww26DeleteAccount('${id}')" style="color:var(--red)">🗑 Удалить счёт</button>`;
+  document.body.appendChild(menu);
+  const r = e.currentTarget.getBoundingClientRect();
+  const top = Math.min(r.bottom + 6, window.innerHeight - 100);
+  const left = Math.min(r.left, window.innerWidth - 186);
+  menu.style.top = top + "px"; menu.style.left = Math.max(8, left) + "px";
+}
+document.addEventListener("click", (e) => {
+  const m = document.getElementById("ww26-acc-menu");
+  if (m && !m.contains(e.target) && !e.target.closest(".coin-menu-btn")) m.remove();
+});
+async function ww26EditAccBalance(id) {
+  const m = document.getElementById("ww26-acc-menu"); if (m) m.remove();
+  if (isObserver()) return;
+  const a = acc(id); if (!a) return;
+  const cur = accBalance(id);
+  const v = await wwPrompt("Изменение подействует с сегодняшнего дня — прошлые месяцы останутся такими, какими были.", {
+    title: `Сумма в «${a.name}»`, type: "number", defaultValue: cur, okText: "Сохранить",
+    validate: (x) => (x === "" || isNaN(parseFloat(String(x).replace(",", ".")))) ? "Введите число" : "",
+  });
+  if (v === null) return;
+  const target = parseFloat(String(v).replace(",", "."));
+  const diff = target - cur;
+  if (diff !== 0) {
+    // Корректирующая операция датой «сегодня» — а не сдвиг стартового баланса,
+    // который задним числом поменял бы остаток и в прошлых периодах.
+    S.transactions.push({
+      id: uid(), date: todayStr(), type: diff > 0 ? "income" : "expense", amount: Math.abs(diff),
+      accountId: id, categoryId: diff > 0 ? "c_tr_in" : "c_tr_out", note: "Корректировка баланса",
+      tags: ["корректировка"], createdAt: Date.now(),
+    });
+  }
+  save(); renderCoins(); if (typeof renderDash === "function" && activePage() === "dashboard") render("dashboard");
+  toast("Сумма в «" + a.name + "» изменена на " + money(target) + " — начиная с сегодняшнего дня");
+}
+async function ww26DeleteAccount(id) {
+  const m = document.getElementById("ww26-acc-menu"); if (m) m.remove();
+  if (isObserver()) return;
+  const a = acc(id); if (!a) return;
+  const n = S.transactions.filter((t) => t.accountId === id).length;
+  if (S.accounts.filter((x) => !x.archived).length <= 1) { await wwAlert("Это единственный активный счёт — операции должны на что-то записываться. Сначала добавьте другой счёт.", { title: "Нельзя удалить" }); return; }
+  if (n === 0) {
+    if (!await wwConfirm(`Счёт «${a.name}» будет удалён без возможности восстановления.`, { title: "Удалить счёт?", okText: "Удалить", danger: true })) return;
+    S.accounts = S.accounts.filter((x) => x.id !== id);
+    toast("Счёт удалён");
+  } else {
+    if (!await wwConfirm(`На счёте «${a.name}» ${n} операций — они не удаляются вместе со счётом, чтобы не потерять историю. Счёт пропадёт из списка начиная с сегодняшнего дня; за прошлые месяцы он по-прежнему будет виден, а операции останутся в «Операциях».`, { title: "Скрыть счёт «" + a.name + "»?", okText: "Скрыть счёт", danger: true })) return;
+    a.archived = true;
+    a.archivedFrom = todayStr();
+    toast("Счёт скрыт с сегодняшнего дня, прошлые месяцы не затронуты");
+  }
+  save(); renderCoins(); if (typeof renderDash === "function" && activePage() === "dashboard") render("dashboard");
+  try { renderSettings(); } catch (e) {}
+}
 function ww26Tap(kind, id) {
   if (_ww26SkipClick) return;
   if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
   const sel = _ww26Sel;
   if (kind === "inc") {
-    if (sel && sel.kind === "inc" && sel.id === id) { ww26ClearSel(); openTxModal({ type: "income", categoryId: id }); return; }
+    if (sel && sel.kind === "inc" && sel.id === id) { ww26ClearSel(); return; }
     ww26SetSel({ kind: "inc", id });
   } else if (kind === "acc") {
-    if (sel && sel.kind === "inc") { const cid = sel.id; ww26ClearSel(); openTxModal({ type: "income", categoryId: cid, accountId: id }); return; }
+    if (sel && sel.kind === "inc") { const cid = sel.id; ww26ClearSel(); openTxModal({ type: "income", categoryId: cid, accountId: id, lockCategory: true }); return; }
     if (sel && sel.kind === "acc" && sel.id === id) { ww26ClearSel(); return; }
     ww26SetSel({ kind: "acc", id });
   } else {
-    if (sel && sel.kind === "acc") { const aid = sel.id; ww26ClearSel(); openTxModal({ type: "expense", accountId: aid, categoryId: id }); return; }
+    if (sel && sel.kind === "acc") { const aid = sel.id; ww26ClearSel(); openTxModal({ type: "expense", accountId: aid, categoryId: id, lockCategory: true }); return; }
     ww26ClearSel();
-    openTxModal({ type: "expense", categoryId: id });
+    openTxModal({ type: "expense", categoryId: id, lockCategory: true });
   }
 }
 function ww26SetSel(sel) {
@@ -5351,6 +5453,16 @@ function ww26ClearSel() {
   document.querySelectorAll(".coin.ww26-sel").forEach(function (c) { c.classList.remove("ww26-sel"); });
   document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
 }
+/* Esc и клик мимо подсвеченных «целей» сбрасывают выделение и подсказку.
+   Клик по самой цели или по источнику не трогаем — им займётся свой onclick. */
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && _ww26Sel) ww26ClearSel(); });
+document.addEventListener("click", (e) => {
+  if (!_ww26Sel) return;
+  const targetSel = _ww26Sel.kind === "inc" ? ".coin.acc" : ".coin.cat";
+  const sourceSel = _ww26Sel.kind === "inc" ? ".coin.inc" : ".coin.acc";
+  if (e.target.closest(targetSel) || e.target.closest(sourceSel)) return;
+  ww26ClearSel();
+});
 let _ww26Drag = null;
 /* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
    Короткое нажатие — прежний режим «источник → цель», скролл не блокируется. */
@@ -5407,11 +5519,16 @@ function ww26Move(e) {
     if (!st.ghost) { ww26ClearSel(); ww26StartGhost(st); }
   }
   if (st.ghost) st.ghost.style.transform = `translate(${dx}px,${dy}px)`;
-  const sel = st.kind === "acc" ? ".coin.cat" : ".coin.acc";
-  document.querySelectorAll(sel).forEach(function (c) {
-    const r = c.getBoundingClientRect();
-    const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    c.classList.toggle("drop-target", over);
+  // Подсказка при перетаскивании: своя колонка — переставить местами,
+  // соседняя (для доходов/кошельков) — перенести операцию.
+  const sels = st.kind === "acc" ? [".coin.acc", ".coin.cat"] : st.kind === "inc" ? [".coin.inc", ".coin.acc"] : [".coin.cat"];
+  sels.forEach((sel) => {
+    document.querySelectorAll(sel).forEach(function (c) {
+      if (c === st.el) { c.classList.remove("drop-target"); return; }
+      const r = c.getBoundingClientRect();
+      const over = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      c.classList.toggle("drop-target", over);
+    });
   });
 }
 function ww26Cancel() {
@@ -5426,13 +5543,41 @@ function ww26Up(e) {
   if (!wasDrag) return; /* короткий тап — дальше отработает click (режим нажатий) */
   _ww26SkipClick = true; setTimeout(function () { _ww26SkipClick = false; }, 150);
   const el = document.elementFromPoint(e.clientX, e.clientY);
+  // Отпустили над другим ярлыком той же колонки — переставляем местами, а не переносим операцию.
+  const sameKindEl = el && el.closest(".coin." + st.kind);
+  if (sameKindEl && sameKindEl !== st.el && sameKindEl.dataset[st.kind] !== st.id) {
+    ww26Reorder(st.kind, st.id, sameKindEl.dataset[st.kind]);
+    return;
+  }
   if (st.kind === "acc") {
     const catEl = el && el.closest(".coin.cat");
-    if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat });
-  } else {
+    if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat, lockCategory: true });
+  } else if (st.kind === "inc") {
     const accEl = el && el.closest(".coin.acc");
-    if (accEl && accEl !== st.el) openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc });
+    if (accEl && accEl !== st.el) openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc, lockCategory: true });
   }
+}
+/* Перестановка местами внутри своей колонки (доходы/кошельки/расходы).
+   Категории дохода и расхода живут в одном общем массиве S.categories —
+   переставляем только внутри нужного подмножества, не трогая остальные записи. */
+function ww26Reorder(kind, fromId, toId) {
+  if (isObserver() || fromId === toId) return;
+  if (kind === "acc") {
+    const fromIdx = S.accounts.findIndex((x) => x.id === fromId), toIdx = S.accounts.findIndex((x) => x.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [item] = S.accounts.splice(fromIdx, 1);
+    S.accounts.splice(toIdx, 0, item);
+  } else {
+    const type = kind === "inc" ? "income" : "expense";
+    const slots = []; S.categories.forEach((c, i) => { if (c.type === type) slots.push(i); });
+    const items = slots.map((i) => S.categories[i]);
+    const fromPos = items.findIndex((c) => c.id === fromId), toPos = items.findIndex((c) => c.id === toId);
+    if (fromPos === -1 || toPos === -1) return;
+    const [item] = items.splice(fromPos, 1);
+    items.splice(toPos, 0, item);
+    slots.forEach((slot, k) => { S.categories[slot] = items[k]; });
+  }
+  save(); renderCoins();
 }
 /* первый рендер новой панели после переопределения */
 try { if (typeof S !== "undefined" && document.getElementById("coins-inc")) renderCoins(); } catch (e) {}
