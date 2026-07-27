@@ -1103,7 +1103,11 @@ function upcomingReminders(days) {
 }
 function renderReminders() {
   const el = document.getElementById("dash-reminders"); if (!el) return;
-  const days = +S.settings.reminderDays || 0;
+  // Напоминания всегда «от сегодня» — при просмотре другого месяца дашборда
+  // они вводят в заблуждение (для этого есть панель «К оплате» — она честно
+  // показывает статус именно выбранного месяца).
+  const viewingOther = (typeof ww316Ym === "function") && ww316Ym() !== todayStr().slice(0, 7);
+  const days = viewingOther ? 0 : (+S.settings.reminderDays || 0);
   const list = days > 0 ? upcomingReminders(days) : [];
   if (!list.length) { el.style.display = "none"; el.innerHTML = ""; return; }
   el.style.display = "flex";
@@ -2256,8 +2260,9 @@ function ww317Apply(i) {
 }
 /* ===================== v3.18: главный блок, сворачивание, удобство ===================== */
 function ww318Free() {
+  const asOf = ww318AsOfDate();
   let total = 0;
-  for (const a of S.accounts.filter((x) => !x.archived)) total += accBalance(a.id);
+  for (const a of S.accounts.filter((x) => !x.archived)) total += accBalanceAsOf(a.id, asOf);
   let due = 0;
   try {
     const d = ww30Data();
@@ -2472,6 +2477,21 @@ function accBalance(id) {
   let b = +a.balance0 || 0;
   for (const t of S.transactions) { if (t.accountId !== id) continue; b += t.type === "income" ? +t.amount : -(+t.amount); }
   return b;
+}
+/* Баланс счёта на конец выбранного периода (а не «прямо сейчас, суммарно за всё время»).
+   Нужен для шапки «Свободные деньги», которая должна показывать срез на конец
+   выбранного месяца, а не текущий остаток вместе с ещё не наступившими месяцами. */
+function accBalanceAsOf(id, asOfDate) {
+  const a = acc(id); if (!a) return 0;
+  let b = +a.balance0 || 0;
+  for (const t of S.transactions) { if (t.accountId !== id || t.date > asOfDate) continue; b += t.type === "income" ? +t.amount : -(+t.amount); }
+  return b;
+}
+function ww318AsOfDate() {
+  if (typeof ww316Ym !== "function") return todayStr();
+  const ym = ww316Ym(); const today = todayStr();
+  if (ym === today.slice(0, 7)) return today;
+  return ym + "-" + String(ww316DimOf(ym)).padStart(2, "0");
 }
 function renderCoins() {
   const accEl = document.getElementById("coins-acc"); if (!accEl) return;
@@ -4115,7 +4135,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.19";
+const WW_VERSION = "3.20-ux";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
