@@ -1824,7 +1824,16 @@ const THEMES = [
 function renderSettings() {
   document.getElementById("theme-grid").innerHTML = THEMES.map((t) => `<button class="theme-sw${(S.settings.theme || "t9") === t.id ? " active" : ""}" onclick="setTheme('${t.id}')" aria-label="Тема ${t.name}"><i style="background:linear-gradient(135deg,${t.colors[0]} 50%,${t.colors[1]} 50%)"></i><span>${t.name}</span></button>`).join("");
   document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${typeof WW28_ICONS !== "undefined" ? (a.type === "cash" ? WW28_ICONS.banknote : WW28_ICONS.card) : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div>${a.archived ? `<button class="btn btn-ghost btn-sm" onclick="restoreAccount('${a.id}')" title="Вернуть в список">↩ Вернуть</button>` : ""}<button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
-  document.getElementById("cat-list").innerHTML = S.categories.map((c) => `<div class="row"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}</div><div class="rs">${c.type === "income" ? "доход" : "расход"}</div></div></div>`).join("");
+  document.getElementById("cat-list").innerHTML = S.categories.map((c) => {
+    const used = S.transactions.filter((t) => t.categoryId === c.id).length;
+    const sys = c.id === "c_credit" || c.id === "c_tr_in" || c.id === "c_tr_out";
+    return `<div class="row"><div class="ic">${ww28Icon(c.icon, c.name)}</div>
+      <div class="rmain"><div class="rt">${esc(c.name)}${sys ? ' <span class="sub">служебная</span>' : ""}</div>
+      <div class="rs">${c.type === "income" ? "доход" : "расход"}${used ? " · операций: " + used : ""}</div></div>
+      ${sys ? "" : `<button class="btn btn-ghost btn-sm" onclick="renameCategory('${c.id}')" title="Переименовать">${WWI.pencil}</button>
+      <button class="btn btn-ghost btn-sm" onclick="delCategory('${c.id}')" title="Удалить" style="color:var(--red)">${WWI.trash}</button>`}
+    </div>`;
+  }).join("");
   document.getElementById("sb-url").value = S.settings.sbUrl || "";
   document.getElementById("sb-key").value = S.settings.sbKey || "";
   document.getElementById("sb-sync").value = S.settings.syncId || "";
@@ -1978,6 +1987,49 @@ function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x)
 async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
 async function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = await wwPrompt("", { title: "Название счёта", defaultValue: a.name, okText: "Сохранить" }); if (!n) return; a.name = n; save(); renderSettings(); }
 function restoreAccount(id) { if (isObserver()) return; const a = acc(id); if (!a) return; a.archived = false; a.archivedFrom = null; save(); renderSettings(); renderCoins(); toast("Счёт «" + a.name + "» снова в списке"); }
+/* Переименование категории. Операции ссылаются на неё по id, поэтому смена
+   названия и иконки не трогает историю — всё пересчитается само. */
+async function renameCategory(id) {
+  if (isObserver()) return;
+  const c = cat(id); if (!c) return;
+  const name = await wwPrompt("Название видно везде, где встречается эта категория.", {
+    title: "Название категории", defaultValue: c.name, okText: "Далее",
+    validate: (v) => (v || "").trim() ? "" : "Введите название",
+  });
+  if (name === null) return;
+  const icon = await wwPrompt("Один эмодзи. Оставьте как есть, если менять не нужно.", {
+    title: "Иконка категории", defaultValue: c.icon || "📌", okText: "Сохранить",
+  });
+  if (icon === null) return;
+  c.name = name.trim();
+  c.icon = (icon || "").trim() || c.icon || "📌";
+  save(); renderSettings(); renderCoins();
+  toast("Категория обновлена");
+}
+/* Удаление категории. Если по ней есть операции — не удаляем молча, а
+   предлагаем перенести их в другую категорию того же типа, иначе история
+   осталась бы со ссылкой в никуда. */
+async function delCategory(id) {
+  if (isObserver()) return;
+  const c = cat(id); if (!c) return;
+  const used = S.transactions.filter((t) => t.categoryId === id);
+  const sameType = S.categories.filter((x) => x.type === c.type && x.id !== id && x.id !== "c_credit");
+  if (!sameType.length) { await wwAlert("Это последняя категория этого типа — операциям некуда будет ссылаться.", { title: "Нельзя удалить" }); return; }
+  if (!used.length) {
+    if (!await wwConfirm(`Категория «${c.name}» будет удалена.`, { title: "Удалить категорию?", okText: "Удалить", danger: true })) return;
+    S.categories = S.categories.filter((x) => x.id !== id);
+  } else {
+    const target = sameType[0];
+    if (!await wwConfirm(`По категории «${c.name}» есть операций: ${used.length}. Они не удаляются — будут перенесены в «${target.name}».`, { title: "Удалить категорию?", okText: "Удалить и перенести", danger: true })) return;
+    used.forEach((t) => { t.categoryId = target.id; });
+    S.categories = S.categories.filter((x) => x.id !== id);
+    // Бюджеты и регулярные платежи тоже ссылались на неё
+    if (Array.isArray(S.budgets)) S.budgets = S.budgets.filter((b) => b.categoryId !== id);
+    if (Array.isArray(S.recurring)) S.recurring.forEach((r) => { if (r.categoryId === id) r.categoryId = target.id; });
+  }
+  save(); renderSettings(); renderCoins();
+  toast("Категория удалена");
+}
 function addCategory() {
   if (isObserver()) return;
   // Раньше тип спрашивался через confirm («OK — доход, Отмена — расход»),
@@ -2310,6 +2362,24 @@ function wwPrompt(message, opts) {
   );
 }
 let txType = "expense", txCat = null;
+/* Дата по умолчанию для новой операции. Если на дашборде открыт не текущий
+   месяц, операция с сегодняшней датой туда просто не попадёт — человек её
+   не увидит и решит, что «не добавляется». Поэтому подставляем дату внутри
+   просматриваемого периода: то же число месяца, а если такого нет — последний
+   день. Поле остаётся редактируемым. */
+function wwDefaultTxDate() {
+  const today = todayStr();
+  if (typeof ww26Period !== "function" || typeof ww26RangeFor !== "function") return today;
+  let r;
+  try { r = ww26RangeFor(ww26Period()); } catch (e) { return today; }
+  if (!r || !r.from || !r.to) return today;
+  if (today >= r.from && today <= r.to) return today;
+  const ym = r.from.slice(0, 7);
+  const dim = new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
+  const day = Math.min(+today.slice(8, 10), dim);
+  const guess = ym + "-" + String(day).padStart(2, "0");
+  return guess >= r.from && guess <= r.to ? guess : r.to;
+}
 function openTxModal(pre) {
   if (isObserver()) return;
   pre = pre || {};
@@ -2325,7 +2395,7 @@ function openTxModal(pre) {
     <div class="fg"><input class="amount-in" id="tx-amount" type="number" inputmode="decimal" placeholder="0 ₽" value="${pre.amount || ""}" autofocus></div>
     ${lockedCat ? "" : `<div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>`}
     <div class="fg-row">
-      <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${todayStr()}"></div>
+      <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${wwDefaultTxDate()}">${wwDefaultTxDate() !== todayStr() ? `<div class="sub" style="margin-top:4px;color:var(--amber)">Дата подставлена по выбранному периоду — вы смотрите не текущий месяц</div>` : ""}</div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
     </div>
     <div class="fg"><label>Метки (через запятую)</label><input id="tx-tags" placeholder="напр.: работа, катя"></div>
@@ -4321,7 +4391,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.28-ux";
+const WW_VERSION = "3.30-ux";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
