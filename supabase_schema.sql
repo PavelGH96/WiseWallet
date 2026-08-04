@@ -50,3 +50,44 @@ create policy ww_user_delete on public.ww_user_state for delete using (auth.uid(
 -- ============================================================
 alter publication supabase_realtime add table public.ww_state;
 alter publication supabase_realtime add table public.ww_user_state;
+
+-- =====================================================================
+-- v3.28: облачные резервные копии
+-- Локальные снимки живут только в браузере одного устройства. Эти копии
+-- переживают потерю телефона и очистку данных браузера.
+-- =====================================================================
+create table if not exists public.ww_snapshots (
+  id bigserial primary key,
+  sync_id text not null,
+  created_at timestamptz not null default now(),
+  note text,
+  data jsonb not null
+);
+create index if not exists ww_snapshots_sync_idx on public.ww_snapshots (sync_id, created_at desc);
+
+alter table public.ww_snapshots enable row level security;
+drop policy if exists ww_snapshots_select on public.ww_snapshots;
+drop policy if exists ww_snapshots_insert on public.ww_snapshots;
+drop policy if exists ww_snapshots_delete on public.ww_snapshots;
+create policy ww_snapshots_select on public.ww_snapshots for select using (true);
+create policy ww_snapshots_insert on public.ww_snapshots for insert with check (true);
+create policy ww_snapshots_delete on public.ww_snapshots for delete using (true);
+
+-- Держим последние 20 снимков на каждый syncId, лишние удаляются сами
+create or replace function public.ww_snapshots_prune() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.ww_snapshots s
+  where s.sync_id = new.sync_id
+    and s.id not in (
+      select id from public.ww_snapshots
+      where sync_id = new.sync_id
+      order by created_at desc
+      limit 20
+    );
+  return null;
+end;
+$$;
+drop trigger if exists ww_snapshots_prune_trg on public.ww_snapshots;
+create trigger ww_snapshots_prune_trg after insert on public.ww_snapshots
+for each row execute function public.ww_snapshots_prune();

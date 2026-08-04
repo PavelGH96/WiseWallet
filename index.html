@@ -472,7 +472,15 @@ canvas{max-width:100%}
 .coin.inc .disc{color:var(--green)}
 .coin.ww26-ghost{opacity:.6}
 .coin.ww26-ghost .disc{transform:scale(1.1);box-shadow:0 10px 24px rgba(0,0,0,.28)}
-.coin.ww26-src{opacity:.35}
+/* Перетаскиваемый ярлык «вынут» из ряда: его место освобождается, а соседи
+   плавно разъезжаются — как на домашнем экране iPhone. */
+.coin.ww26-src{opacity:0}
+/* Сдвиг соседей во время перетаскивания. Пружинистая кривая даёт то самое
+   ощущение «иконки расступаются», а не просто линейно уезжают. */
+.coin.ww26-shift{transition:transform .22s cubic-bezier(.2,.9,.3,1.2)}
+/* Возврат на место после отпускания — та же кривая, но без «перелёта». */
+.coin.ww26-settle{transition:transform .2s cubic-bezier(.2,.8,.3,1)}
+@media(prefers-reduced-motion:reduce){.coin.ww26-shift,.coin.ww26-settle{transition:none}}
 .coin.ww26-sel .disc{border-color:var(--accent);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
 .coin.ww26-sel .cname{color:var(--accent)}
 /* ---- v2.9: три колонки — доходы слева, кошельки в центре, расходы справа ---- */
@@ -3069,16 +3077,30 @@ async function delLink(id) { if (isObserver()) return; if (!await wwConfirm("С�
 function openMore() {
   showModal(`<div class="mhead"><h3>Ещё</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="more-grp">Деньги</div>
-    <button class="more-item" onclick="closeModal();nav('goals')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg>Цели и накопления</button>
+    <button class="more-item" data-more="goals" onclick="closeModal();nav('goals')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg>Цели и накопления</button>
     <div class="more-grp">Планы</div>
-    <button class="more-item" onclick="closeModal();nav('calendar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg>Календарь</button>
-    <button class="more-item" onclick="closeModal();nav('planner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg>Планировщик</button>
+    <button class="more-item" data-more="calendar" onclick="closeModal();nav('calendar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg>Календарь</button>
+    <button class="more-item" data-more="planner" onclick="closeModal();nav('planner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg>Планировщик</button>
     <div class="more-grp">Хранилище</div>
-    <button class="more-item" onclick="closeModal();nav('links')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>Ссылки</button>
-    <button class="more-item" onclick="closeModal();nav('passwords')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg>Пароли</button>
+    <button class="more-item" data-more="links" onclick="closeModal();nav('links')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 13.5a5 5 0 0 0 7.6.6l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M13.5 10.5a5 5 0 0 0-7.6-.6l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg>Ссылки</button>
+    <button class="more-item" data-more="passwords" onclick="closeModal();nav('passwords')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.2"/><path d="M10.6 12.4 21 2M15.2 7.8l2.8 2.8M18.2 4.8 20.6 7.2"/></svg>Пароли</button>
     <div class="more-grp">Прочее</div>
-    <button class="more-item" onclick="closeModal();nav('analytics')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Аналитика</button>
-    <button class="more-item" onclick="closeModal();nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>Настройки</button>`);
+    <button class="more-item" data-more="analytics" onclick="closeModal();nav('analytics')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Аналитика</button>
+    <button class="more-item" data-more="settings" onclick="closeModal();nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></svg>Настройки</button>`);
+  // В режиме «Просмотр» прячем разделы, закрытые владельцем. Меню «Ещё»
+  // строится вызовами nav() напрямую, поэтому общий фильтр по [data-nav]
+  // его не накрывает — фильтруем здесь отдельно.
+  if (typeof ww22Profile === "function" && ww22Profile() === "parents" && typeof ww24Sections === "function") {
+    const vis = ww24Sections();
+    document.querySelectorAll("#modal .more-item[data-more]").forEach((b) => {
+      if (vis[b.dataset.more] === false) b.style.display = "none";
+    });
+    document.querySelectorAll("#modal .more-grp").forEach((g) => {
+      let anyVisible = false, el = g.nextElementSibling;
+      while (el && el.classList.contains("more-item")) { if (el.style.display !== "none") anyVisible = true; el = el.nextElementSibling; }
+      if (!anyVisible) g.style.display = "none";   // не оставляем пустой заголовок группы
+    });
+  }
 }
 
 /* ===================== v1.14: drag-reorder + keyboard nav ===================== */
@@ -4223,9 +4245,15 @@ function renderV2Settings() {
       <div id="ww-auth-ui"></div>
     </div>
     <div class="card" id="ww-backup-card"><h2>🗄️ Резервные копии</h2>
-      <div class="sub" style="margin:2px 0 12px">Автоматический снимок данных раз в 6 часов, хранятся последние 5 (на этом устройстве).</div>
+      <div class="sub" style="margin:2px 0 10px"><b>На этом устройстве:</b> снимок раз в 6 часов, хранятся последние 5. Пропадут, если очистить данные браузера или сменить устройство.</div>
       <div id="ww-snap-list"></div>
       <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="ww2Snapshot(true);toast('Копия создана')">+ Создать копию сейчас</button>
+      <div style="border-top:1px solid var(--border);margin:14px 0 0;padding-top:12px">
+        <div class="sub" style="margin-bottom:10px"><b>В облаке (Supabase):</b> снимок раз в сутки, хранятся последние 20. Переживают потерю телефона и очистку браузера.</div>
+        <div id="ww-cloud-snap-list"><div class="sub">Загружаем…</div></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="wwCloudSnapshot(true)">+ Сохранить копию в облако</button>
+      </div>
+      <div id="ww-export-nudge"></div>
     </div>
     <div class="card" id="ww-app-card"><h2>📲 Приложение</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -4236,6 +4264,8 @@ function renderV2Settings() {
     </div>`);
   }
   fillV2Settings();
+  try { wwCloudSnapList(); } catch (e) {}
+  try { wwExportNudge(); } catch (e) {}
 }
 function fillV2Settings() {
   const pin = document.getElementById("ww-pin-ui");
@@ -4291,7 +4321,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.26-ux";
+const WW_VERSION = "3.28-ux";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4604,6 +4634,23 @@ function ww22FillProf() {
         </div>
         ${S.viewerPin ? `<div class="ps" style="margin-top:8px;color:var(--t3)">Смена кода отключает всех, кто уже вошёл. В ссылке передаётся ключ синхронизации — отправляйте её только тому, кому доверяете.</div>` : ""}
       </div>
+    </div>
+    <div class="ww22-demo-sub" style="align-items:flex-start">
+      <div style="font-size:16px">👁</div>
+      <div class="pm">
+        <div class="pt">Что видно в режиме «Просмотр»</div>
+        <div class="ps">Снимите галочки с разделов, которые не должен видеть тот, кто зашёл по коду.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px">
+          ${Object.keys(WW24_SECTION_NAMES).map((k) => {
+            const vis = ww24Sections()[k];
+            const locked = k === "dashboard" || k === "settings";
+            return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;${locked ? "opacity:.5" : "cursor:pointer"}">
+              <input type="checkbox" ${vis ? "checked" : ""} ${locked ? "disabled" : ""} onchange="ww24ToggleSection('${k}',this.checked)" style="width:16px;height:16px;flex-shrink:0">
+              <span>${WW24_SECTION_NAMES[k]}</span></label>`;
+          }).join("")}
+        </div>
+        <div class="ps" style="margin-top:8px;color:var(--t3)">Дашборд и Настройки скрыть нельзя — иначе из режима просмотра будет не выйти.</div>
+      </div>
     </div>` : ""}`;
 }
 const _renderSettings22 = renderSettings;
@@ -4618,18 +4665,39 @@ renderSettings = function () {
 
 /* ---- разделы, доступные учётной записи «Просмотр» (задел на будущее) ---- */
 /* Сейчас все разделы видимы. Чтобы скрыть раздел от «Просмотра», поставьте false. */
-const WW24_VIEW_SECTIONS = {
-  dashboard: true, ops: true, budgets: true, goals: true, credits: true,
-  calendar: true, planner: true, links: true, passwords: true, analytics: true, settings: true,
+/* Разделы, доступные в режиме «Просмотр». Раньше это была жёсткая константа
+   (всё видно), теперь — настройка в S.viewSections, задаётся владельцем.
+   По умолчанию скрываем «Пароли»: человек с кодом доступа не должен видеть
+   чужие учётные записи. «Настройки» оставляем — через них он выходит обратно. */
+const WW24_SECTION_NAMES = {
+  dashboard: "Дашборд", ops: "Операции", credits: "Кредиты и платежи", budgets: "Бюджеты",
+  goals: "Цели", calendar: "Календарь", planner: "Планировщик", links: "Ссылки",
+  passwords: "Пароли", analytics: "Аналитика", settings: "Настройки",
 };
+const WW24_DEFAULT_SECTIONS = { passwords: false };
+function ww24Sections() {
+  const saved = (S && S.viewSections && typeof S.viewSections === "object") ? S.viewSections : WW24_DEFAULT_SECTIONS;
+  const out = {};
+  Object.keys(WW24_SECTION_NAMES).forEach((k) => { out[k] = saved[k] !== false; });
+  out.dashboard = true;  // дашборд и настройки нельзя убрать: иначе некуда
+  out.settings = true;   // возвращаться и невозможно выйти из режима
+  return out;
+}
 function ww24ApplyViewSections() {
   if (ww22Profile() !== "parents") return;
-  document.querySelectorAll("[data-nav]").forEach((b) => { b.style.display = WW24_VIEW_SECTIONS[b.dataset.nav] === false ? "none" : ""; });
-  if (WW24_VIEW_SECTIONS[activePage()] === false) nav("dashboard");
+  const vis = ww24Sections();
+  document.querySelectorAll("[data-nav]").forEach((b) => { b.style.display = vis[b.dataset.nav] === false ? "none" : ""; });
+  if (vis[activePage()] === false) nav("dashboard");
+}
+function ww24ToggleSection(key, on) {
+  if (isObserver()) return;
+  if (!S.viewSections || typeof S.viewSections !== "object") S.viewSections = { ...WW24_DEFAULT_SECTIONS };
+  S.viewSections[key] = !!on;
+  save(); renderSettings();
 }
 const _navWW24 = nav;
 nav = function (page) {
-  if (ww22Profile() === "parents" && WW24_VIEW_SECTIONS[page] === false) page = "dashboard";
+  if (ww22Profile() === "parents" && ww24Sections()[page] === false) page = "dashboard";
   _navWW24(page);
 };
 
@@ -5604,6 +5672,69 @@ function ww26StartGhost(st) {
   document.body.appendChild(g);
   st.ghost = g;
   st.el.classList.add("ww26-src");
+  ww26LayoutInit(st);
+}
+/* Снимок исходной раскладки ряда: позиции всех «слотов» и порядок соседей.
+   Дальше во время движения мы только пересчитываем, в какой слот попадёт
+   перетаскиваемый ярлык, и раздвигаем остальных смещением по этим слотам. */
+function ww26LayoutInit(st) {
+  const row = st.el.parentElement;
+  if (!row) return;
+  const all = [...row.querySelectorAll(".coin")].filter((c) => !c.classList.contains("add"));
+  if (all.length < 2) return;
+  st.row = row;
+  st.items = all;
+  // Ряд переносится на несколько строк (flex-wrap), то есть это сетка, а не
+  // одна линия — значит и позиция вставки считается по X и по Y, как на
+  // домашнем экране iPhone. Координаты снимаем относительно самого ряда,
+  // в той же системе, в которой потом считаем позицию пальца.
+  const rr = row.getBoundingClientRect();
+  st.slots = all.map((c) => {
+    const b = c.getBoundingClientRect();
+    return { x: b.left - rr.left + row.scrollLeft, y: b.top - rr.top + row.scrollTop, w: b.width, h: b.height };
+  });
+  st.srcIdx = all.indexOf(st.el);
+  st.others = all.filter((c) => c !== st.el);
+  st.othersOrig = st.others.map((c) => all.indexOf(c));
+  st.insertIdx = st.srcIdx;
+  st.others.forEach((c) => c.classList.add("ww26-shift"));
+}
+/* Пересчёт целевого слота по позиции пальца и сдвиг соседей. */
+function ww26LayoutMove(st, clientX, clientY) {
+  if (!st.row || !st.items) return;
+  const rect = st.row.getBoundingClientRect();
+  const px = clientX - rect.left + st.row.scrollLeft;
+  const py = clientY - rect.top + st.row.scrollTop;
+  // Сетка читается построчно: ярлык встаёт перед первым слотом, который
+  // расположен «после» пальца — сначала по строке, потом по горизонтали.
+  let k = st.items.length - 1;
+  for (let i = 0; i < st.slots.length; i++) {
+    const s = st.slots[i];
+    const below = py < s.y + s.h / 2;                 // палец выше этой строки
+    const sameRow = py >= s.y && py <= s.y + s.h;     // палец на этой строке
+    if (below || (sameRow && px < s.x + s.w / 2)) { k = i; break; }
+  }
+  k = Math.max(0, Math.min(k, st.items.length - 1));
+  if (k === st.insertIdx) return;
+  st.insertIdx = k;
+  st.others.forEach((c, i) => {
+    const finalSlot = i < k ? i : i + 1;
+    const from = st.slots[st.othersOrig[i]], to = st.slots[finalSlot];
+    if (!from || !to) { c.style.transform = ""; return; }
+    const dx = to.x - from.x, dy = to.y - from.y;
+    c.style.transform = (dx || dy) ? `translate(${dx}px,${dy}px)` : "";
+  });
+}
+/* Снятие сдвигов — вызывается при завершении перетаскивания. */
+/* Убрать сдвиги, но сохранить снимок раскладки (палец ушёл в чужую колонку). */
+function ww26LayoutResetShift(st) {
+  if (!st.others) return;
+  st.others.forEach((c) => { c.style.transform = ""; });
+  st.insertIdx = st.srcIdx;
+}
+function ww26LayoutReset(st) {
+  if (!st.others) return;
+  st.others.forEach((c) => { c.classList.remove("ww26-shift"); c.style.transform = ""; });
 }
 function ww26Block(e) { if (_ww26Drag && _ww26Drag.armed) e.preventDefault(); }
 function ww26Cleanup(st) {
@@ -5614,6 +5745,7 @@ function ww26Cleanup(st) {
   document.removeEventListener("touchmove", ww26Block);
   if (st.ghost) st.ghost.remove();
   st.el.classList.remove("ww26-src");
+  ww26LayoutReset(st);
   if (st.armed || st.moved) document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
 }
 function ww26Down(e, kind, id) {
@@ -5649,9 +5781,21 @@ function ww26Move(e) {
     if (!st.ghost) { ww26ClearSel(); ww26StartGhost(st); }
   }
   if (st.ghost) st.ghost.style.transform = `translate(${dx}px,${dy}px)`;
-  // Подсказка при перетаскивании: своя колонка — переставить местами,
-  // соседняя (для доходов/кошельков) — перенести операцию.
-  const sels = st.kind === "acc" ? [".coin.acc", ".coin.cat"] : st.kind === "inc" ? [".coin.inc", ".coin.acc"] : [".coin.cat"];
+  // Пока палец над своим рядом — живая раскладка: соседи расступаются,
+  // показывая, куда именно встанет ярлык. Подсветка «поменять местами»
+  // при этом не нужна и только мешает.
+  const rowRect = st.row ? st.row.getBoundingClientRect() : null;
+  // Колонки стоят рядом по горизонтали, поэтому одной вертикали мало —
+  // иначе перенос в соседнюю колонку выглядел бы как перестановка внутри своей.
+  const overOwnRow = rowRect && e.clientX >= rowRect.left - 12 && e.clientX <= rowRect.right + 12 && e.clientY >= rowRect.top - 24 && e.clientY <= rowRect.bottom + 24;
+  if (overOwnRow) {
+    ww26LayoutMove(st, e.clientX, e.clientY);
+    document.querySelectorAll(".coin.drop-target").forEach((c) => c.classList.remove("drop-target"));
+    return;
+  }
+  // Ушли из своего ряда — это уже перенос суммы в соседнюю колонку.
+  if (st.insertIdx !== st.srcIdx) { st.insertIdx = -1; ww26LayoutResetShift(st); }
+  const sels = st.kind === "acc" ? [".coin.cat"] : st.kind === "inc" ? [".coin.acc"] : [];
   sels.forEach((sel) => {
     document.querySelectorAll(sel).forEach(function (c) {
       if (c === st.el) { c.classList.remove("drop-target"); return; }
@@ -5669,16 +5813,19 @@ function ww26Up(e) {
   const st = _ww26Drag; _ww26Drag = null;
   if (!st) return;
   const wasDrag = st.moved && st.armed;
+  const insertIdx = st.insertIdx, srcIdx = st.srcIdx;
+  const rowRect = st.row ? st.row.getBoundingClientRect() : null;
+  const overOwnRow = rowRect && e.clientX >= rowRect.left - 12 && e.clientX <= rowRect.right + 12 && e.clientY >= rowRect.top - 24 && e.clientY <= rowRect.bottom + 24;
   ww26Cleanup(st);
   if (!wasDrag) return; /* короткий тап — дальше отработает click (режим нажатий) */
   _ww26SkipClick = true; setTimeout(function () { _ww26SkipClick = false; }, 150);
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  // Отпустили над другим ярлыком той же колонки — переставляем местами, а не переносим операцию.
-  const sameKindEl = el && el.closest(".coin." + st.kind);
-  if (sameKindEl && sameKindEl !== st.el && sameKindEl.dataset[st.kind] !== st.id) {
-    ww26Reorder(st.kind, st.id, sameKindEl.dataset[st.kind]);
+  // Отпустили над своим рядом — встраиваем в ту позицию, которую показывала
+  // живая раскладка (а не меняемся местами с тем, кто оказался под пальцем).
+  if (overOwnRow) {
+    if (insertIdx != null && insertIdx !== srcIdx) ww26MoveToIndex(st.kind, st.id, insertIdx);
     return;
   }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
   if (st.kind === "acc") {
     const catEl = el && el.closest(".coin.cat");
     if (catEl) openTxModal({ type: "expense", accountId: st.id, categoryId: catEl.dataset.cat, lockCategory: true });
@@ -5687,28 +5834,35 @@ function ww26Up(e) {
     if (accEl && accEl !== st.el) openTxModal({ type: "income", categoryId: st.id, accountId: accEl.dataset.acc, lockCategory: true });
   }
 }
-/* Перестановка местами внутри своей колонки (доходы/кошельки/расходы).
-   Категории дохода и расхода живут в одном общем массиве S.categories —
-   переставляем только внутри нужного подмножества, не трогая остальные записи. */
-function ww26Reorder(kind, fromId, toId) {
-  if (isObserver() || fromId === toId) return;
+/* Перемещение ярлыка на позицию N внутри своей колонки.
+   Видимый список может быть уже полного (скрытые счета), поэтому сначала
+   строим новый порядок видимых элементов, а затем раскладываем его обратно
+   по тем же местам в исходном массиве — скрытые записи не сдвигаются. */
+function ww26MoveToIndex(kind, id, toIdx) {
+  if (isObserver()) return;
+  let arr, visible;
   if (kind === "acc") {
-    const fromIdx = S.accounts.findIndex((x) => x.id === fromId), toIdx = S.accounts.findIndex((x) => x.id === toId);
-    if (fromIdx === -1 || toIdx === -1) return;
-    const [item] = S.accounts.splice(fromIdx, 1);
-    S.accounts.splice(toIdx, 0, item);
+    arr = S.accounts;
+    const ym = (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7);
+    visible = arr.filter((a) => accVisibleFor(a, ym));
   } else {
+    arr = S.categories;
     const type = kind === "inc" ? "income" : "expense";
-    const slots = []; S.categories.forEach((c, i) => { if (c.type === type) slots.push(i); });
-    const items = slots.map((i) => S.categories[i]);
-    const fromPos = items.findIndex((c) => c.id === fromId), toPos = items.findIndex((c) => c.id === toId);
-    if (fromPos === -1 || toPos === -1) return;
-    const [item] = items.splice(fromPos, 1);
-    items.splice(toPos, 0, item);
-    slots.forEach((slot, k) => { S.categories[slot] = items[k]; });
+    visible = arr.filter((c) => c.type === type);
   }
+  const ids = visible.map((x) => x.id);
+  const from = ids.indexOf(id);
+  if (from === -1 || toIdx === from) return;
+  ids.splice(from, 1);
+  ids.splice(Math.max(0, Math.min(toIdx, ids.length)), 0, id);
+  const byId = {}; visible.forEach((x) => { byId[x.id] = x; });
+  const slots = []; arr.forEach((x, i) => { if (visible.includes(x)) slots.push(i); });
+  slots.forEach((slotIdx, k) => { arr[slotIdx] = byId[ids[k]]; });
   save(); renderCoins();
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (err) {} }
 }
+/* ww26Reorder() удалена в v3.27: обмен местами заменён на вставку в позицию
+   (ww26MoveToIndex) — это то, что показывает живая раскладка при перетаскивании. */
 /* первый рендер новой панели после переопределения */
 try { if (typeof S !== "undefined" && document.getElementById("coins-inc")) renderCoins(); } catch (e) {}
 /* v3.0: обновление «К оплате» после сохранения регулярного платежа/кредита + перерисовка с SVG-иконками */
@@ -6005,6 +6159,115 @@ try {
   }
 })();
 
+/* ===================== v3.28: облачные резервные копии =====================
+   Локальные снимки живут только в браузере одного устройства: очистили данные
+   сайта или потеряли телефон — и откатываться не к чему. Эти копии лежат в
+   Supabase (таблица ww_snapshots), переживают устройство и хранят 20 версий
+   (лишние подчищаются на стороне базы триггером). */
+const WW_CLOUD_SNAP_LAST = "ww_cloud_snap_last_v1";
+
+function wwCloudReady() {
+  const { sbUrl, sbKey, syncId } = S.settings;
+  return !!(sbUrl && sbKey && syncId && navigator.onLine);
+}
+async function wwCloudSnapshot(manual) {
+  if (isObserver() && !manual) return;
+  if (!wwCloudReady()) { if (manual) toast("Сначала настройте синхронизацию"); return; }
+  const { sbUrl, sbKey, syncId } = S.settings;
+  const H = { apikey: sbKey, Authorization: "Bearer " + sbKey, "Content-Type": "application/json" };
+  try {
+    const r = await fetch(`${sbUrl}/rest/v1/ww_snapshots`, {
+      method: "POST", headers: H,
+      body: JSON.stringify([{ sync_id: syncId, note: manual ? "Вручную" : "Автоматически", data: S }]),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    try { localStorage.setItem(WW_CLOUD_SNAP_LAST, String(Date.now())); } catch (e) {}
+    if (manual) toast("Копия сохранена в облако");
+    wwCloudSnapList();
+  } catch (e) {
+    if (manual) toast("Не удалось сохранить: " + e.message);
+  }
+}
+/* Раз в сутки — автоматически, после успешной синхронизации. */
+async function wwCloudSnapshotMaybe() {
+  if (isObserver() || !wwCloudReady()) return;
+  let last = 0;
+  try { last = +localStorage.getItem(WW_CLOUD_SNAP_LAST) || 0; } catch (e) {}
+  if (Date.now() - last < 24 * 3600 * 1000) return;
+  await wwCloudSnapshot(false);
+}
+async function wwCloudSnapFetch() {
+  if (!wwCloudReady()) return [];
+  const { sbUrl, sbKey, syncId } = S.settings;
+  const H = { apikey: sbKey, Authorization: "Bearer " + sbKey };
+  const r = await fetch(`${sbUrl}/rest/v1/ww_snapshots?sync_id=eq.${encodeURIComponent(syncId)}&select=id,created_at,note&order=created_at.desc&limit=20`, { headers: H });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+async function wwCloudSnapList() {
+  const el = document.getElementById("ww-cloud-snap-list"); if (!el) return;
+  if (!wwCloudReady()) { el.innerHTML = '<div class="sub">Доступно после настройки синхронизации.</div>'; return; }
+  try {
+    const rows = await wwCloudSnapFetch();
+    if (!rows.length) { el.innerHTML = '<div class="sub">Пока нет ни одной облачной копии.</div>'; return; }
+    el.innerHTML = rows.map((s) => {
+      const d = new Date(s.created_at);
+      return `<div class="row"><div class="rmain"><div class="rt">${d.toLocaleString("ru-RU")}</div><div class="rs">${esc(s.note || "")}</div></div><button class="btn btn-ghost btn-sm" onclick="wwCloudRestore(${s.id},'${d.toLocaleString("ru-RU")}')">Восстановить</button></div>`;
+    }).join("");
+  } catch (e) {
+    el.innerHTML = `<div class="sub">Не удалось загрузить список: ${esc(e.message)}</div>`;
+  }
+}
+async function wwCloudRestore(id, when) {
+  if (isObserver()) return;
+  if (!await wwConfirm(`Текущие данные будут заменены копией от ${when}. Перед заменой сохраним ещё одну копию — и локально, и в облако, так что откатиться будет можно.`, { title: "Восстановить из облака?", okText: "Восстановить" })) return;
+  const { sbUrl, sbKey } = S.settings;
+  const H = { apikey: sbKey, Authorization: "Bearer " + sbKey };
+  try {
+    ww2Snapshot(true);
+    await wwCloudSnapshot(false);
+    const r = await fetch(`${sbUrl}/rest/v1/ww_snapshots?id=eq.${id}&select=data`, { headers: H });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const rows = await r.json();
+    if (!rows.length || !rows[0].data) throw new Error("копия не найдена");
+    const restored = rows[0].data;
+    // Метку версии двигаем вперёд, иначе следующая синхронизация сочтёт
+    // восстановленные данные устаревшими и затрёт их обратно.
+    restored.updatedAt = Date.now();
+    S = restored;
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    if (typeof syncNow === "function") { try { await syncNow(false); } catch (e) {} }
+    location.reload();
+  } catch (e) {
+    await wwAlert("Не удалось восстановить: " + e.message, { title: "Ошибка" });
+  }
+}
+
+/* ---- напоминание об экспорте ----
+   Облачные копии живут в том же проекте Supabase, что и сами данные. Файл
+   на своём диске — единственная копия, не зависящая ни от устройства, ни от
+   сервиса, поэтому раз в месяц мягко напоминаем его сделать. */
+const WW_EXPORT_LAST = "ww_export_last_v1";
+function wwExportDone() { try { localStorage.setItem(WW_EXPORT_LAST, String(Date.now())); } catch (e) {} wwExportNudge(); }
+function wwExportNudge() {
+  const el = document.getElementById("ww-export-nudge"); if (!el) return;
+  let last = 0;
+  try { last = +localStorage.getItem(WW_EXPORT_LAST) || 0; } catch (e) {}
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  if (days !== null && days < 30) {
+    el.innerHTML = `<div class="sub" style="margin-top:12px;color:var(--t3)">Последний экспорт в файл: ${days === 0 ? "сегодня" : days + " дн. назад"} ✓</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="margin-top:14px;padding:12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:var(--radius-s)">
+    <div style="font-weight:700;font-size:13.5px;color:var(--amber);margin-bottom:4px">Скачайте копию себе на диск</div>
+    <div class="sub" style="margin-bottom:10px">${last ? "Прошло больше месяца с последнего экспорта." : "Вы ещё ни разу не сохраняли данные в файл."} Копии в облаке лежат в том же проекте Supabase, что и данные — файл на своём диске от этого не зависит.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="exportJson();wwExportDone()">Скачать JSON</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportXlsx();wwExportDone()">Скачать XLSX</button>
+      <button class="btn btn-ghost btn-sm" onclick="wwExportDone()">Уже сделал</button>
+    </div></div>`;
+}
+
 /* ===================== v3.26: вход в «Просмотр» по коду доступа =====================
    Задача: дать другому человеку ссылку, по которой он сам заходит в режим
    «только просмотр», независимо от вашего устройства.
@@ -6117,6 +6380,7 @@ if (typeof syncNow === "function") {
   syncNow = async function (manual) {
     const r = await _syncViewer(manual);
     try { wwViewerVerify(); } catch (e) {}
+    try { wwCloudSnapshotMaybe(); } catch (e) {}
     return r;
   };
 }
