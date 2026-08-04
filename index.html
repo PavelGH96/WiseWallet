@@ -58,16 +58,37 @@ button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;backgrou
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .app{display:flex;min-height:100vh}
 /* ---- rail nav (desktop) ---- */
-.rail{position:fixed;left:0;top:0;bottom:0;width:230px;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:stretch;padding:20px 14px;gap:2px;z-index:var(--z-nav);overflow-y:auto}
-.rail .logo{display:flex;align-items:center;gap:10px;padding:4px 8px;font-family:var(--font-d);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--text);margin-bottom:18px;flex-shrink:0}
+.rail{position:fixed;left:0;top:0;bottom:0;width:250px;background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:stretch;padding:20px 14px;gap:2px;z-index:var(--z-nav);overflow-y:auto;transition:width .16s ease}
+.rail .logo{display:flex;align-items:center;gap:10px;padding:4px 8px;font-family:var(--font-d);font-weight:700;font-size:17px;letter-spacing:-.02em;color:var(--text);flex-shrink:0;overflow:hidden;flex:1;min-width:0}
+.rail .logo::before{content:"💳";font-size:19px;flex-shrink:0}
+.rail .logo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .12s ease}
+.logo-row{display:flex;align-items:center;gap:4px;margin-bottom:18px}
+.rail-pin{width:30px;height:30px;border-radius:var(--radius-s);display:flex;align-items:center;justify-content:center;color:var(--t3);flex-shrink:0;transition:background .12s,transform .16s ease}
+.rail-pin:hover{background:var(--fill);color:var(--t2)}
+.rail-pin svg{width:16px;height:16px}
+/* ---- сворачивание бокового меню до иконок ----
+   Свёрнутое состояние сохраняется в S.settings; временный разворот по
+   наведению не двигает контент (rail — position:fixed, .main не трогаем),
+   поэтому это лёгкий флайаут, а не постоянная перестройка макета. */
+.rail.collapsed{width:76px}
+.rail.collapsed .rail-item{justify-content:center}
+.rail.collapsed .rail-item span,.rail.collapsed .rail-grp,.rail.collapsed .logo span,.rail.collapsed #observer-badge span{max-width:0;opacity:0}
+.rail.collapsed .logo::before{margin:0 auto}
+.rail.collapsed .rail-pin svg{transform:rotate(180deg)}
+.rail.collapsed:not(:hover) .logo-row{justify-content:center}
+.rail.collapsed:hover{width:250px;box-shadow:var(--sh)}
+.rail.collapsed:hover .rail-item{justify-content:flex-start}
+.rail.collapsed:hover .rail-item span,.rail.collapsed:hover .rail-grp,.rail.collapsed:hover .logo span,.rail.collapsed:hover #observer-badge span{max-width:160px;opacity:1}
+.rail-item span,.rail-grp,.logo span,#observer-badge span{transition:max-width .16s ease,opacity .12s ease}
+@media(prefers-reduced-motion:reduce){.rail,.rail-item span,.rail-grp,.logo span,#observer-badge span,.main{transition:none}}
 .rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#0055d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(0,113,227,.35);flex-shrink:0}
-.rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s}
+.rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s;overflow:hidden}
 .rail-item svg{width:20px;height:20px;flex-shrink:0}
-.rail-item span{font-size:13.5px;font-weight:600;letter-spacing:.01em}
+.rail-item span{font-size:13.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rail-item:hover{background:var(--fill);color:var(--text)}
 .rail-item.active{background:var(--blue-bg);color:var(--accent)}
 /* ---- main ---- */
-.main{flex:1;min-width:0;margin-left:230px;padding:28px 44px 96px}
+.main{flex:1;min-width:0;margin-left:250px;padding:28px 44px 96px;transition:margin-left .16s ease}
 .page{display:none}
 .page.active{display:block;animation:fadein .18s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -214,9 +235,10 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
 .cal-cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .cal-d{font-weight:700;font-size:12px}
 .cal-ev{border-radius:5px;padding:1px 5px;font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cal-ev.pay{background:var(--amber-bg);color:var(--amber)}
-.cal-ev.exp{background:var(--red-bg);color:var(--red)}
+.cal-ev.pay{background:var(--red-bg);color:var(--red)}
+.cal-ev.exp{background:var(--amber-bg);color:var(--amber)}
 .cal-ev.inc{background:var(--green-bg);color:var(--green)}
+.cal-ev.paid{background:var(--green-bg);color:var(--green)}
 /* ---- блокировка фона при открытом окне ввода ----
    overflow:hidden одного only не хватает — iOS всё равно даёт «резиновый»
    скролл и pinch-zoom фона под модалкой. position:fixed фиксирует страницу
@@ -225,6 +247,17 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
    продолжала работать. */
 body.no-scroll{position:fixed;inset:0;overflow:hidden;touch-action:none;overscroll-behavior:none}
 body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior:contain}
+/* ---- экран входа для «Просмотра» (доступ по коду) ---- */
+#ww-viewer{position:fixed;inset:0;z-index:var(--z-lock);background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px}
+#ww-viewer.on{display:flex}
+#ww-viewer .vw-ic{width:56px;height:56px;border-radius:50%;background:var(--fill);display:flex;align-items:center;justify-content:center;color:var(--t2)}
+#ww-viewer .vw-ic svg{width:26px;height:26px}
+#ww-viewer h2{font-family:var(--font-d);font-size:19px;font-weight:800;letter-spacing:-.01em}
+#ww-viewer .vw-sub{font-size:13.5px;color:var(--t2);text-align:center;max-width:320px;line-height:1.5}
+#ww-viewer input{width:200px;text-align:center;font-size:26px;letter-spacing:.32em;padding:12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);font-family:var(--font-d);font-weight:700}
+#ww-viewer input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+#ww-viewer .vw-err{color:var(--red);font-size:13px;min-height:1.2em;font-weight:600}
+#ww-viewer .btn{min-width:200px;min-height:46px}
 /* ---- собственные диалоги (замена системных alert/confirm/prompt) ----
    Отдельный слой над .overlay, чтобы подтверждение открывалось поверх уже
    открытой модалки (например «Удалить» внутри карточки кредита). */
@@ -361,7 +394,7 @@ body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior
 .ww319-msheet .mgrid button.m:hover{border-color:var(--border-h)}
 .ww319-msheet .mgrid button.m.now{border-color:var(--blue);color:var(--blue)}
 .ww319-msheet .mgrid button.m.sel{background:var(--blue);border-color:var(--blue);color:#fff}
-@media(max-width:700px){.ww319-pill{font-size:13px;padding:5px 11px}.ww319-per{gap:5px}}
+@media(max-width:700px){.ww319-pill{font-size:13px;padding:5px 11px;min-width:112px}.ww319-per{gap:5px}}
 /* ---- charts ---- */
 canvas{max-width:100%}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--t2);margin-top:10px}
@@ -409,6 +442,16 @@ canvas{max-width:100%}
 .coin{flex-shrink:0;width:74px;display:flex;flex-direction:column;align-items:center;gap:4px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .coin .disc{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--border);background:var(--card);box-shadow:var(--sh-s);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .coin.acc,.coin.inc,.coin.cat{cursor:grab;position:relative}
+/* Подсказка «это можно перетащить»: те же точки, что у ручек в списках.
+   Ярлыки перетаскиваются долгим нажатием (не отдельной ручкой), поэтому
+   точки — чисто визуальный намёк и не перехватывают события. */
+.coin-drag-dots{position:absolute;top:-2px;left:2px;display:grid;grid-template-columns:repeat(2,2px);gap:2px;opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:1}
+.coin-drag-dots i{width:2px;height:2px;border-radius:50%;background:var(--t3);display:block}
+.coin:hover .coin-drag-dots{opacity:.7}
+.coin.ww26-drag .coin-drag-dots{opacity:0}
+/* На сенсорных экранах наведения нет — показываем точки постоянно, слабо */
+@media (pointer: coarse){.coin-drag-dots{opacity:.42}}
+@media(prefers-reduced-motion:reduce){.coin-drag-dots{transition:none}}
 .coin-menu-btn{position:absolute;top:-4px;right:0;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);line-height:1;box-shadow:var(--sh-s);z-index:2}
 .coin-menu-btn:active{background:var(--fill)}
 @media (pointer: coarse){.coin-menu-btn{position:relative}.coin-menu-btn::after{content:"";position:absolute;inset:-12px}}
@@ -462,7 +505,7 @@ canvas{max-width:100%}
 #dash-due .ww31-col{min-width:0}
 @media(max-width:900px){#dash-due .ww31-grid{grid-template-columns:1fr;gap:2px 0}}
 /* ---- v2.6: Monefy-панель и период учёта ---- */
-#ww26-period-btn,.ww319-pill{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
+#ww26-period-btn,.ww319-pill{font-family:var(--font-d);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;min-width:132px;text-align:center}
 #ww26-period-btn:hover,.ww319-pill:hover{border-color:var(--border-h)}
 .ww31-navm{font:inherit;font-size:12px;line-height:1;padding:4px 7px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--t2);cursor:pointer;flex:none}
 .ww31-navm:hover{border-color:var(--border-h);color:var(--text)}
@@ -594,9 +637,9 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 <div id="ww-splash"><div class="ws-logo"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg></div><div class="ws-name">WiseWallet</div><div class="ws-spin"></div></div><style>#ww-splash{position:fixed;inset:0;z-index:var(--z-splash);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg,#f6f7f9);transition:opacity .35s ease}#ww-splash .ws-logo{font-size:52px;animation:wsPulse 1.2s ease-in-out infinite}#ww-splash .ws-name{font-weight:800;font-size:20px;color:var(--text,#1c2733);letter-spacing:.02em;font-family:-apple-system,system-ui,sans-serif}#ww-splash .ws-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(127,127,127,.25);border-top-color:var(--accent,#0f9d76);animation:wsRot .8s linear infinite}#ww-splash.hide{opacity:0;pointer-events:none}@media(prefers-color-scheme:dark){body:not([data-theme]) #ww-splash{background:#10151c}body:not([data-theme]) #ww-splash .ws-name{color:#e8edf2}}@keyframes wsRot{to{transform:rotate(360deg)}}@keyframes wsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}</style>
 <script>try{var _ws=JSON.parse(localStorage.getItem("ww_state_v1")||"{}");var _wt=(_ws.settings&&_ws.settings.theme)||"";if(_wt)document.body.dataset.theme=_wt;}catch(e){}</script>
 <div class="app">
-<aside class="rail">
-  <div class="logo">WiseWallet</div>
-  <div id="observer-badge" style="display:none;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg> Только просмотр</div>
+<aside class="rail" id="rail">
+  <div class="logo-row"><div class="logo"><span>WiseWallet</span></div><button class="rail-pin" id="rail-pin-btn" onclick="toggleRailCollapse()" title="Свернуть меню до иконок"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6 9 12l5.5 6"/></svg></button></div>
+  <div id="observer-badge" style="display:none;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg> <span>Только просмотр</span></div>
   <div class="rail-grp">Деньги</div>
   <button class="rail-item active" data-nav="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span>Дашборд</span></button>
   <button class="rail-item" data-nav="ops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Операции</span></button>
@@ -703,7 +746,8 @@ body.observer .task-card,.observer .credit-card{cursor:default}
       <button class="btn btn-ghost btn-sm" onclick="calToday()">Сегодня</button>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
-    <div class="legend"><span><i style="background:var(--amber)"></i>Платёж по кредиту</span><span><i style="background:var(--red)"></i>Расход</span><span><i style="background:var(--green)"></i>Доход</span></div>
+    <div class="legend"><span><i style="background:var(--red)"></i>Кредит</span><span><i style="background:var(--amber)"></i>Регулярный расход</span><span><i style="background:var(--green)"></i>Оплачено / доход</span></div>
+    <div class="sub" style="padding:0 4px 8px">В календаре — только план (сроки платежей), а не введённые вручную операции. Отметки «оплачено» смотрите здесь же — цвет меняется на зелёный.</div>
   </section>
 
   <!-- ================= ANALYTICS ================= -->
@@ -894,6 +938,21 @@ function save() {
 // Важно понимать: это ограничение уровня интерфейса, а не Supabase RLS —
 // anon key в проекте по-прежнему технически может писать. Для настоящего
 // разграничения ролей на уровне БД нужен Supabase Auth (см. README, roadmap v1.1).
+/* ---- сворачивание бокового меню ---- */
+function toggleRailCollapse() {
+  S.settings.railCollapsed = !S.settings.railCollapsed;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  applyRailCollapse();
+}
+function applyRailCollapse() {
+  const rail = document.getElementById("rail"); if (!rail) return;
+  const on = !!(S.settings && S.settings.railCollapsed);
+  rail.classList.toggle("collapsed", on);
+  const pin = document.getElementById("rail-pin-btn");
+  if (pin) pin.title = on ? "Закрепить меню развёрнутым" : "Свернуть меню до иконок";
+  const main = document.querySelector(".main");
+  if (main) main.style.marginLeft = on ? "76px" : "";
+}
 function isObserver() {
   if (S.settings.observerMode) { toast("👀 Режим наблюдателя — только просмотр"); return true; }
   return false;
@@ -1279,7 +1338,7 @@ function renderDash() {
     const prevSum = (!isFuturePeriod && isMonthPeriod) ? catSpentMonth(cid, ymShift((range.from || today).slice(0, 7), -1)) : 0;
     const dl = prevSum ? Math.round((sum - prevSum) / prevSum * 100) : null;
     const dlTxt = dl === null ? "" : ` <span class="sub">${dl > 0 ? "↑" : dl < 0 ? "↓" : "="}${Math.abs(dl)}%</span>`;
-    return `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
+    return `<div class="row"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
   }).join("") : (isFuturePeriod ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>Расходов в этом периоде ещё нет.<br>Добавьте операцию кнопкой «+»</div>');
 
   // ---- операции за период ----
@@ -1291,7 +1350,7 @@ function renderDash() {
 function txRow(t) {
   const c = cat(t.categoryId) || { icon: t.type === "income" ? "💵" : "📌", name: "Без категории" };
   const tagsHtml = (t.tags && t.tags.length) ? " " + t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join("") : "";
-  return `<div class="row" data-sid="${t.id}"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button></div>`;
+  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button></div>`;
 }
 async function delTx(id) { if (isObserver()) return; if (!await wwConfirm("Операцию можно будет вернуть только вручную.", { title: "Удалить операцию?", okText: "Удалить", danger: true })) return; S.transactions = S.transactions.filter((t) => t.id !== id); save(); render(activePage()); }
 function activePage() { return (document.querySelector(".page.active") || {}).id?.replace("page-", "") || "dashboard"; }
@@ -1304,7 +1363,7 @@ function txCard(t) {
   const tagsHtml = (t.tags && t.tags.length) ? `<div>${t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join(" ")}</div>` : "";
   return `<div class="card" data-sid="${t.id}" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-      <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">${c.icon}</div><div style="min-width:0"><div class="rt">${esc(c.name)}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div></div>
+      <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div style="min-width:0"><div class="rt">${esc(c.name)}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div></div>
       <button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button>
     </div>
     ${t.note ? `<div class="sub">${esc(t.note)}</div>` : ""}
@@ -1389,6 +1448,18 @@ function creditCardHtml(c) {
   const next = nextPayDate(c);
   const _cd = crPeriodPayDate(c) || next;
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
+  // Тот же переключатель, что и в списочном виде и на дашборде — пишет в то
+  // же самое S.ww30Cr/S.posted, поэтому статус синхронизирован везде.
+  let paySwitchHtml = "";
+  if (c.status === "active") {
+    const ym = ww30PageYm(crPeriod());
+    const pay = ww316CrPay(c, ym);
+    const full = +pay.amount || 0;
+    const rec = S.ww30Cr && S.ww30Cr[c.id + ":" + ym];
+    const posted = rec ? +rec.paid || 0 : 0;
+    const isPaid = full > 0 ? ww30IsPaid(posted, full) : false;
+    paySwitchHtml = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="ww30Toggle('credit','${c.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить " + money(full)}</span></button>`;
+  }
   return `<div class="card credit-card" data-sid="${c.id}">
       <div class="credit-top"><div><div class="credit-name">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)}${crPeriodTag(c)}</div><div class="sub">${esc(c.type)} · ${esc(c.lender)}</div></div>
         ${c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный период</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>'}</div>
@@ -1405,8 +1476,18 @@ function creditCardHtml(c) {
         ${c.graceTo && !p.grace && todayStr() < c.graceFrom ? `<span class="k">Льготный период</span><b>с ${c.graceFrom.split("-").reverse().join(".")}</b>` : ""}
         ${p.grace ? `<span class="k">Льгота до</span><b>${c.graceTo.split("-").reverse().join(".")}</b>` : ""}
       </div>
-      ${c.status === "active" ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="payCredit('${c.id}')">Отметить платёж ${money(p.amount)}</button><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button><button class="btn btn-ghost btn-sm" onclick="openScheduleModal('${c.id}')">${WWI.calendar} График</button></div>` : `<div><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button></div>`}
+      ${c.status === "active" ? `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${paySwitchHtml}<button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button><button class="btn btn-ghost btn-sm" onclick="openScheduleModal('${c.id}')">${WWI.calendar} График</button></div>` : `<div><button class="btn btn-ghost btn-sm" onclick="openCreditModal('${c.id}')">Изменить</button></div>`}
     </div>`;
+}
+/* Страница «Кредиты и платежи» не привязана к общему периоду дашборда —
+   у неё свой фильтр (crPeriod/rcPeriod). Если в отображаемый период входит
+   сегодняшний день — платим за текущий месяц (самый ожидаемый вариант),
+   иначе — за месяц, с которого начинается выбранный период. */
+function ww30PageYm(period) {
+  const r = ww26RangeFor(period);
+  const today = todayStr();
+  if (r.from && r.to && today >= r.from && today <= r.to) return today.slice(0, 7);
+  return (r.from || today).slice(0, 7);
 }
 function creditRow(c) {
   const p = currentPayment(c);
@@ -1416,11 +1497,24 @@ function creditRow(c) {
   const paidShare = (() => { if (c.start && c.end) { const s = new Date(c.start).getTime(), e = new Date(c.end).getTime(); if (e > s) return Math.max(0, Math.min(1, (Date.now() - s) / (e - s))); } const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
   const paidPct = Math.round(paidShare * 100);
   const statusTag = c.status === "closed" ? '<span class="badge green">закрыт</span>' : p.grace ? '<span class="badge amber">льготный</span>' : overdue ? '<span class="badge amber">просрочен</span>' : '<span class="badge blue">активен</span>';
+  // Оплата отсюда пишется в тот же S.ww30Cr/S.posted, что читает дашборд —
+  // значит статус синхронизирован сам собой, без отдельной прослойки.
+  let paySwitch = "";
+  if (c.status === "active") {
+    const ym = ww30PageYm(crPeriod());
+    const pay = ww316CrPay(c, ym);
+    const full = +pay.amount || 0;
+    const rec = S.ww30Cr && S.ww30Cr[c.id + ":" + ym];
+    const posted = rec ? +rec.paid || 0 : 0;
+    const isPaid = full > 0 ? ww30IsPaid(posted, full) : false;
+    paySwitch = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="event.stopPropagation();ww30Toggle('credit','${c.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить"}</span></button>`;
+  }
   return `<div class="row" data-sid="${c.id}" style="cursor:pointer" onclick="openCreditModal('${c.id}')">
     <div class="ic">${WWI.bank}</div>
     <div class="rmain"><div class="rt">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name)} ${statusTag}${crPeriodTag(c)}</div><div class="rs">${next && c.status === "active" ? "платёж " + _cd.getDate() + " " + MONTHS_GEN[_cd.getMonth()] + " · " + money(p.amount) : (c.status === "closed" ? "закрыт" : "")}</div>
     <div class="progress" style="margin-top:6px;height:5px"><i style="width:${paidPct}%${overdue ? ";background:var(--amber)" : ""}"></i></div></div>
     <div class="ramt">${money(c.balance)}<div class="sub" style="font-size:10.5px;margin-top:2px;text-align:right">выполнено ${paidPct}% \u00b7 ${money(crPaidRub(c))} / ${money(c.balance)}</div></div>
+    ${paySwitch}
     <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameCredit('${c.id}')" title="Переименовать">${WWI.pencil}</button>
     ${c.status === "active" ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openScheduleModal('${c.id}')" title="График">${WWI.calendar}</button>` : ""}
   </div>`;
@@ -1469,18 +1563,9 @@ function renderCredits() {
     listEl.innerHTML = _crShown.map(creditCardHtml).join("");
   }
 }
-function payCredit(id) {
-  if (isObserver()) return;
-  const c = S.credits.find((x) => x.id === id); if (!c) return;
-  const p = currentPayment(c);
-  const interest = c.rate ? (c.balance * (c.rate / 100)) / 12 : 0;
-  const principal = Math.max(0, p.amount - interest);
-  S.transactions.push({ id: uid(), date: todayStr(), type: "expense", amount: p.amount, accountId: S.accounts[0]?.id, categoryId: "c_credit", note: c.name, createdAt: Date.now() });
-  c.balance = Math.max(0, Math.round(c.balance - principal));
-  if (c.balanceFull) c.balanceFull = Math.max(c.balance, Math.round(c.balanceFull - p.amount));
-  if (c.balance === 0) c.status = "closed";
-  save(); renderCredits(); toast("Платёж записан: " + money(p.amount));
-}
+/* payCredit() удалена в v3.25: она записывала платёж напрямую в transactions,
+   минуя S.ww30Cr, из-за чего отметка об оплате не доходила до дашборда.
+   Оба вида (список и карточки) теперь используют общий ww30Toggle. */
 
 /* ===================== график платежей по кредиту (оценочный) ===================== */
 function nextMonthDate(d, payDay) {
@@ -1555,16 +1640,31 @@ function renderCal() {
   const cells = [];
   const dows = ["пн","вт","ср","чт","пт","сб","вс"].map((d) => `<div class="cal-dow">${d}</div>`).join("");
   const tStr = todayStr();
+  const ym = `${y}-${String(m + 1).padStart(2, "0")}`;
+  // Календарь показывает только ПЛАН (когда что должно случиться), а не то,
+  // что вы уже реально ввели операцией — иначе один и тот же платёж дублировался
+  // бы дважды в один день. Отметка «оплачено» красит запись зелёным на месте.
+  const postedMap = (S.posted && typeof S.posted === "object") ? S.posted : {};
+  const crMap = (S.ww30Cr && typeof S.ww30Cr === "object") ? S.ww30Cr : {};
   for (let i = 0; i < startDow; i++) cells.push('<div class="cal-cell other"></div>');
   for (let d = 1; d <= dim; d++) {
     const ds = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const evs = [];
-    for (const c of S.credits.filter((c) => c.status === "active")) {
+    for (const c of S.credits.filter((c) => c.status === "active" && (!c.start || c.start.slice(0, 7) <= ym))) {
       const pd = Math.min(c.payDay || 0, dim);
-      if (pd === d) { const p = currentPayment(c); evs.push(`<div class="cal-ev pay" style="cursor:pointer" onclick="event.stopPropagation();ww24OpenCreditFromCal('${c.id}')" title="${esc(c.name)} — открыть в разделе «Кредиты»">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name.split(" ")[0])} ${fmtM.format(Math.round(p.amount))}</div>`); }
+      if (pd !== d) continue;
+      const p = currentPayment(c);
+      const rec = crMap[c.id + ":" + ym];
+      const posted = rec ? +rec.paid || 0 : 0;
+      const isPaid = ww30IsPaid(posted, +p.amount || 0);
+      evs.push(`<div class="cal-ev pay${isPaid ? " paid" : ""}" style="cursor:pointer" onclick="event.stopPropagation();ww24OpenCreditFromCal('${c.id}')" title="${esc(c.name)}${isPaid ? " — оплачено" : ""} — открыть в разделе «Кредиты»">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name.split(" ")[0])} ${fmtM.format(Math.round(p.amount))}</div>`);
     }
-    for (const r of S.recurring) { if (Math.min(r.day, dim) === d) evs.push(`<div class="cal-ev ${r.type === "income" ? "inc" : "exp"}" title="${esc(r.name)}">${r.who ? WHO_ICON[r.who] + " " : ""}${esc(r.name.split(" ")[0])} ${fmtM.format(r.amount)}</div>`); }
-    for (const t of S.transactions.filter((t) => t.date === ds)) evs.push(`<div class="cal-ev ${t.type === "income" ? "inc" : "exp"}">${t.type === "income" ? "+" : "−"}${fmtM.format(t.amount)}</div>`);
+    for (const r of S.recurring) {
+      if (Math.min(r.day, dim) !== d) continue;
+      const isExp = r.type !== "income";
+      const isPaid = isExp && ww30IsPaid(+postedMap[r.id + ":" + ym] || 0, +r.amount);
+      evs.push(`<div class="cal-ev ${isExp ? "exp" : "inc"}${isPaid ? " paid" : ""}" title="${esc(r.name)}${isPaid ? " — оплачено" : ""}">${r.who ? WHO_ICON[r.who] + " " : ""}${esc(r.name.split(" ")[0])} ${fmtM.format(r.amount)}</div>`);
+    }
     cells.push(`<div class="cal-cell${ds === tStr ? " today" : ""}"><div class="cal-d">${d}</div>${evs.join("")}</div>`);
   }
   document.getElementById("cal-grid").innerHTML = dows + cells.join("");
@@ -1716,7 +1816,7 @@ const THEMES = [
 function renderSettings() {
   document.getElementById("theme-grid").innerHTML = THEMES.map((t) => `<button class="theme-sw${(S.settings.theme || "t9") === t.id ? " active" : ""}" onclick="setTheme('${t.id}')" aria-label="Тема ${t.name}"><i style="background:linear-gradient(135deg,${t.colors[0]} 50%,${t.colors[1]} 50%)"></i><span>${t.name}</span></button>`).join("");
   document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${typeof WW28_ICONS !== "undefined" ? (a.type === "cash" ? WW28_ICONS.banknote : WW28_ICONS.card) : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div>${a.archived ? `<button class="btn btn-ghost btn-sm" onclick="restoreAccount('${a.id}')" title="Вернуть в список">↩ Вернуть</button>` : ""}<button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
-  document.getElementById("cat-list").innerHTML = S.categories.map((c) => `<div class="row"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${esc(c.name)}</div><div class="rs">${c.type === "income" ? "доход" : "расход"}</div></div></div>`).join("");
+  document.getElementById("cat-list").innerHTML = S.categories.map((c) => `<div class="row"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}</div><div class="rs">${c.type === "income" ? "доход" : "расход"}</div></div></div>`).join("");
   document.getElementById("sb-url").value = S.settings.sbUrl || "";
   document.getElementById("sb-key").value = S.settings.sbKey || "";
   document.getElementById("sb-sync").value = S.settings.syncId || "";
@@ -1732,9 +1832,14 @@ function setReminderDays(v) {
   renderReminders();
 }
 function setTheme(id) { S.settings.theme = id; document.body.dataset.theme = id; try { ww35ThemeColor(); } catch (e) {} save(); renderSettings(); }
-const WWRC_KEY = "ww_recur_period_v1";
+/* v3.25: у страницы «Кредиты и платежи» был свой период отдельно для кредитов
+   и отдельно для регулярных платежей — два переключателя на одной странице,
+   живущие независимо. Теперь оба читают один ключ (WWCR_KEY) и обновляют оба
+   списка. Период страницы намеренно НЕ привязан к дашборду: здесь удобно
+   листать историю, не сбивая текущий вид дашборда. */
+const WWRC_KEY = "ww_credit_period_v1";
 function rcPeriod() { try { return JSON.parse(localStorage.getItem(WWRC_KEY)) || { type: "month" }; } catch (e) { return { type: "month" }; } }
-function rcSetPeriod(p) { localStorage.setItem(WWRC_KEY, JSON.stringify(p)); closeModal(); renderRecurList(); }
+function rcSetPeriod(p) { localStorage.setItem(WWRC_KEY, JSON.stringify(p)); closeModal(); renderRecurList(); try { renderCredits(); } catch (e) {} }
 function rcLabel() {
   const p = rcPeriod(); const now = new Date();
   if (p.type === "week") return "Неделя";
@@ -1813,7 +1918,14 @@ function renderRecurList() {
   el.innerHTML = list.map((r) => {
     const c = cat(r.categoryId) || { icon: r.type === "income" ? "💵" : "📌", name: "Без категории" };
     const who = (r.who && typeof WHO_ICON !== "undefined" && WHO_ICON[r.who]) ? WHO_ICON[r.who] + " " : "";
-    return `<div class="row" data-sid="${r.id}"><div class="ic">${c.icon}</div><div class="rmain"><div class="rt">${who}${esc(r.name)}${rcPeriodTag(r)}</div><div class="rs">${esc(c.name)} · ${r.day} числа</div></div><div class="ramt" style="color:var(--${r.type === "income" ? "green" : "red"})">${r.type === "income" ? "+" : "−"}${money(r.amount)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameRecur('${r.id}')" title="Переименовать">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="openRecurModal('${r.id}')" title="Изменить">⚙</button></div>`;
+    let paySwitch = "";
+    if (r.type === "expense") {
+      const ym = ww30PageYm(per);
+      const posted = +(S.posted && S.posted[r.id + ":" + ym]) || 0;
+      const isPaid = ww30IsPaid(posted, +r.amount);
+      paySwitch = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="event.stopPropagation();ww30Toggle('recur','${r.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить"}</span></button>`;
+    }
+    return `<div class="row" data-sid="${r.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${who}${esc(r.name)}${rcPeriodTag(r)}</div><div class="rs">${esc(c.name)} · ${r.day} числа</div></div><div class="ramt" style="color:var(--${r.type === "income" ? "green" : "red"})">${r.type === "income" ? "+" : "−"}${money(r.amount)}</div>${paySwitch}<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();renameRecur('${r.id}')" title="Переименовать">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="openRecurModal('${r.id}')" title="Изменить">⚙</button></div>`;
   }).join("");
 }
 
@@ -2583,7 +2695,7 @@ function renderBudgets() {
   const now = new Date();
   const dayFrac = isCur ? now.getDate() / dim : (budgetYm < nowYm ? 1 : 0);
   const ym = budgetYm;
-  document.getElementById("budget-sub").innerHTML = `<span class="mnav"><button class="btn btn-ghost btn-sm" onclick="shiftBudgetMonth(-1)" title="Пред. месяц">←</button><b style="margin:0 6px">${MONTHS[bm - 1]} ${by}</b><button class="btn btn-ghost btn-sm" onclick="shiftBudgetMonth(1)" title="След. месяц">→</button>${!isCur ? '<button class="btn btn-ghost btn-sm" onclick="resetBudgetMonth()" style="margin-left:6px">Сегодня</button>' : ""}</span>`;
+  document.getElementById("budget-sub").innerHTML = `<span class="ww319-per"><button class="ww31-navm" onclick="shiftBudgetMonth(-1)" title="Предыдущий месяц">◀</button><button class="ww319-pill" onclick="resetBudgetMonth()" title="${isCur ? "Текущий месяц" : "Вернуться к текущему месяцу"}">${MONTHS[bm - 1]} ${by}</button><button class="ww31-navm" onclick="shiftBudgetMonth(1)" title="Следующий месяц">▶</button></span>`;
   const list = S.budgets || [];
   const prevYm = ymShift(ym, -1);
   const effLimit = (b) => +b.limit + (b.mode === "carryover" ? (+b.limit - catSpentMonth(b.categoryId, prevYm)) : 0);
@@ -2610,7 +2722,7 @@ function renderBudgets() {
     const paceMsg = left < 0 ? `превышен на ${money(-left)}` : (pct > dayFrac * 1.1 ? "↑ тратите быстрее нормы" : `осталось ${money(left)}`);
     const carryBadge = b.mode === "carryover" ? ` <span class="badge">перенос ${carry >= 0 ? "+" : "−"}${money(Math.abs(carry))}</span>` : "";
     return `<div class="budget-item${cardsMode ? " card" : ""}" data-sid="${b.id}" style="cursor:pointer" onclick="openBudgetModal('${b.id}')">
-      <div class="budget-top"><div class="ic">${c.icon}</div><div class="bname">${esc(c.name)}${carryBadge}</div><div class="bnums ${pct >= 1 ? "neg" : ""}">${money(spent)} / ${money(lim)}</div></div>
+      <div class="budget-top"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="bname">${esc(c.name)}${carryBadge}</div><div class="bnums ${pct >= 1 ? "neg" : ""}">${money(spent)} / ${money(lim)}</div></div>
       <div class="budget-bar"><i class="${barCls}" style="width:${Math.min(100, pct * 100)}%"></i><span class="pace" style="left:${Math.min(100, dayFrac * 100)}%"></span></div>
       <div class="budget-meta"><span>${Math.round(pct * 100)}% лимита</span><span class="${left < 0 ? "neg" : ""}">${paceMsg}</span></div>
     </div>`;
@@ -3117,6 +3229,7 @@ function ww35ThemeColor() {
 document.body.dataset.theme = S.settings.theme || "t9";
 ww35ThemeColor();
 applyObserverMode();
+applyRailCollapse();
 renderDash();
 window.addEventListener("online", () => syncNow(false));
 if (S.settings.sbUrl && S.settings.sbKey) syncNow(false);
@@ -3485,6 +3598,11 @@ function ww316CrPay(c, ym) {
   if (c.graceFrom && c.graceTo && ds15 >= c.graceFrom.slice(0, 7) + "-01" && ds15 <= c.graceTo) return { amount: +c.gracePayment || 0, grace: true };
   return { amount: +c.payment || 0, grace: false };
 }
+/* Оплачено ли — с допуском меньше рубля. Из-за округления при частичной
+   оплате (пользователь вводит «1222» вместо «1222.28») может копиться
+   разница в копейки, из-за которой строка вечно висит «частично оплачено»,
+   хотя обе суммы визуально показывают одно и то же округлённое число. */
+function ww30IsPaid(posted, full) { return full > 0 ? (full - posted) < 1 : true; }
 function ww30Data() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
   if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
@@ -3502,7 +3620,7 @@ function ww30Data() {
     .map((r) => {
       const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
       const posted = +S.posted[r.id + ":" + ym] || 0;
-      const paid = posted >= +r.amount;
+      const paid = ww30IsPaid(posted, +r.amount);
       return { kind: "recur", id: r.id, name: r.name, icon: (cat(r.categoryId) || { icon: "📌" }).icon, date, amount: paid ? +r.amount : Math.max(0, +r.amount - posted), full: +r.amount, posted, paid, overdue: !paid && date < today, grace: false };
     });
   const cr = S.credits
@@ -3514,7 +3632,7 @@ function ww30Data() {
       const rec = S.ww30Cr[c.id + ":" + ym];
       const postedC = rec ? +rec.paid || 0 : 0;
       const date = ym + "-" + String(Math.min(+c.payDay || 1, dim)).padStart(2, "0");
-      const paid = full > 0 ? postedC >= full : !!rec;
+      const paid = full > 0 ? ww30IsPaid(postedC, full) : !!rec;
       return { kind: "credit", id: c.id, name: c.name, icon: "🏦", date, amount: paid ? postedC : Math.max(0, full - postedC), full, posted: postedC, paid, overdue: !paid && date < today, grace: !!p.grace };
     });
   const ord = (S.ww34Order && typeof S.ww34Order === "object") ? S.ww34Order : {};
@@ -3536,7 +3654,7 @@ function ww30Row(d) {
   else if (partial) skip = `<button class="btn btn-ghost btn-sm" onclick="ww32Reset('${d.kind}','${d.id}')" title="Сбросить оплату">↺</button>`;
   else skip = `<button class="btn btn-ghost btn-sm" onclick="${d.kind === "recur" ? `skipRecur('${d.id}')` : `ww30SkipCr('${d.id}')`}" title="Пропустить в этом месяце">✕</button>`;
   const amtColor = d.paid ? "green" : partial ? "amber" : "red";
-  return `<div class="row${cls}" draggable="true" data-ww34="${d.kind}" data-id="${d.id}" ondragstart="ww34DragStart(event,'${d.kind}','${d.id}')" ondragover="ww34DragOver(event,'${d.kind}')" ondrop="event.preventDefault()" ondragend="ww34DragEnd()" ontouchstart="ww35TouchStart(event,'${d.kind}','${d.id}')"><div class="ic">${ico}</div><div class="rmain"><div class="rt">${esc(d.name)}</div><div class="rs">${parts.join(" · ")}</div></div><div class="ramt" style="color:var(--${amtColor})">−${money(d.amount)}</div><button class="ww30-sw${d.paid ? " on" : ""}" onclick="ww30Toggle('${d.kind}','${d.id}')" title="${d.paid ? "Вернуть в «К оплате»" : partial ? "Доплатить остаток" : "Отметить оплаченным"}"><span class="knob"></span><span class="swlbl">${d.paid ? "Оплачено" : "Оплатить"}</span></button>${skip}</div>`;
+  return `<div class="row${cls}" draggable="true" data-ww34="${d.kind}" data-id="${d.id}" ondragstart="ww34DragStart(event,'${d.kind}','${d.id}')" ondragover="ww34DragOver(event,'${d.kind}')" ondrop="event.preventDefault()" ondragend="ww34DragEnd()" ontouchstart="ww35TouchStart(event,'${d.kind}','${d.id}')"><div class="ic">${ico}</div><div class="rmain"><div class="rt">${esc(d.name)}</div><div class="rs">${parts.join(" · ")}</div></div><div class="ramt" style="color:var(--${amtColor})">−${money(d.amount)}</div><button class="ww30-sw${d.paid ? " on" : ""}" role="switch" aria-checked="${d.paid}" onclick="ww30Toggle('${d.kind}','${d.id}')" title="${d.paid ? "Вернуть в «К оплате»" : partial ? "Доплатить остаток" : "Отметить оплаченным"}"><span class="knob"></span><span class="swlbl">${d.paid ? "Оплачено" : "Оплатить"}</span></button>${skip}</div>`;
 }
 function renderDuePanel() {
   let el = document.getElementById("dash-due");
@@ -3557,9 +3675,9 @@ function renderDuePanel() {
     (cr.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет кредитов к оплате в этом месяце.</div>') +
     `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openCreditModal()">+ Добавить кредит</button></div></div></div></div>`;
 }
-function ww30Toggle(kind, id) {
+function ww30Toggle(kind, id, ymOverride) {
   if (isObserver()) return;
-  const ym = ww316Ym();
+  const ym = ymOverride || ww316Ym();
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
   if (kind === "recur") {
@@ -3567,7 +3685,7 @@ function ww30Toggle(kind, id) {
     const key = r.id + ":" + ym;
     const posted = +S.posted[key] || 0;
     const full = +r.amount;
-    if (posted >= full) {
+    if (ww30IsPaid(posted, full)) {
       const ids = S.ww30Tx[key] || [];
       S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
       delete S.ww30Tx[key]; S.posted[key] = 0;
@@ -3575,7 +3693,7 @@ function ww30Toggle(kind, id) {
       save(); render(activePage()); return;
     }
     const remaining = Math.max(0, full - posted);
-    ww32AskAmount(r.name, remaining, full, posted, (amount) => ww32DoPay("recur", id, amount));
+    ww32AskAmount(r.name, remaining, full, posted, (amount) => ww32DoPay("recur", id, amount, ym));
   } else {
     const c = S.credits.find((x) => x.id === id); if (!c) return;
     const key = c.id + ":" + ym;
@@ -3583,7 +3701,7 @@ function ww30Toggle(kind, id) {
     const p = ww316CrPay(c, ym);
     const full = +p.amount || 0;
     const postedC = rec ? +rec.paid || 0 : 0;
-    if (full > 0 && postedC >= full) {
+    if (full > 0 && ww30IsPaid(postedC, full)) {
       const ids = (rec.payments || []).map((x) => x.txId);
       S.transactions = S.transactions.filter((t) => !ids.includes(t.id));
       c.balance = rec.prevBalance;
@@ -3595,14 +3713,14 @@ function ww30Toggle(kind, id) {
     }
     if (!full) { toast("У кредита не указан платёж/мес"); return; }
     const remaining = Math.max(0, full - postedC);
-    ww32AskAmount(c.name, remaining, full, postedC, (amount) => ww32DoPay("credit", id, amount));
+    ww32AskAmount(c.name, remaining, full, postedC, (amount) => ww32DoPay("credit", id, amount, ym));
   }
 }
-function ww32DoPay(kind, id, amount) {
+function ww32DoPay(kind, id, amount, ymOverride) {
   if (isObserver()) return;
   if (amount == null) return;
   if (amount <= 0) { toast("Сумма должна быть больше 0"); return; }
-  const ym = ww316Ym();
+  const ym = ymOverride || ww316Ym();
   if (!S.ww30Tx || typeof S.ww30Tx !== "object") S.ww30Tx = {};
   if (!S.ww30Cr || typeof S.ww30Cr !== "object") S.ww30Cr = {};
   if (kind === "recur") {
@@ -3615,7 +3733,7 @@ function ww32DoPay(kind, id, amount) {
     const dim = ww316DimOf(ym);
     const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
     const txId = uid();
-    const fullNow = posted + pay >= full;
+    const fullNow = ww30IsPaid(posted + pay, full);
     S.transactions.push({ id: txId, date, type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: r.categoryId, note: r.name + " (регулярный" + (fullNow ? "" : ", частично") + ")", tags: ["регулярный"], createdAt: Date.now() });
     S.ww30Tx[key] = (S.ww30Tx[key] || []).concat(txId);
     S.posted[key] = posted + pay;
@@ -3635,7 +3753,7 @@ function ww32DoPay(kind, id, amount) {
     const interestTotal = c.rate ? (base.prevBalance * (c.rate / 100)) / 12 : 0;
     const principal = Math.max(0, pay - interestTotal * (full ? pay / full : 0));
     const txId = uid();
-    const fullNow = base.paid + pay >= full;
+    const fullNow = ww30IsPaid(base.paid + pay, full);
     base.payments = (base.payments || []).concat({ txId, amount: pay, principal });
     base.paid = (+base.paid || 0) + pay;
     S.ww30Cr[key] = base;
@@ -4173,7 +4291,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.23-ux";
+const WW_VERSION = "3.26-ux";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4474,7 +4592,19 @@ function ww22FillProf() {
       <div style="font-size:20px">${v.icon}</div>
       <div class="pm"><div class="pt">${v.name}</div><div class="ps">${v.desc}</div></div>
       ${viewActive ? `<span class="tag" style="background:var(--green-bg);color:var(--green);font-weight:700">Активна</span>` : `<button class="btn btn-ghost" onclick="ww22Switch('parents')">Включить</button>`}
-    </div>`;
+    </div>
+    ${cur === "main" ? `<div class="ww22-demo-sub" style="align-items:flex-start">
+      <div style="font-size:16px">🔑</div>
+      <div class="pm">
+        <div class="pt">Доступ по коду</div>
+        <div class="ps">${S.viewerPin ? "Код задан. Отправьте человеку ссылку и код — он зайдёт в «Просмотр» со своего устройства." : "Задайте код, чтобы дать кому-то доступ только для просмотра по отдельной ссылке."}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <button class="btn btn-ghost btn-sm" onclick="wwViewerSetPin()">${S.viewerPin ? "Сменить код" : "Задать код"}</button>
+          ${S.viewerPin ? `<button class="btn btn-ghost btn-sm" onclick="wwViewerCopyLink()">Скопировать ссылку</button><button class="btn btn-ghost btn-sm" onclick="wwViewerClearPin()" style="color:var(--red)">Отключить</button>` : ""}
+        </div>
+        ${S.viewerPin ? `<div class="ps" style="margin-top:8px;color:var(--t3)">Смена кода отключает всех, кто уже вошёл. В ссылке передаётся ключ синхронизации — отправляйте её только тому, кому доверяете.</div>` : ""}
+      </div>
+    </div>` : ""}`;
 }
 const _renderSettings22 = renderSettings;
 renderSettings = function () {
@@ -5233,7 +5363,7 @@ function ww26Custom() {
 /* ===================== v3.7.1: период для раздела «Кредиты» ===================== */
 const WWCR_KEY = "ww_credit_period_v1";
 function crPeriod() { try { return JSON.parse(localStorage.getItem(WWCR_KEY)) || { type: "month" }; } catch (e) { return { type: "month" }; } }
-function crSetPeriod(p) { localStorage.setItem(WWCR_KEY, JSON.stringify(p)); closeModal(); renderCredits(); }
+function crSetPeriod(p) { localStorage.setItem(WWCR_KEY, JSON.stringify(p)); closeModal(); renderCredits(); try { renderRecurList(); } catch (e) {} }
 function crPeriodPhrase() {
   const p = crPeriod(); const now = new Date();
   if (p.type === "week") return "на этой неделе";
@@ -5279,11 +5409,11 @@ renderCoins = function () {
     else { expBy[t.categoryId] = (expBy[t.categoryId] || 0) + +t.amount; expTotal += +t.amount; }
   }
   const incCats = S.categories.filter((c) => c.type === "income");
-  if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onclick="ww26Tap('inc','${c.id}')" onpointerdown="ww26Down(event,'inc','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('income')" title="Новый источник дохода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onclick="ww26Tap('inc','${c.id}')" onpointerdown="ww26Down(event,'inc','${c.id}')"><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('income')" title="Новый источник дохода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const accs = S.accounts.filter((a) => accVisibleFor(a, (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7)));
-  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><button class="coin-menu-btn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();ww26AccMenu(event,'${a.id}')" title="Изменить или удалить счёт">⋮</button><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><button class="coin-menu-btn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();ww26AccMenu(event,'${a.id}')" title="Изменить или удалить счёт">⋮</button><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const expCats = S.categories.filter((c) => c.type === "expense");
-  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')" onpointerdown="ww26Down(event,'cat','${c.id}')"><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')" onpointerdown="ww26Down(event,'cat','${c.id}')"><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const it = document.getElementById("ww26-inc-total"), at = document.getElementById("ww26-acc-total"), et = document.getElementById("ww26-exp-total");
   if (it) it.textContent = "+" + money(incTotal);
   if (at) at.textContent = money(accs.reduce((s, a) => s + accBalance(a.id), 0));
@@ -5598,7 +5728,7 @@ try {
   function ovOpen() { var o = document.getElementById("overlay"); return o && o.classList.contains("open"); }
   window.haptic = function (ms) { try { if (navigator.vibrate && isMobile()) navigator.vibrate(ms || 8); } catch (e) {} };
   function wrap(n, ms) { var o = window[n]; if (typeof o === "function") window[n] = function () { window.haptic(ms); return o.apply(this, arguments); }; }
-  wrap("nav", 6); wrap("openTxModal", 10); wrap("payCredit", 14); wrap("closeModal", 6);
+  wrap("nav", 6); wrap("openTxModal", 10); wrap("ww30Toggle", 14); wrap("closeModal", 6);
 
   /* --- редактирование операции по свайпу вправо --- */
   window.editTx = function (id) {
@@ -5874,6 +6004,157 @@ try {
     };
   }
 })();
+
+/* ===================== v3.26: вход в «Просмотр» по коду доступа =====================
+   Задача: дать другому человеку ссылку, по которой он сам заходит в режим
+   «только просмотр», независимо от вашего устройства.
+
+   Как устроено:
+   - Вы задаёте код в Настройках → «Учётные записи». Хранится ХЕШ кода в
+     синхронизируемых данных (S.viewerPin), сам код нигде не лежит открытым.
+   - Ссылка вида ?viewer=<syncId> открывает упрощённый экран входа вместо
+     обычной формы «URL / ключ / syncId».
+   - ПОСТОЯННАЯ ПРОВЕРКА: устройство запоминает хеш кода, которым вошли, и
+     сверяет его при каждом запуске и при каждой синхронизации. Сменили код —
+     все уже вошедшие выкидываются на экран входа при ближайшем запуске.
+
+   Ограничение, о котором важно помнить: syncId открыт в тексте ссылки, а
+   доступ к базе идёт общим ключом. Код запирает интерфейс приложения, но не
+   отделяет права на уровне самой базы. */
+const WW_VIEWER_LOCAL = "ww_viewer_session_v1";
+
+async function wwViewerHash(pin) { return await ww2Hash("viewer|" + String(pin)); }
+function wwViewerStoredHash() { try { return localStorage.getItem(WW_VIEWER_LOCAL) || ""; } catch (e) { return ""; } }
+function wwViewerRemoteHash() { return (S && typeof S.viewerPin === "string") ? S.viewerPin : ""; }
+
+/* Постоянная проверка: код, которым вошли, должен совпадать с текущим. */
+function wwViewerVerify() {
+  if (ww22Profile() !== "parents") return true;
+  const mine = wwViewerStoredHash();
+  if (!mine) return true;               // вошли не по коду (вы сами переключились) — не трогаем
+  const now = wwViewerRemoteHash();
+  if (!now) { wwViewerLogout("Владелец отключил доступ по коду."); return false; }
+  if (now !== mine) { wwViewerLogout("Код доступа изменился — войдите заново."); return false; }
+  return true;
+}
+function wwViewerLogout(reason) {
+  try { localStorage.removeItem(WW_VIEWER_LOCAL); } catch (e) {}
+  wwViewerShow(reason || "");
+}
+
+function wwViewerShow(errMsg) {
+  let el = document.getElementById("ww-viewer");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "ww-viewer";
+    el.innerHTML = `
+      <div class="vw-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"/></svg></div>
+      <h2>Вход для просмотра</h2>
+      <div class="vw-sub">Введите код доступа, который вам дали. Режим только для чтения — изменить данные будет нельзя.</div>
+      <input id="ww-viewer-pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="····">
+      <div class="vw-err" id="ww-viewer-err"></div>
+      <button class="btn btn-primary" id="ww-viewer-go">Войти</button>`;
+    document.body.appendChild(el);
+    const go = () => wwViewerTry();
+    el.querySelector("#ww-viewer-go").onclick = go;
+    el.querySelector("#ww-viewer-pin").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } };
+  }
+  const err = document.getElementById("ww-viewer-err");
+  if (err) err.textContent = errMsg || "";
+  el.classList.add("on");
+  const sp = document.getElementById("ww-splash"); if (sp) sp.remove();
+  setTimeout(() => { const i = document.getElementById("ww-viewer-pin"); if (i) { i.value = ""; i.focus(); } }, 40);
+}
+function wwViewerHide() { const el = document.getElementById("ww-viewer"); if (el) el.classList.remove("on"); }
+
+async function wwViewerTry() {
+  const inp = document.getElementById("ww-viewer-pin");
+  const err = document.getElementById("ww-viewer-err");
+  const pin = (inp.value || "").trim();
+  if (!pin) { err.textContent = "Введите код"; return; }
+  err.textContent = "Проверяем…";
+  const want = wwViewerRemoteHash();
+  if (!want) { err.textContent = "Владелец ещё не задал код доступа."; return; }
+  const got = await wwViewerHash(pin);
+  if (got !== want) { err.textContent = "Неверный код"; inp.value = ""; inp.focus(); return; }
+  try { localStorage.setItem(WW_VIEWER_LOCAL, got); } catch (e) {}
+  localStorage.setItem(WW22_PROF_KEY, "parents");
+  S.settings.observerMode = true;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  location.reload();
+}
+
+/* Разбор ссылки ?viewer=<syncId>: подставляем данные подключения и показываем вход. */
+async function wwViewerBoot() {
+  let sid = null;
+  try { sid = new URLSearchParams(location.search).get("viewer"); } catch (e) {}
+  if (sid) {
+    // Ссылка задаёт, к каким данным подключаться. URL и ключ берём из уже
+    // настроенных (если человек открывает повторно) либо из самой ссылки.
+    let u = null, k = null;
+    try { const q = new URLSearchParams(location.search); u = q.get("u"); k = q.get("k"); } catch (e) {}
+    if (u) S.settings.sbUrl = decodeURIComponent(u);
+    if (k) S.settings.sbKey = decodeURIComponent(k);
+    S.settings.syncId = sid;
+    try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+    try { history.replaceState({}, "", location.pathname); } catch (e) {}
+    if (!wwViewerStoredHash()) {
+      if (typeof syncNow === "function") { try { await syncNow(false); } catch (e) {} }
+      wwViewerShow("");
+      return;
+    }
+  }
+  if (ww22Profile() === "parents" && wwViewerStoredHash()) {
+    if (typeof syncNow === "function") { try { await syncNow(false); } catch (e) {} }
+    wwViewerVerify();
+  }
+}
+
+/* Сверяем код и после каждой синхронизации — так смена кода отзывает доступ
+   не только при запуске, но и у открытого прямо сейчас приложения. */
+if (typeof syncNow === "function") {
+  const _syncViewer = syncNow;
+  syncNow = async function (manual) {
+    const r = await _syncViewer(manual);
+    try { wwViewerVerify(); } catch (e) {}
+    return r;
+  };
+}
+setTimeout(() => { try { wwViewerBoot(); } catch (e) {} }, 120);
+
+/* ---- UI владельца: задать/сменить код и скопировать ссылку ---- */
+async function wwViewerSetPin() {
+  if (isObserver()) return;
+  const p1 = await wwPrompt("От 4 до 12 цифр. Этот код вы даёте человеку вместе со ссылкой.", {
+    title: S.viewerPin ? "Новый код доступа" : "Код доступа для просмотра", type: "password", okText: "Далее",
+    hint: S.viewerPin ? "После смены все, кто уже вошёл по старому коду, будут отключены при следующем запуске." : "",
+    validate: (v) => /^\d{4,12}$/.test(v) ? "" : "Только цифры, от 4 до 12",
+  });
+  if (p1 === null) return;
+  const p2 = await wwPrompt("", { title: "Повторите код", type: "password", okText: "Сохранить",
+    validate: (v) => v === p1 ? "" : "Коды не совпадают" });
+  if (p2 === null) return;
+  S.viewerPin = await wwViewerHash(p1);
+  save(); renderSettings();
+  toast("Код доступа сохранён");
+}
+async function wwViewerClearPin() {
+  if (isObserver()) return;
+  if (!await wwConfirm("Все, кто заходил по коду, потеряют доступ при следующем запуске приложения.", { title: "Отключить вход по коду?", okText: "Отключить", danger: true })) return;
+  delete S.viewerPin;
+  save(); renderSettings();
+  toast("Вход по коду отключён");
+}
+function wwViewerLink() {
+  const { sbUrl, sbKey, syncId } = S.settings;
+  const base = location.origin + location.pathname;
+  return `${base}?viewer=${encodeURIComponent(syncId)}&u=${encodeURIComponent(sbUrl)}&k=${encodeURIComponent(sbKey)}`;
+}
+async function wwViewerCopyLink() {
+  const link = wwViewerLink();
+  try { await navigator.clipboard.writeText(link); toast("Ссылка скопирована"); }
+  catch (e) { await wwAlert(link, { title: "Ссылка для просмотра", okText: "Готово" }); }
+}
 
 </script>
 <script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>
