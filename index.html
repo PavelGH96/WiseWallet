@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>WiseWallet — учёт доходов и расходов</title>
 <meta name="theme-color" content="#f8fafc">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,8 +52,12 @@ body[data-theme="t4"]{--bg:#1a2420;--card:#212e28;--border:#2a3d34;--border-h:#3
 /* Роза */
 body[data-theme="t5"]{--bg:#fdf4f5;--card:#ffffff;--border:#f0d8db;--border-h:#dbb0b6;--text:#2d1a1e;--t2:#8c6068;--t3:#c8a0a8;--accent:#c0505f;--accent-h:#a03848;--accent-fg:#ffffff;--blue:#3b82c4;--blue-bg:#eef4fb;--green:#2e855a;--green-bg:#edf7f2;--amber:#b45309;--amber-bg:#fef3e2;--red:#c0505f;--red-bg:#fdeef0;--glass:rgba(253,244,245,.78)}
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
-body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
+/* ---- iPhone: без масштабирования и без «резинового» горизонтального сдвига ----
+   Пальцем страницу можно тянуть только вверх/вниз. Блоки, которые
+   действительно листаются вбок (ряды иконок, канбан, широкие таблицы),
+   получают собственный touch-action ниже — иначе они бы перестали работать. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden;overscroll-behavior-x:none;touch-action:pan-y;-webkit-text-size-adjust:none}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain;overscroll-behavior-x:none;overflow-x:hidden;width:100%;max-width:100%;touch-action:pan-y}
 button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .app{display:flex;min-height:100vh}
@@ -439,6 +443,13 @@ canvas{max-width:100%}
 .coins-hint{font-size:12px;color:var(--t3);font-weight:500}
 .coins-lbl{font-size:11.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:10px 2px 2px}
 .coins-row{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 4px;-webkit-overflow-scrolling:touch}
+/* Блоки, которые листаются вбок намеренно — им горизонтальный жест разрешён.
+   pan-x вместе с pinch-zoom не включает: масштаб остаётся заблокирован. */
+.coins-row,.kanban,.cs-table-wrap,.tbl-scroll{touch-action:pan-x pan-y}
+/* Двойной тап по элементам управления не должен масштабировать экран.
+   .coin/.row/.card сюда НЕ входят: у них свои жесты (перетаскивание иконок,
+   свайп по операциям), и собственный touch-action там уже задан. */
+button,a,input,select,textarea,label{touch-action:manipulation}
 .coin{flex-shrink:0;width:74px;display:flex;flex-direction:column;align-items:center;gap:4px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .coin .disc{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--border);background:var(--card);box-shadow:var(--sh-s);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .coin.acc,.coin.inc,.coin.cat{cursor:grab;position:relative}
@@ -933,6 +944,36 @@ if (!S.settings.viewMode || typeof S.settings.viewMode !== "object") S.settings.
 if (!S.settings.lastCat || typeof S.settings.lastCat !== "object") S.settings.lastCat = {};
 
 let saveTimer = null;
+/* ===================== v3.33: защита от затирания данных пустышкой =====================
+   Синхронизация раньше решала спор только по времени последнего изменения.
+   Беда в том, что свежеустановленное устройство создаёт пустое состояние и
+   сразу ставит ему метку «сейчас» — то есть пустышка всегда оказывалась
+   «новее» реальных данных и затирала их. Поэтому смотрим ещё и на содержимое:
+   пустое состояние не может победить непустое, какой бы свежей ни была метка. */
+var WW_RESET_FLAG = "ww_intentional_reset_v1";
+function wwPayloadWeight(st) {
+  if (!st || typeof st !== "object") return 0;
+  var n = 0;
+  ["transactions", "credits", "recurring", "budgets", "goals", "tasks", "links"].forEach(function (k) {
+    if (Array.isArray(st[k])) n += st[k].length;
+  });
+  ["posted", "skipped", "ww30Cr", "ww30Tx"].forEach(function (k) {
+    if (st[k] && typeof st[k] === "object") n += Object.keys(st[k]).length;
+  });
+  return n;
+}
+/* Считаем состояние «нетронутым», если в нём нет ни операций, ни отметок об
+   оплате. Стартовые счета/категории/кредиты из начального набора не в счёт —
+   они есть и у чистой установки. */
+function wwLooksUntouched(st) {
+  if (!st || typeof st !== "object") return true;
+  var tx = Array.isArray(st.transactions) ? st.transactions.length : 0;
+  var marks = 0;
+  ["posted", "skipped", "ww30Cr", "ww30Tx"].forEach(function (k) {
+    if (st[k] && typeof st[k] === "object") marks += Object.keys(st[k]).length;
+  });
+  return tx === 0 && marks === 0;
+}
 function save() {
   S.updatedAt = Date.now();
   localStorage.setItem(LS_KEY, JSON.stringify(S));
@@ -2148,7 +2189,15 @@ function importJson(inp) {
   r.onload = () => { try { const d = JSON.parse(r.result); if (!d.categories || !d.transactions) throw 0; S = d; save(); location.reload(); } catch (e) { wwAlert("Файл не похож на резервную копию WiseWallet — в нём нет операций и категорий.", { title: "Неверный файл" }); } };
   r.readAsText(f);
 }
-async function resetAll() { if (isObserver()) return; if (!await wwConfirm("Операции, кредиты, цели и настройки на этом устройстве будут заменены начальным набором. Если данные нужны — сначала сделайте экспорт.", { title: "Сбросить все данные?", okText: "Сбросить всё", danger: true })) return; localStorage.removeItem(LS_KEY); location.reload(); }
+async function resetAll() {
+  if (isObserver()) return;
+  if (!await wwConfirm("Операции, кредиты, цели и настройки будут заменены начальным набором — и на этом устройстве, и в вашем аккаунте. Если данные нужны — сначала сделайте экспорт.", { title: "Сбросить все данные?", okText: "Сбросить всё", danger: true })) return;
+  // Помечаем сброс как намеренный: иначе защита от затирания пустышкой
+  // (см. wwLooksUntouched) честно вернёт данные из облака обратно.
+  try { localStorage.setItem(WW_RESET_FLAG, "1"); } catch (e) {}
+  localStorage.removeItem(LS_KEY);
+  location.reload();
+}
 
 /* ===================== supabase sync ===================== */
 function saveSb() {
@@ -3625,15 +3674,25 @@ async function _syncNowInner(manual) {
       if (!up.ok) throw new Error("HTTP " + up.status);
       const saved = (await up.json())[0];
       if (saved && saved.updated_at) localStorage.setItem(WW2K.lastRemote, saved.updated_at);
+      try { localStorage.removeItem(WW_RESET_FLAG); } catch (e) {}   // одноразовый: сброс уже разошёлся
     };
     if (S.settings.observerMode) {
       if (remote && remote.data) { doPull(); if (manual) toast("Данные обновлены"); }
       else if (manual) toast("На сервере пока нет данных");
     } else {
       const remoteNewer = remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt;
-      const remoteChanged = remote && lastRemote && remote.updated_at && remote.updated_at !== lastRemote;
+      const remoteChanged = remote && remote.updated_at && remote.updated_at !== lastRemote;
       const localDirty = S.updatedAt > (S.settings.lastSync || 0);
-      if (remote && remote.data && remoteChanged && localDirty && (remote.data.updatedAt || 0) !== S.updatedAt) {
+      // Главная защита: пустое локальное состояние не имеет права перезаписать
+      // непустое облако, даже если его метка времени свежее. Именно так дважды
+      // терялись данные: свежая установка ставит метку «сейчас» и выигрывала спор.
+      let resetOnPurpose = false;
+      try { resetOnPurpose = localStorage.getItem(WW_RESET_FLAG) === "1"; } catch (e) {}
+      const wouldWipe = !resetOnPurpose && remote && remote.data && wwPayloadWeight(remote.data) > 0 && wwLooksUntouched(S);
+      if (wouldWipe) {
+        doPull();
+        if (manual) toast("Загружены данные из аккаунта");
+      } else if (remote && remote.data && remoteChanged && localDirty && (remote.data.updatedAt || 0) !== S.updatedAt) {
         if (manual || !_confAsked) {
           _confAsked = true;
           // Кнопки подписаны действием, а не «ОК/Отмена»: при риске потерять
@@ -4391,7 +4450,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.32";
+const WW_VERSION = "3.34";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -7495,7 +7554,15 @@ async function ww332MigrateLegacy() {
     var legacy = await fetch(c.url + "/rest/v1/ww_state?id=eq." + encodeURIComponent(syncId) + "&select=data,updated_at", { headers: H });
     var row = legacy.ok ? (await legacy.json())[0] : null;
     var data = row && row.data;
+    // Раньше здесь сравнивались только метки времени, и свежая установка
+    // (пустое состояние с меткой «сейчас») всегда побеждала реальные данные.
+    // Теперь пустышка проиграет непустому набору независимо от метки.
     var localNewer = data && (S.updatedAt || 0) > (data.updatedAt || 0);
+    var resetOnPurpose = false;
+    try { resetOnPurpose = localStorage.getItem(WW_RESET_FLAG) === "1"; } catch (e) {}
+    if (!resetOnPurpose && data && localNewer && wwLooksUntouched(S) && wwPayloadWeight(data) > 0) {
+      localNewer = false;   // на этом устройстве ещё ничего не вводили — берём данные из облака
+    }
     var payload = (data && !localNewer) ? data : S;
     if (data && !localNewer) {
       var keep = S.settings;
