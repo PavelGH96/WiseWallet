@@ -4391,7 +4391,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.30-ux";
+const WW_VERSION = "3.32";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6489,6 +6489,1236 @@ async function wwViewerCopyLink() {
   try { await navigator.clipboard.writeText(link); toast("Ссылка скопирована"); }
   catch (e) { await wwAlert(link, { title: "Ссылка для просмотра", okText: "Готово" }); }
 }
+
+</script>
+<script>
+"use strict";
+/* =========================================================================
+   WiseWallet v3.31 — блок «как в CRM WiseBase»
+   1. Журнал изменений (аудит-лог) по операциям, кредитам и остальным сущностям
+   2. Undo / Redo на любые действия (Ctrl+Z / Ctrl+Shift+Z)
+   3. Центр уведомлений — единый список с отметкой «прочитано»
+   4. Метки (теги): панель фильтров, подсказки при вводе, отчёт по меткам
+   5. Массовые операции: выбрать несколько → удалить / категория / метка / экспорт
+   6. Горячие клавиши
+   7. Экспорт платежей в календарь (.ics для Google / Apple Calendar)
+   8. Голосовой ввод (Web Speech API)
+   ========================================================================= */
+
+/* ---------------- state ---------------- */
+if (!Array.isArray(S.audit)) S.audit = [];
+if (!S.notifRead || typeof S.notifRead !== "object") S.notifRead = {};
+
+const WW331_MAX_LOG = 400;
+const WW331_MAX_UNDO = 40;
+
+/* ---------------- стили ---------------- */
+(function () {
+  const css = `
+.ww331-bar{position:fixed;right:24px;bottom:92px;z-index:var(--z-fab);display:flex;flex-direction:column;gap:8px}
+.ww331-bbtn{position:relative;width:42px;height:42px;border-radius:14px;background:var(--card);border:1px solid var(--border);box-shadow:var(--sh-s);color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;transition:transform .12s,color .12s}
+.ww331-bbtn:hover{color:var(--text);transform:translateY(-1px)}
+.ww331-bbtn[disabled]{opacity:.38;cursor:default;transform:none}
+.ww331-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.ww331-tags{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px}
+.ww331-tagchip{background:var(--blue-bg);color:var(--blue);font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;border:1px solid transparent;cursor:pointer}
+.ww331-tagchip.active{border-color:currentColor;filter:brightness(.94)}
+.ww331-cb{width:18px;height:18px;flex:0 0 auto;margin-right:2px;accent-color:var(--accent);cursor:pointer}
+.ww331-bulk{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;z-index:var(--z-dropdown);background:var(--card);border:1px solid var(--border);box-shadow:var(--sh);border-radius:16px;padding:8px 10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:min(94vw,640px)}
+.ww331-bulk b{font-size:13px;padding:0 6px}
+.ww331-row{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid var(--border)}
+.ww331-row:last-child{border-bottom:none}
+.ww331-row .ww331-ic{width:30px;flex:0 0 auto;text-align:center;font-size:16px}
+.ww331-row .ww331-main{flex:1;min-width:0}
+.ww331-row .ww331-t{font-size:13.5px;font-weight:600}
+.ww331-row .ww331-s{font-size:12px;color:var(--t3);margin-top:2px;line-height:1.45}
+.ww331-unread{background:var(--blue-bg);border-radius:10px;padding-left:8px;padding-right:8px}
+.ww331-mic{width:36px;height:36px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--t2);flex:0 0 auto;cursor:pointer;font-size:15px}
+.ww331-mic.rec{background:var(--red);color:#fff;border-color:transparent;animation:ww331Pulse 1s infinite}
+@keyframes ww331Pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.ww331-kbd{display:inline-block;min-width:22px;text-align:center;border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;padding:1px 6px;font-size:12px;font-weight:700;background:var(--bg)}
+@media(max-width:900px){.ww331-bar{right:16px;bottom:calc(152px + env(safe-area-inset-bottom,0px))}.ww331-bulk{bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+`;
+  const st = document.createElement("style");
+  st.textContent = css;
+  document.head.appendChild(st);
+})();
+
+/* =========================================================================
+   1. ЖУРНАЛ ИЗМЕНЕНИЙ
+   ========================================================================= */
+const WW331_COLS = [
+  { key: "transactions", label: "Операция", icon: "💸", page: "ops", name: (t) => ((cat(t.categoryId) || {}).name || "Без категории") + " · " + money(+t.amount || 0) },
+  { key: "credits", label: "Кредит", icon: "🏦", page: "credits", name: (c) => c.name || "Кредит" },
+  { key: "recurring", label: "Регулярный платёж", icon: "🔁", page: "credits", name: (r) => r.name || "Платёж" },
+  { key: "budgets", label: "Лимит", icon: "🎯", page: "budgets", name: (b) => (cat(b.categoryId) || {}).name || "Категория" },
+  { key: "goals", label: "Цель", icon: "🏁", page: "goals", name: (g) => g.name || "Цель" },
+  { key: "tasks", label: "Задача", icon: "✅", page: "planner", name: (t) => t.title || t.name || "Задача" },
+  { key: "accounts", label: "Счёт", icon: "👛", page: "settings", name: (a) => a.name || "Счёт" },
+  { key: "categories", label: "Категория", icon: "🏷️", page: "settings", name: (c) => c.name || "Категория" },
+  { key: "links", label: "Ссылка", icon: "🔗", page: "links", name: (l) => l.name || l.url || "Ссылка" },
+];
+const WW331_FIELDS = {
+  amount: "сумма", date: "дата", note: "комментарий", tags: "метки", categoryId: "категория", accountId: "счёт",
+  balance: "остаток", balanceFull: "полный остаток", payment: "платёж", rate: "ставка", name: "название",
+  limit: "лимит", target: "цель", saved: "накоплено", day: "день", payDay: "день платежа", status: "статус",
+  done: "выполнено", type: "тип", deadline: "срок", start: "начало", end: "конец", title: "название",
+  gracePayment: "льготный платёж", graceTo: "конец льготного периода", lender: "кредитор", icon: "иконка",
+  url: "адрес", priority: "приоритет", who: "кто", col: "колонка", archived: "архив",
+};
+const WW331_MONEY_FIELDS = ["amount", "balance", "balanceFull", "payment", "limit", "target", "saved", "gracePayment", "initial"];
+
+function ww331FieldVal(field, v) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (field === "categoryId") return (cat(v) || {}).name || "—";
+  if (field === "accountId") return (acc(v) || {}).name || "—";
+  if (field === "type") return v === "income" ? "доход" : v === "expense" ? "расход" : String(v);
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "—";
+  if (typeof v === "boolean") return v ? "да" : "нет";
+  if (WW331_MONEY_FIELDS.includes(field) && !isNaN(+v)) return money(+v);
+  return String(v).slice(0, 40);
+}
+function ww331DiffObj(a, b) {
+  const out = [];
+  const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+  keys.forEach((k) => {
+    if (k === "id" || k.startsWith("_") || k === "createdAt" || k === "doneAt") return;
+    const va = a ? a[k] : undefined, vb = b ? b[k] : undefined;
+    if (JSON.stringify(va) === JSON.stringify(vb)) return;
+    out.push({ f: k, from: ww331FieldVal(k, va), to: ww331FieldVal(k, vb) });
+  });
+  return out;
+}
+function ww331LogPush(e) {
+  S.audit.unshift(Object.assign({ id: uid(), ts: Date.now() }, e));
+  if (S.audit.length > WW331_MAX_LOG) S.audit.length = WW331_MAX_LOG;
+}
+function ww331Audit(prev) {
+  if (!prev) return;
+  WW331_COLS.forEach((col) => {
+    const before = Array.isArray(prev[col.key]) ? prev[col.key] : [];
+    const after = Array.isArray(S[col.key]) ? S[col.key] : [];
+    const bm = new Map(before.map((x) => [x.id, x]));
+    const am = new Map(after.map((x) => [x.id, x]));
+    am.forEach((obj, id) => {
+      if (!bm.has(id)) {
+        ww331LogPush({ col: col.key, label: col.label, icon: col.icon, page: col.page, action: "create", title: col.name(obj) });
+      } else {
+        const d = ww331DiffObj(bm.get(id), obj);
+        if (d.length) ww331LogPush({ col: col.key, label: col.label, icon: col.icon, page: col.page, action: "update", title: col.name(obj), fields: d.slice(0, 6) });
+      }
+    });
+    bm.forEach((obj, id) => {
+      if (!am.has(id)) ww331LogPush({ col: col.key, label: col.label, icon: col.icon, page: col.page, action: "delete", title: col.name(obj) });
+    });
+  });
+}
+const WW331_ACTION = { create: ["создано", "var(--green)"], update: ["изменено", "var(--blue)"], delete: ["удалено", "var(--red)"], restore: ["откат", "var(--amber)"] };
+
+function ww331When(ts) {
+  const d = new Date(ts), now = new Date();
+  const hhmm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const sameDay = d.toDateString() === now.toDateString();
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (sameDay) return "сегодня " + hhmm;
+  if (d.toDateString() === y.toDateString()) return "вчера " + hhmm;
+  return d.getDate() + " " + MONTHS_GEN[d.getMonth()] + ", " + hhmm;
+}
+let _ww331LogFilter = "";
+function ww331SetLogFilter(v) { _ww331LogFilter = v; ww331OpenLog(); }
+function ww331OpenLog() {
+  const list = S.audit.filter((e) => !_ww331LogFilter || e.col === _ww331LogFilter);
+  const opts = [["", "Все объекты"]].concat(WW331_COLS.map((c) => [c.key, c.label]));
+  showModal(`<div class="mhead"><h3>🕘 История изменений</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><select onchange="ww331SetLogFilter(this.value)">${opts.map(([v, l]) => `<option value="${v}"${_ww331LogFilter === v ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+    <div style="max-height:52vh;overflow:auto">${list.length ? list.slice(0, 200).map((e) => {
+      const [aTxt, aCol] = WW331_ACTION[e.action] || [e.action, "var(--t3)"];
+      const det = (e.fields || []).map((f) => `${WW331_FIELDS[f.f] || f.f}: ${esc(f.from)} → <b>${esc(f.to)}</b>`).join("<br>");
+      return `<div class="ww331-row"><div class="ww331-ic">${e.icon || "•"}</div><div class="ww331-main">
+        <div class="ww331-t">${esc(e.title || e.label)} <span style="color:${aCol};font-weight:700">· ${aTxt}</span></div>
+        <div class="ww331-s">${esc(e.label)} · ${ww331When(e.ts)}${det ? "<br>" + det : ""}</div></div></div>`;
+    }).join("") : '<div class="empty">Пока пусто — журнал заполнится после первых изменений</div>'}</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost" style="flex:1" onclick="ww331ExportLog()">Выгрузить CSV</button>
+      <button class="btn btn-ghost" style="flex:1;color:var(--red)" onclick="ww331ClearLog()">Очистить</button>
+    </div>`);
+}
+function ww331ExportLog() {
+  const rows = [["Дата", "Объект", "Действие", "Название", "Изменения"]];
+  S.audit.forEach((e) => rows.push([new Date(e.ts).toLocaleString("ru-RU"), e.label, (WW331_ACTION[e.action] || [e.action])[0], e.title || "", (e.fields || []).map((f) => (WW331_FIELDS[f.f] || f.f) + ": " + f.from + " → " + f.to).join("; ")]));
+  ww331Download("\ufeff" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n"), "wisewallet-journal-" + todayStr() + ".csv", "text/csv;charset=utf-8");
+}
+async function ww331ClearLog() {
+  if (!await wwConfirm("Записи журнала будут удалены безвозвратно.", { title: "Очистить историю?", okText: "Очистить", danger: true })) return;
+  S.audit = []; ww331Persist(); closeModal(); toast("История очищена");
+}
+
+/* =========================================================================
+   2. UNDO / REDO на любые действия
+   ========================================================================= */
+let _ww331Undo = [], _ww331Redo = [], _ww331Busy = false, _ww331Base = null, _ww331Prev = null;
+
+function ww331Clean(st) {
+  const c = {};
+  Object.keys(st).forEach((k) => { if (k !== "audit" && k !== "notifRead" && k !== "updatedAt") c[k] = st[k]; });
+  return c;
+}
+function ww331Snap() { try { return JSON.stringify(ww331Clean(S)); } catch (e) { return null; } }
+function ww331Persist() { try { S.updatedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+
+_ww331Base = ww331Snap();
+_ww331Prev = _ww331Base ? JSON.parse(_ww331Base) : null;
+
+const _ww331Save = save;
+save = function () {
+  if (!_ww331Busy) {
+    try { ww331Audit(_ww331Prev); } catch (e) {}
+    if (_ww331Base && _ww331Base !== ww331Snap()) {
+      _ww331Undo.push(_ww331Base);
+      if (_ww331Undo.length > WW331_MAX_UNDO) _ww331Undo.shift();
+      _ww331Redo = [];
+    }
+  }
+  _ww331Save();
+  _ww331Base = ww331Snap();
+  try { _ww331Prev = JSON.parse(_ww331Base); } catch (e) {}
+  ww331Refresh();
+};
+
+function ww331Restore(json, msg) {
+  let obj; try { obj = JSON.parse(json); } catch (e) { return; }
+  _ww331Busy = true;
+  Object.keys(S).forEach((k) => { if (k !== "audit" && k !== "notifRead") delete S[k]; });
+  Object.assign(S, obj);
+  ww331LogPush({ col: "state", label: "Состояние", icon: "↩", page: "dashboard", action: "restore", title: msg });
+  save();
+  _ww331Busy = false;
+  try { render(activePage()); } catch (e) {}
+  toast(msg);
+}
+function wwUndo() {
+  if (isObserver()) return;
+  if (!_ww331Undo.length) { toast("Нечего отменять"); return; }
+  const cur = ww331Snap();
+  const prev = _ww331Undo.pop();
+  _ww331Redo.push(cur);
+  ww331Restore(prev, "Действие отменено");
+}
+function wwRedo() {
+  if (isObserver()) return;
+  if (!_ww331Redo.length) { toast("Нечего повторять"); return; }
+  const cur = ww331Snap();
+  const next = _ww331Redo.pop();
+  _ww331Undo.push(cur);
+  ww331Restore(next, "Действие возвращено");
+}
+
+/* =========================================================================
+   3. ЦЕНТР УВЕДОМЛЕНИЙ
+   ========================================================================= */
+function ww331AllReminders(days) {
+  const saved = S.settings.dismissed;
+  S.settings.dismissed = {};
+  let list = [];
+  try { list = upcomingReminders(days) || []; } catch (e) { list = []; } finally { S.settings.dismissed = saved; }
+  return list;
+}
+function ww331Notifs() {
+  const out = [];
+  const ym = todayStr().slice(0, 7);
+  ww331AllReminders(30).forEach((x) => {
+    const isInc = x.kind === "recur-inc", isGrace = x.kind === "grace";
+    const when = x.days <= 0 ? "сегодня" : x.days === 1 ? "завтра" : "через " + x.days + " дн.";
+    out.push({
+      key: x.key, icon: isGrace ? "⚠️" : isInc ? "💵" : x.kind === "credit" ? "🏦" : "🔁",
+      title: x.name,
+      sub: (isGrace ? "Заканчивается льготный период — платёж вырастет, " : "") + when + " · " + x.date.getDate() + " " + MONTHS_GEN[x.date.getMonth()],
+      amount: (isInc ? "+" : "") + money(x.amount), page: x.kind === "credit" || isGrace ? "credits" : "dashboard",
+      urgent: x.days <= 1 && !isInc, sort: x.date.getTime(),
+    });
+  });
+  try {
+    S.credits.filter((c) => c.status === "active" && isOverdue(c)).forEach((c) => {
+      out.push({ key: "overdue:" + c.id + ":" + ym, icon: "🔴", title: c.name, sub: "Платёж просрочен", amount: money(currentPayment(c).amount), page: "credits", urgent: true, sort: 0 });
+    });
+  } catch (e) {}
+  try {
+    S.budgets.forEach((b) => {
+      const spent = catSpentMonth(b.categoryId, ym);
+      if (spent > +b.limit && +b.limit > 0) {
+        out.push({ key: "budget:" + b.id + ":" + ym, icon: "📉", title: (cat(b.categoryId) || {}).name || "Категория", sub: "Лимит месяца превышен на " + money(spent - b.limit), amount: money(spent) + " / " + money(b.limit), page: "budgets", urgent: false, sort: 1 });
+      }
+    });
+  } catch (e) {}
+  out.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.sort - b.sort);
+  return out;
+}
+function ww331IsRead(key) { return !!(S.notifRead[key] || (S.settings.dismissed || {})[key]); }
+function ww331UnreadCount() { try { return ww331Notifs().filter((n) => !ww331IsRead(n.key)).length; } catch (e) { return 0; } }
+function ww331MarkRead(key, silent) {
+  S.notifRead[key] = Date.now();
+  ww331Persist(); ww331Refresh();
+  if (!silent) ww331OpenNotifs();
+}
+function ww331MarkAllRead() {
+  ww331Notifs().forEach((n) => { S.notifRead[n.key] = Date.now(); });
+  ww331Persist(); ww331Refresh(); ww331OpenNotifs();
+  toast("Все уведомления прочитаны");
+}
+function ww331NotifGo(key, page) { ww331MarkRead(key, true); closeModal(); nav(page); }
+function ww331OpenNotifs() {
+  const list = ww331Notifs();
+  const unread = list.filter((n) => !ww331IsRead(n.key)).length;
+  showModal(`<div class="mhead"><h3>🔔 Уведомления${unread ? ` <span class="badge red">${unread}</span>` : ""}</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div style="max-height:56vh;overflow:auto">${list.length ? list.map((n) => {
+      const read = ww331IsRead(n.key);
+      return `<div class="ww331-row${read ? "" : " ww331-unread"}">
+        <div class="ww331-ic">${n.icon}</div>
+        <div class="ww331-main" style="cursor:pointer" onclick="ww331NotifGo('${n.key}','${n.page}')">
+          <div class="ww331-t">${esc(n.title)}${n.urgent ? ' <span class="badge red">срочно</span>' : ""}</div>
+          <div class="ww331-s">${esc(n.sub)} · ${esc(n.amount)}</div>
+        </div>
+        ${read ? '<span class="sub" style="font-size:11px">прочитано</span>' : `<button class="btn btn-ghost btn-sm" onclick="ww331MarkRead('${n.key}')" title="Отметить прочитанным">✓</button>`}
+      </div>`;
+    }).join("") : '<div class="empty"><div class="big">🎉</div>Ближайших платежей и превышений нет</div>'}</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost" style="flex:1" onclick="ww331MarkAllRead()">Прочитать все</button>
+      <button class="btn btn-primary" style="flex:1" onclick="ww331ExportIcs()">📅 В календарь</button>
+    </div>`);
+}
+
+/* =========================================================================
+   4. МЕТКИ: панель фильтра, подсказки, отчёт
+   ========================================================================= */
+function ww331AllTags() {
+  const m = new Map();
+  S.transactions.forEach((t) => (t.tags || []).forEach((tg) => m.set(tg, (m.get(tg) || 0) + 1)));
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+}
+function ww331PickTag(tag) {
+  const q = document.getElementById("ops-q");
+  if (!q) return;
+  q.value = q.value.trim().toLowerCase() === ("#" + tag).toLowerCase() ? "" : "#" + tag;
+  renderOps();
+}
+function ww331RenderTagBar() {
+  const page = document.getElementById("page-ops"); if (!page) return;
+  let bar = document.getElementById("ww331-tagbar");
+  if (!bar) {
+    const tb = page.querySelector(".toolbar"); if (!tb) return;
+    bar = document.createElement("div"); bar.id = "ww331-tagbar"; bar.className = "ww331-tags";
+    tb.insertAdjacentElement("afterend", bar);
+  }
+  const tags = ww331AllTags();
+  const cur = ((document.getElementById("ops-q") || {}).value || "").trim().toLowerCase();
+  bar.innerHTML = tags.length
+    ? tags.slice(0, 24).map((t) => `<button class="ww331-tagchip${cur === ("#" + t).toLowerCase() ? " active" : ""}" onclick="ww331PickTag('${esc(t)}')">#${esc(t)}</button>`).join("")
+      + `<button class="ww331-tagchip" style="background:var(--bg);color:var(--t3)" onclick="ww331TagReport()">📊 отчёт по меткам</button>`
+    : `<span class="sub">Меток пока нет — добавьте их в операции через поле «Метки» или быстрым вводом: <b>450 обед #работа</b></span>`;
+}
+function ww331TagStats(scope) {
+  const ym = todayStr().slice(0, 7);
+  const m = new Map();
+  S.transactions.forEach((t) => {
+    if (scope === "month" && t.date.slice(0, 7) !== ym) return;
+    (t.tags || []).forEach((tg) => {
+      const cur = m.get(tg) || { tag: tg, exp: 0, inc: 0, n: 0 };
+      if (t.type === "income") cur.inc += +t.amount; else cur.exp += +t.amount;
+      cur.n++; m.set(tg, cur);
+    });
+  });
+  return [...m.values()].sort((a, b) => (b.exp + b.inc) - (a.exp + a.inc));
+}
+let _ww331TagScope = "month";
+function ww331SetTagScope(s) { _ww331TagScope = s; ww331RenderTagReport(); ww331TagReportModalMaybe(); }
+function ww331TagReportModalMaybe() { if (document.querySelector("#modal #ww331-tagrep-modal")) ww331TagReport(); }
+function ww331TagTable(scope) {
+  const rows = ww331TagStats(scope);
+  if (!rows.length) return '<div class="empty">Нет операций с метками за период</div>';
+  const max = Math.max(...rows.map((r) => r.exp + r.inc)) || 1;
+  return rows.map((r) => `<div class="row"><div class="rmain">
+      <div class="rt"><span class="tag">#${esc(r.tag)}</span> <span class="sub">· ${r.n} оп.</span></div>
+      <div style="height:6px;border-radius:999px;background:var(--bg);margin-top:6px;overflow:hidden"><div style="height:100%;width:${Math.round((r.exp + r.inc) / max * 100)}%;background:var(--accent)"></div></div>
+    </div><div style="text-align:right">
+      ${r.exp ? `<div class="ramt neg">−${money(r.exp)}</div>` : ""}
+      ${r.inc ? `<div class="ramt pos">+${money(r.inc)}</div>` : ""}
+    </div></div>`).join("");
+}
+function ww331TagReport() {
+  showModal(`<div class="mhead"><h3>🏷️ Отчёт по меткам</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div id="ww331-tagrep-modal"></div>
+    <div class="fg"><div class="seg">
+      <button class="${_ww331TagScope === "month" ? "active" : ""}" onclick="_ww331TagScope='month';ww331TagReport()">Текущий месяц</button>
+      <button class="${_ww331TagScope === "all" ? "active" : ""}" onclick="_ww331TagScope='all';ww331TagReport()">За всё время</button>
+    </div></div>
+    <div style="max-height:56vh;overflow:auto">${ww331TagTable(_ww331TagScope)}</div>`);
+}
+function ww331RenderTagReport() {
+  const page = document.getElementById("page-analytics"); if (!page) return;
+  let card = document.getElementById("ww331-tagrep");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "ww331-tagrep"; card.className = "card"; card.style.marginTop = "14px";
+    page.appendChild(card);
+  }
+  card.innerHTML = `<h2>🏷️ Отчёт по меткам</h2>
+    <div class="fg"><div class="seg">
+      <button class="${_ww331TagScope === "month" ? "active" : ""}" onclick="_ww331TagScope='month';ww331RenderTagReport()">Текущий месяц</button>
+      <button class="${_ww331TagScope === "all" ? "active" : ""}" onclick="_ww331TagScope='all';ww331RenderTagReport()">За всё время</button>
+    </div></div>${ww331TagTable(_ww331TagScope)}`;
+}
+
+/* =========================================================================
+   5. МАССОВЫЕ ОПЕРАЦИИ
+   ========================================================================= */
+let _ww331Sel = new Set(), _ww331SelMode = false;
+function ww331ToggleSelMode() {
+  _ww331SelMode = !_ww331SelMode;
+  if (!_ww331SelMode) _ww331Sel.clear();
+  renderOps();
+}
+function ww331Pick(id, on) {
+  if (on) _ww331Sel.add(id); else _ww331Sel.delete(id);
+  ww331BulkBar();
+}
+function ww331SelectAllVisible() {
+  document.querySelectorAll("#ops-list [data-sid]").forEach((el) => { _ww331Sel.add(el.dataset.sid); });
+  renderOps();
+}
+function ww331ClearSel() { _ww331Sel.clear(); renderOps(); }
+function ww331BulkBar() {
+  let bar = document.getElementById("ww331-bulk");
+  const n = _ww331Sel.size;
+  if (!_ww331SelMode || !n) { if (bar) bar.remove(); return; }
+  if (!bar) { bar = document.createElement("div"); bar.id = "ww331-bulk"; bar.className = "ww331-bulk"; document.body.appendChild(bar); }
+  const sum = S.transactions.filter((t) => _ww331Sel.has(t.id)).reduce((s, t) => s + (t.type === "income" ? +t.amount : -t.amount), 0);
+  bar.innerHTML = `<b>Выбрано: ${n}</b><span class="sub">${sum >= 0 ? "+" : "−"}${money(Math.abs(sum))}</span>
+    <button class="btn btn-ghost btn-sm" onclick="ww331SelectAllVisible()">Все</button>
+    <button class="btn btn-ghost btn-sm" onclick="ww331BulkCat()">Категория</button>
+    <button class="btn btn-ghost btn-sm" onclick="ww331BulkTag()">Метка</button>
+    <button class="btn btn-ghost btn-sm" onclick="ww331BulkExport()">Экспорт</button>
+    <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="ww331BulkDelete()">Удалить</button>
+    <button class="btn btn-ghost btn-sm" onclick="ww331ClearSel()">✕</button>`;
+}
+function ww331AfterOps() {
+  ww331RenderTagBar();
+  const head = document.querySelector("#page-ops .page-head > div");
+  if (head && !document.getElementById("ww331-selbtn")) {
+    head.insertAdjacentHTML("afterbegin", `<button id="ww331-selbtn" class="btn btn-ghost" onclick="ww331ToggleSelMode()">☑ Выбрать</button>`);
+  }
+  const sb = document.getElementById("ww331-selbtn");
+  if (sb) { sb.textContent = _ww331SelMode ? "✕ Выбор" : "☑ Выбрать"; sb.classList.toggle("btn-primary", _ww331SelMode); }
+  const q = document.getElementById("ops-q");
+  if (q && !document.getElementById("ww331-opsmic")) {
+    q.insertAdjacentHTML("afterend", `<button id="ww331-opsmic" class="ww331-mic" title="Голосовой поиск" onclick="ww331Voice('ops-q',renderOps,this)">🎤</button>`);
+  }
+  if (_ww331SelMode && !isObserver()) {
+    document.querySelectorAll("#ops-list [data-sid]").forEach((el) => {
+      if (el.querySelector(".ww331-cb")) return;
+      const id = el.dataset.sid;
+      el.insertAdjacentHTML("afterbegin", `<input type="checkbox" class="ww331-cb" ${_ww331Sel.has(id) ? "checked" : ""} onclick="event.stopPropagation();ww331Pick('${id}',this.checked)">`);
+    });
+  }
+  ww331BulkBar();
+}
+async function ww331BulkDelete() {
+  if (isObserver()) return;
+  const n = _ww331Sel.size; if (!n) return;
+  if (!await wwConfirm(`Будет удалено операций: ${n}. Действие можно отменить кнопкой ↩ или Ctrl+Z.`, { title: "Удалить выбранные?", okText: "Удалить", danger: true })) return;
+  S.transactions = S.transactions.filter((t) => !_ww331Sel.has(t.id));
+  _ww331Sel.clear(); save(); render(activePage()); toast("Удалено операций: " + n);
+}
+function ww331BulkCat() {
+  if (isObserver() || !_ww331Sel.size) return;
+  showModal(`<div class="mhead"><h3>Категория для ${_ww331Sel.size} операций</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Новая категория</label><select id="ww331-bulkcat">${S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)} (${c.type === "income" ? "доход" : "расход"})</option>`).join("")}</select></div>
+    <button class="btn btn-primary" style="width:100%" onclick="ww331BulkCatApply()">Применить</button>`);
+}
+function ww331BulkCatApply() {
+  const cid = document.getElementById("ww331-bulkcat").value;
+  const c = cat(cid); if (!c) return;
+  let n = 0;
+  S.transactions.forEach((t) => { if (_ww331Sel.has(t.id)) { t.categoryId = cid; t.type = c.type; n++; } });
+  save(); closeModal(); render(activePage()); toast(`Категория изменена у ${n} операций`);
+}
+function ww331BulkTag() {
+  if (isObserver() || !_ww331Sel.size) return;
+  const tags = ww331AllTags();
+  showModal(`<div class="mhead"><h3>Метка для ${_ww331Sel.size} операций</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Метки через запятую</label><input id="ww331-bulktag" placeholder="напр.: отпуск, катя"></div>
+    ${tags.length ? `<div class="ww331-tags">${tags.slice(0, 16).map((t) => `<button class="ww331-tagchip" onclick="ww331TagInsert('ww331-bulktag','${esc(t)}')">#${esc(t)}</button>`).join("")}</div>` : ""}
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="ww331BulkTagApply(false)">Добавить</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="ww331BulkTagApply(true)">Заменить</button>
+    </div>`);
+}
+function ww331TagInsert(inputId, tag) {
+  const el = document.getElementById(inputId); if (!el) return;
+  const cur = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!cur.includes(tag)) cur.push(tag);
+  el.value = cur.join(", ");
+}
+function ww331BulkTagApply(replace) {
+  const raw = (document.getElementById("ww331-bulktag").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
+  if (!raw.length && !replace) { toast("Укажите метку"); return; }
+  let n = 0;
+  S.transactions.forEach((t) => {
+    if (!_ww331Sel.has(t.id)) return;
+    t.tags = replace ? raw.slice() : [...new Set([...(t.tags || []), ...raw])];
+    n++;
+  });
+  save(); closeModal(); render(activePage()); toast(`Метки обновлены у ${n} операций`);
+}
+function ww331BulkExport() {
+  const list = S.transactions.filter((t) => _ww331Sel.has(t.id)).sort((a, b) => a.date.localeCompare(b.date));
+  if (!list.length) return;
+  const rows = [["Дата", "Тип", "Категория", "Счёт", "Сумма", "Заметка", "Метки"]];
+  list.forEach((t) => rows.push([t.date, t.type === "income" ? "доход" : "расход", (cat(t.categoryId) || {}).name || "", (acc(t.accountId) || {}).name || "", t.amount, (t.note || "").replace(/[\r\n]+/g, " "), (t.tags || []).join(" ")]));
+  ww331Download("\ufeff" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n"), "wisewallet-выбранные-" + todayStr() + ".csv", "text/csv;charset=utf-8");
+  toast("Экспортировано операций: " + list.length);
+}
+function ww331Download(text, name, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* =========================================================================
+   6. ГОРЯЧИЕ КЛАВИШИ
+   ========================================================================= */
+const WW331_KEYS = [
+  ["N", "новая операция"], ["T", "перевод между счетами"], ["/", "поиск по операциям"],
+  ["1…9", "переход между разделами"], ["B", "центр уведомлений"], ["H", "история изменений"],
+  ["X", "режим выбора операций"], ["Ctrl+Z", "отменить"], ["Ctrl+Shift+Z / Ctrl+Y", "повторить"],
+  ["V", "голосовой ввод операции"], ["Esc", "закрыть окно"], ["?", "эта подсказка"],
+];
+const WW331_PAGES = ["dashboard", "ops", "budgets", "goals", "credits", "calendar", "planner", "analytics", "settings"];
+function ww331Hotkeys() {
+  showModal(`<div class="mhead"><h3>⌨ Горячие клавиши</h3><button class="x" onclick="closeModal()">✕</button></div>
+    ${WW331_KEYS.map(([k, d]) => `<div class="row"><div class="rmain"><div class="rt">${esc(d)}</div></div><span class="ww331-kbd">${esc(k)}</span></div>`).join("")}
+    <div class="sub" style="margin-top:12px">Разделы по цифрам: 1 дашборд · 2 операции · 3 бюджеты · 4 цели · 5 кредиты · 6 календарь · 7 планировщик · 8 аналитика · 9 настройки</div>`);
+}
+document.addEventListener("keydown", (e) => {
+  const t = e.target || {};
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || "") || t.isContentEditable;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && (e.key === "z" || e.key === "Z" || e.key === "я" || e.key === "Я")) {
+    e.preventDefault(); e.shiftKey ? wwRedo() : wwUndo(); return;
+  }
+  if (mod && (e.key === "y" || e.key === "Y")) { e.preventDefault(); wwRedo(); return; }
+  if (e.key === "Escape") { const ov = document.getElementById("overlay"); if (ov && ov.classList.contains("open")) closeModal(); return; }
+  if (typing || mod || e.altKey) return;
+  const overlayOpen = (document.getElementById("overlay") || {}).classList?.contains("open");
+  if (overlayOpen) return;
+  const k = e.key.toLowerCase();
+  if (k >= "1" && k <= "9") { e.preventDefault(); nav(WW331_PAGES[+k - 1]); return; }
+  if (k === "n" || k === "т") { e.preventDefault(); openTxModal(); return; }
+  if (k === "t" || k === "е") { e.preventDefault(); if (typeof openTransferModal === "function") openTransferModal(); return; }
+  if (k === "/") { e.preventDefault(); nav("ops"); setTimeout(() => { const q = document.getElementById("ops-q"); if (q) q.focus(); }, 60); return; }
+  if (k === "b" || k === "и") { e.preventDefault(); ww331OpenNotifs(); return; }
+  if (k === "h" || k === "р") { e.preventDefault(); ww331OpenLog(); return; }
+  if (k === "x" || k === "ч") { e.preventDefault(); nav("ops"); setTimeout(ww331ToggleSelMode, 40); return; }
+  if (k === "v" || k === "м") { e.preventDefault(); ww331VoiceTx(); return; }
+  if (e.key === "?") { e.preventDefault(); ww331Hotkeys(); return; }
+});
+
+/* =========================================================================
+   7. ЭКСПОРТ В КАЛЕНДАРЬ (.ics)
+   ========================================================================= */
+function ww331IcsDate(d) {
+  return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+}
+function ww331IcsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
+function ww331BuildIcs() {
+  const now = new Date();
+  const stamp = ww331IcsDate(now) + "T" + String(now.getHours()).padStart(2, "0") + String(now.getMinutes()).padStart(2, "0") + "00";
+  const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//WiseWallet//RU", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:WiseWallet — платежи"];
+  const ev = (uidStr, dt, summary, desc, rrule) => {
+    L.push("BEGIN:VEVENT", "UID:" + uidStr + "@wisewallet", "DTSTAMP:" + stamp, "DTSTART;VALUE=DATE:" + dt, "SUMMARY:" + ww331IcsEsc(summary), "DESCRIPTION:" + ww331IcsEsc(desc));
+    if (rrule) L.push("RRULE:" + rrule);
+    L.push("BEGIN:VALARM", "TRIGGER:-P1D", "ACTION:DISPLAY", "DESCRIPTION:" + ww331IcsEsc(summary), "END:VALARM", "END:VEVENT");
+  };
+  const dim = (y, m) => new Date(y, m + 1, 0).getDate();
+  const startFor = (day) => {
+    const d = new Date();
+    let y = d.getFullYear(), m = d.getMonth();
+    if (d.getDate() > day) { m++; if (m > 11) { m = 0; y++; } }
+    return new Date(y, m, Math.min(day, dim(y, m)));
+  };
+  S.credits.filter((c) => c.status === "active" && +c.payDay).forEach((c) => {
+    const p = currentPayment(c);
+    const untilPart = c.end ? ";UNTIL=" + c.end.replace(/-/g, "") : "";
+    ev("cr-" + c.id, ww331IcsDate(startFor(+c.payDay)), "💳 " + c.name + " — " + money(p.amount),
+      "Платёж по кредиту. Остаток: " + money(+c.balance || 0) + ". Создано в WiseWallet.",
+      "FREQ=MONTHLY;BYMONTHDAY=" + Math.min(+c.payDay, 28) + untilPart);
+  });
+  S.recurring.forEach((r) => {
+    const isInc = r.type === "income";
+    ev("rc-" + r.id, ww331IcsDate(startFor(+r.day || 1)), (isInc ? "💵 " : "🔁 ") + r.name + " — " + money(+r.amount || 0),
+      (isInc ? "Регулярный доход" : "Регулярный расход") + ". Категория: " + ((cat(r.categoryId) || {}).name || "—") + ". Создано в WiseWallet.",
+      "FREQ=MONTHLY;BYMONTHDAY=" + Math.min(+r.day || 1, 28));
+  });
+  S.credits.filter((c) => c.status === "active" && c.graceTo).forEach((c) => {
+    ev("gr-" + c.id, c.graceTo.replace(/-/g, ""), "⚠️ " + c.name + ": конец льготного периода",
+      "После этой даты платёж вырастет до " + money(+c.payment || 0) + ".", "");
+  });
+  S.goals.filter((g) => g.deadline).forEach((g) => {
+    ev("gl-" + g.id, g.deadline.replace(/-/g, ""), "🏁 Цель: " + g.name,
+      "Накоплено " + money(+g.saved || 0) + " из " + money(+g.target || 0) + ".", "");
+  });
+  L.push("END:VCALENDAR");
+  return L.join("\r\n");
+}
+function ww331ExportIcs() {
+  const ics = ww331BuildIcs();
+  const n = (ics.match(/BEGIN:VEVENT/g) || []).length;
+  if (!n) { toast("Нечего экспортировать"); return; }
+  ww331Download(ics, "wisewallet-платежи-" + todayStr() + ".ics", "text/calendar;charset=utf-8");
+  toast("Календарь сохранён: событий " + n);
+}
+
+/* =========================================================================
+   8. ГОЛОСОВОЙ ВВОД
+   ========================================================================= */
+const WW331_NUM = { "ноль": 0, "один": 1, "одна": 1, "два": 2, "две": 2, "три": 3, "четыре": 4, "пять": 5, "шесть": 6, "семь": 7, "восемь": 8, "девять": 9, "десять": 10, "одиннадцать": 11, "двенадцать": 12, "тринадцать": 13, "четырнадцать": 14, "пятнадцать": 15, "шестнадцать": 16, "семнадцать": 17, "восемнадцать": 18, "девятнадцать": 19, "двадцать": 20, "тридцать": 30, "сорок": 40, "пятьдесят": 50, "шестьдесят": 60, "семьдесят": 70, "восемьдесят": 80, "девяносто": 90, "сто": 100, "двести": 200, "триста": 300, "четыреста": 400, "пятьсот": 500, "шестьсот": 600, "семьсот": 700, "восемьсот": 800, "девятьсот": 900 };
+const WW331_MULT = { "тысяча": 1000, "тысячи": 1000, "тысяч": 1000, "тыс": 1000, "миллион": 1000000, "миллиона": 1000000, "миллионов": 1000000 };
+/* Голос обычно возвращает цифры, но «четыреста пятьдесят» тоже надо понять. */
+function ww331WordsToNum(text) {
+  const words = text.toLowerCase().replace(/[.,]/g, " ").split(/\s+/).filter(Boolean);
+  let total = 0, cur = 0, found = false, used = [];
+  words.forEach((w) => {
+    if (WW331_NUM[w] !== undefined) { cur += WW331_NUM[w]; found = true; used.push(w); }
+    else if (WW331_MULT[w]) { cur = (cur || 1) * WW331_MULT[w]; total += cur; cur = 0; found = true; used.push(w); }
+  });
+  if (!found) return null;
+  return { value: total + cur, used };
+}
+function ww331NormalizeSpeech(text) {
+  let s = text.trim();
+  s = s.replace(/\bрешётка\b|\bхештег\b|\bхэштег\b|\bрешетка\b/gi, "#");
+  s = s.replace(/#\s+/g, "#");
+  if (!/\d/.test(s)) {
+    const n = ww331WordsToNum(s);
+    if (n && n.value > 0) {
+      let rest = s;
+      n.used.forEach((w) => { rest = rest.replace(new RegExp("\\b" + w + "\\b", "i"), ""); });
+      s = n.value + " " + rest.replace(/\s+/g, " ").trim();
+    }
+  }
+  return s.replace(/\s*(рублей|рубля|рубль|руб)\b/gi, "").replace(/\s+/g, " ").trim();
+}
+let _ww331Rec = null;
+function ww331SpeechOk() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+function ww331Voice(targetId, onDone, btn) {
+  if (!ww331SpeechOk()) { toast("Голосовой ввод не поддерживается этим браузером"); return; }
+  if (_ww331Rec) { try { _ww331Rec.stop(); } catch (e) {} _ww331Rec = null; return; }
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new Rec();
+  rec.lang = "ru-RU"; rec.interimResults = false; rec.maxAlternatives = 1;
+  _ww331Rec = rec;
+  if (btn) btn.classList.add("rec");
+  toast("Слушаю…");
+  rec.onresult = (ev) => {
+    const raw = ev.results[0][0].transcript || "";
+    const text = ww331NormalizeSpeech(raw);
+    const el = document.getElementById(targetId);
+    if (el) { el.value = text; el.dispatchEvent(new Event("input")); }
+    toast("Распознано: " + text);
+    if (typeof onDone === "function") { try { onDone(text); } catch (e) {} }
+  };
+  rec.onerror = (ev) => { toast(ev.error === "not-allowed" ? "Нет доступа к микрофону" : "Не удалось распознать"); };
+  rec.onend = () => { _ww331Rec = null; if (btn) btn.classList.remove("rec"); };
+  try { rec.start(); } catch (e) { toast("Микрофон занят"); _ww331Rec = null; if (btn) btn.classList.remove("rec"); }
+}
+function ww331VoiceTx() {
+  if (isObserver()) return;
+  const ov = document.getElementById("overlay");
+  const open = ov && ov.classList.contains("open") && document.getElementById("tx-quick");
+  if (!open) openTxModal();
+  setTimeout(() => {
+    const btn = document.getElementById("ww331-txmic");
+    ww331Voice("tx-quick", () => { try { parseQuick(); } catch (e) {} }, btn);
+  }, open ? 0 : 220);
+}
+
+/* =========================================================================
+   Встраивание в интерфейс
+   ========================================================================= */
+/* панель быстрых действий: отменить / повторить / уведомления / журнал / хоткеи */
+(function () {
+  const bar = document.createElement("div");
+  bar.className = "ww331-bar"; bar.id = "ww331-bar";
+  bar.innerHTML = `
+    <button class="ww331-bbtn" id="ww331-notif" title="Уведомления (B)" onclick="ww331OpenNotifs()">🔔<span class="ww331-badge" id="ww331-badge" style="display:none">0</span></button>
+    <button class="ww331-bbtn" id="ww331-undo" title="Отменить (Ctrl+Z)" onclick="wwUndo()">↩</button>
+    <button class="ww331-bbtn" id="ww331-redo" title="Повторить (Ctrl+Shift+Z)" onclick="wwRedo()">↪</button>
+    <button class="ww331-bbtn" title="История изменений (H)" onclick="ww331OpenLog()">🕘</button>
+    <button class="ww331-bbtn" title="Горячие клавиши (?)" onclick="ww331Hotkeys()">⌨</button>`;
+  document.body.appendChild(bar);
+})();
+function ww331Refresh() {
+  const b = document.getElementById("ww331-badge");
+  if (b) { const n = ww331UnreadCount(); b.style.display = n ? "flex" : "none"; b.textContent = n > 99 ? "99+" : n; }
+  const u = document.getElementById("ww331-undo"), r = document.getElementById("ww331-redo");
+  if (u) u.disabled = !_ww331Undo.length;
+  if (r) r.disabled = !_ww331Redo.length;
+}
+
+/* операции: метки, выбор, микрофон */
+const _ww331RenderOps = renderOps;
+renderOps = function () { _ww331RenderOps.apply(this, arguments); try { ww331AfterOps(); } catch (e) {} };
+
+/* аналитика: отчёт по меткам */
+const _ww331RenderAnalytics = renderAnalytics;
+renderAnalytics = function () { _ww331RenderAnalytics.apply(this, arguments); try { ww331RenderTagReport(); } catch (e) {} };
+
+/* окно операции: подсказки меток + микрофон */
+const _ww331OpenTx = openTxModal;
+openTxModal = function () {
+  _ww331OpenTx.apply(this, arguments);
+  try {
+    const q = document.getElementById("tx-quick");
+    if (q && !document.getElementById("ww331-txmic")) {
+      q.insertAdjacentHTML("afterend", `<button id="ww331-txmic" class="ww331-mic" title="Продиктовать операцию" onclick="ww331Voice('tx-quick',function(){try{parseQuick()}catch(e){}},this)">🎤</button>`);
+    }
+    const tg = document.getElementById("tx-tags");
+    if (tg && !document.getElementById("ww331-txtags")) {
+      const tags = ww331AllTags();
+      if (tags.length) tg.insertAdjacentHTML("afterend", `<div class="ww331-tags" id="ww331-txtags" style="margin-top:8px">${tags.slice(0, 12).map((t) => `<button type="button" class="ww331-tagchip" onclick="ww331TagInsert('tx-tags','${esc(t)}')">#${esc(t)}</button>`).join("")}</div>`);
+    }
+    const note = document.getElementById("tx-note");
+    if (note && !document.getElementById("ww331-notemic")) {
+      note.insertAdjacentHTML("afterend", `<button id="ww331-notemic" class="ww331-mic" title="Продиктовать комментарий" onclick="ww331Voice('tx-note',null,this)">🎤</button>`);
+    }
+  } catch (e) {}
+};
+
+/* настройки: карточка нового блока */
+const _ww331RenderSettings = renderSettings;
+renderSettings = function () {
+  _ww331RenderSettings.apply(this, arguments);
+  try {
+    const page = document.getElementById("page-settings"); if (!page) return;
+    let card = document.getElementById("ww331-card");
+    if (!card) { card = document.createElement("div"); card.className = "card"; card.id = "ww331-card"; card.style.marginTop = "14px"; page.appendChild(card); }
+    const unread = ww331UnreadCount();
+    card.innerHTML = `<h2>🧰 Журнал, уведомления и календарь</h2>
+      <div class="sub" style="margin:-6px 0 12px">Блок «как в CRM»: история правок, единый центр уведомлений, экспорт платежей в Google/Apple Calendar и голосовой ввод.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="ww331OpenLog()">🕘 История изменений (${S.audit.length})</button>
+        <button class="btn btn-ghost" onclick="ww331OpenNotifs()">🔔 Центр уведомлений${unread ? " · " + unread : ""}</button>
+        <button class="btn btn-ghost" onclick="ww331TagReport()">🏷️ Отчёт по меткам</button>
+        <button class="btn btn-ghost" onclick="ww331ExportIcs()">📅 Экспорт платежей в календарь (.ics)</button>
+        <button class="btn btn-ghost" onclick="ww331Hotkeys()">⌨ Горячие клавиши</button>
+        <button class="btn btn-ghost" onclick="ww331VoiceTx()">🎤 Голосом добавить операцию</button>
+      </div>
+      <div class="sub" style="margin-top:10px">Голосовой ввод: ${ww331SpeechOk() ? "поддерживается этим браузером" : "не поддерживается — нужен Safari или Chrome"}.</div>`;
+  } catch (e) {}
+};
+
+/* дашборд: строка напоминаний ведёт в центр уведомлений */
+const _ww331RenderReminders = renderReminders;
+renderReminders = function () {
+  _ww331RenderReminders.apply(this, arguments);
+  try {
+    const el = document.getElementById("dash-reminders");
+    if (!el || el.style.display === "none") { ww331Refresh(); return; }
+    if (!el.querySelector("#ww331-remlink")) {
+      el.insertAdjacentHTML("beforeend", `<button id="ww331-remlink" class="btn btn-ghost btn-sm" style="align-self:flex-start;margin-top:4px" onclick="ww331OpenNotifs()">🔔 Все уведомления</button>`);
+    }
+  } catch (e) {}
+  ww331Refresh();
+};
+
+setTimeout(ww331Refresh, 400);
+
+</script>
+<script>
+"use strict";
+/* =====================================================================
+   WiseWallet v3.32 — НАСТОЯЩИЙ ВХОД ПО EMAIL/ПАРОЛЮ (как в CRM WiseBase)
+
+   Что делает этот блок:
+     * вход обязателен: без аккаунта приложение не открывается;
+     * URL проекта и anon key зашиты в файл (константы ниже) — на экране
+       входа ничего настраивать не нужно;
+     * синхронизация идёт только под сессией, в таблицу ww_user_state,
+       защищённую RLS (auth.uid() = user_id);
+     * при первом входе данные из старой общей таблицы ww_state
+       (режим «ключ синхронизации») переносятся в аккаунт;
+     * старый режим с ключом синхронизации убран из интерфейса;
+     * есть регистрация, сброс пароля, смена пароля и выход с очисткой
+       локальных данных.
+   ===================================================================== */
+
+/* --- ВПИШИТЕ СЮДА ДАННЫЕ СВОЕГО ПРОЕКТА SUPABASE ---------------------
+   Взять: Supabase → Project Settings → API → Project URL и anon/publishable key.
+   Пока поля пустые, экран входа сам попросит их ввести один раз. */
+var WW_SB_URL = "https://tribgnfjiiwmiktzjeyy.supabase.co";
+var WW_SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyaWJnbmZqaWl3bWlrdHpqZXl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MzM1NDMsImV4cCI6MjEwMDEwOTU0M30.pP8uNd3xWZ6yvfuhdrg63T04n8c0GGymC3C0DQ9-PLw";
+/* Старый ключ синхронизации — нужен только для одноразового переноса данных в аккаунт. */
+var WW332_LEGACY_SYNC = "4pxuabuzmrswh45s";
+/* -------------------------------------------------------------------- */
+
+var WW332_MIGK = "ww_legacy_migrated_v1";
+var WW332_BAKED = !!(WW_SB_URL && WW_SB_KEY);
+
+/* Зашитые значения всегда главнее того, что лежит в настройках устройства. */
+if (WW332_BAKED) {
+  S.settings.sbUrl = String(WW_SB_URL).trim().replace(/\/$/, "");
+  S.settings.sbKey = String(WW_SB_KEY).trim();
+  if (typeof WW332_LEGACY_SYNC === "string" && WW332_LEGACY_SYNC) {
+    S.settings.syncId = WW332_LEGACY_SYNC;
+  }
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+}
+
+function ww332Creds() {
+  return { url: (S.settings.sbUrl || "").replace(/\/$/, ""), key: S.settings.sbKey || "" };
+}
+function ww332HasCreds() { var c = ww332Creds(); return !!(c.url && c.key); }
+
+/* Человеческие тексты вместо сырых ответов GoTrue. */
+function ww332Err(m) {
+  m = String(m || "");
+  if (/Invalid login credentials/i.test(m)) return "Неверный email или пароль";
+  if (/Email not confirmed/i.test(m)) return "Email не подтверждён — проверьте письмо";
+  if (/User already registered/i.test(m)) return "Такой email уже зарегистрирован — нажмите «Войти»";
+  if (/Password should be at least/i.test(m)) return "Пароль слишком короткий (минимум 6 символов)";
+  if (/rate limit|too many/i.test(m)) return "Слишком много попыток, подождите минуту";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "Нет связи с сервером";
+  if (/Signups not allowed/i.test(m)) return "Регистрация отключена в настройках проекта";
+  return m;
+}
+
+async function ww332Auth(path, body) {
+  var c = ww332Creds();
+  var r = await fetch(c.url + "/auth/v1/" + path, {
+    method: "POST",
+    headers: { apikey: c.key, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  var j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.message || ("HTTP " + r.status));
+  return j;
+}
+
+/* ===================== экран входа ===================== */
+var ww332GateCss = document.createElement("style");
+ww332GateCss.textContent = [
+  "#ww332-gate{position:fixed;inset:0;z-index:450;display:none;align-items:center;justify-content:center;padding:20px;background:var(--bg,#f6f7f9);overflow:auto}",
+  "#ww332-gate.on{display:flex}",
+  "#ww332-gate .g-card{width:100%;max-width:380px;background:var(--card,#fff);border:1px solid var(--border,#e6e9ee);border-radius:18px;padding:26px 22px;box-shadow:0 18px 50px rgba(16,24,40,.12)}",
+  "#ww332-gate .g-logo{display:flex;justify-content:center;color:var(--accent,#0f9d76)}",
+  "#ww332-gate .g-logo svg{width:42px;height:42px}",
+  "#ww332-gate h2{margin:10px 0 2px;text-align:center;font-size:20px}",
+  "#ww332-gate .g-sub{text-align:center;font-size:13px;color:var(--muted,#7a8794);margin-bottom:18px}",
+  "#ww332-gate .fg{margin-bottom:12px}",
+  "#ww332-gate label{display:block;font-size:12px;font-weight:600;color:var(--muted,#7a8794);margin-bottom:5px}",
+  "#ww332-gate input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:11px;border:1px solid var(--border,#e6e9ee);background:var(--bg2,#fbfcfd);color:var(--text,#1c2733);font-size:15px;font-family:inherit}",
+  "#ww332-gate input:focus{outline:none;border-color:var(--accent,#0f9d76)}",
+  "#ww332-gate .g-btn{width:100%;padding:12px;border:0;border-radius:11px;background:var(--accent,#0f9d76);color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit}",
+  "#ww332-gate .g-btn[disabled]{opacity:.6;cursor:default}",
+  "#ww332-gate .g-links{display:flex;justify-content:space-between;gap:10px;margin-top:14px;font-size:13px}",
+  "#ww332-gate .g-links a{color:var(--accent,#0f9d76);text-decoration:none;cursor:pointer}",
+  "#ww332-gate .g-msg{min-height:18px;margin-top:12px;font-size:13px;text-align:center;color:var(--red,#d64545)}",
+  "#ww332-gate .g-msg.ok{color:var(--green,#0f9d76)}",
+  "#ww332-gate details{margin-top:16px;border-top:1px solid var(--border,#e6e9ee);padding-top:12px}",
+  "#ww332-gate summary{cursor:pointer;font-size:12.5px;color:var(--muted,#7a8794)}",
+  "@media(prefers-color-scheme:dark){body:not([data-theme]) #ww332-gate{background:#10151c}body:not([data-theme]) #ww332-gate .g-card{background:#161c25;border-color:#26303d}body:not([data-theme]) #ww332-gate input{background:#10151c;border-color:#26303d;color:#e8edf2}}",
+].join("");
+document.head.appendChild(ww332GateCss);
+
+function ww332GateEl() {
+  var el = document.getElementById("ww332-gate");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "ww332-gate";
+  el.innerHTML =
+    '<div class="g-card">' +
+    '<div class="g-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg></div>' +
+    "<h2>WiseWallet</h2>" +
+    '<div class="g-sub" id="ww332-sub">Вход в личный аккаунт</div>' +
+    '<div class="fg"><label>Email</label><input id="ww332-email" type="email" autocomplete="username" inputmode="email" placeholder="you@example.com"></div>' +
+    '<div class="fg"><label>Пароль</label><input id="ww332-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>' +
+    '<button class="g-btn" id="ww332-go">Войти</button>' +
+    '<div class="g-links"><a id="ww332-signup">Создать аккаунт</a><a id="ww332-forgot">Забыли пароль?</a></div>' +
+    '<div class="g-msg" id="ww332-msg"></div>' +
+    '<details id="ww332-conn"><summary>Подключение к Supabase</summary>' +
+    '<div class="fg" style="margin-top:10px"><label>URL проекта</label><input id="ww332-url" placeholder="https://xxxx.supabase.co"></div>' +
+    '<div class="fg"><label>anon key</label><input id="ww332-key" placeholder="eyJ…"></div>' +
+    '<button class="g-btn" id="ww332-savecreds" style="background:transparent;color:var(--accent,#0f9d76);border:1px solid var(--border,#e6e9ee)">Сохранить подключение</button>' +
+    "</details>" +
+    "</div>";
+  document.body.appendChild(el);
+
+  el.querySelector("#ww332-go").onclick = function () { ww332DoSignIn(); };
+  el.querySelector("#ww332-signup").onclick = function () { ww332DoSignUp(); };
+  el.querySelector("#ww332-forgot").onclick = function () { ww332DoReset(); };
+  el.querySelector("#ww332-savecreds").onclick = function () { ww332SaveCreds(); };
+  ["ww332-email", "ww332-pass"].forEach(function (id) {
+    el.querySelector("#" + id).onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); ww332DoSignIn(); } };
+  });
+  return el;
+}
+
+function ww332Msg(text, ok) {
+  var m = document.getElementById("ww332-msg");
+  if (!m) return;
+  m.textContent = text || "";
+  m.className = "g-msg" + (ok ? " ok" : "");
+}
+
+function ww332GateShow(msg) {
+  var el = ww332GateEl();
+  el.classList.add("on");
+  /* PIN-замок и сплэш не должны перекрывать экран входа */
+  var lock = document.getElementById("ww-lock"); if (lock) lock.style.display = "none";
+  var sp = document.getElementById("ww-splash"); if (sp) { try { sp.remove(); } catch (e) {} }
+  var conn = document.getElementById("ww332-conn");
+  if (conn) {
+    conn.style.display = WW332_BAKED ? "none" : "block";
+    if (!WW332_BAKED) {
+      if (!ww332HasCreds()) conn.open = true;
+      var c = ww332Creds();
+      document.getElementById("ww332-url").value = c.url;
+      document.getElementById("ww332-key").value = c.key;
+    }
+  }
+  ww332Msg(msg || "");
+  setTimeout(function () {
+    var f = document.getElementById(ww332HasCreds() ? "ww332-email" : "ww332-url");
+    if (f) f.focus();
+  }, 60);
+}
+function ww332GateHide() {
+  var el = document.getElementById("ww332-gate");
+  if (el) el.classList.remove("on");
+  var p = document.getElementById("ww332-pass"); if (p) p.value = "";
+}
+
+function ww332SaveCreds() {
+  var u = (document.getElementById("ww332-url").value || "").trim().replace(/\/$/, "");
+  var k = (document.getElementById("ww332-key").value || "").trim();
+  if (!u || !k) { ww332Msg("Заполните URL и anon key"); return; }
+  S.settings.sbUrl = u; S.settings.sbKey = k;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  ww332Msg("Подключение сохранено — теперь войдите", true);
+  var conn = document.getElementById("ww332-conn"); if (conn) conn.open = false;
+  var f = document.getElementById("ww332-email"); if (f) f.focus();
+}
+
+function ww332Busy(on, label) {
+  var b = document.getElementById("ww332-go");
+  if (!b) return;
+  b.disabled = !!on;
+  b.textContent = on ? (label || "Проверяем…") : "Войти";
+}
+
+function ww332ReadForm() {
+  return {
+    email: (document.getElementById("ww332-email").value || "").trim(),
+    pass: document.getElementById("ww332-pass").value || "",
+  };
+}
+
+async function ww332DoSignIn() {
+  if (!ww332HasCreds()) { ww332Msg("Сначала укажите подключение к Supabase"); var c = document.getElementById("ww332-conn"); if (c) c.open = true; return; }
+  var f = ww332ReadForm();
+  if (!f.email || !f.pass) { ww332Msg("Введите email и пароль"); return; }
+  ww332Busy(true);
+  try {
+    var j = await ww332Auth("token?grant_type=password", { email: f.email, password: f.pass });
+    ww2SaveSession(j);
+    await ww332AfterLogin();
+  } catch (e) {
+    ww332Msg(ww332Err(e && e.message));
+  } finally { ww332Busy(false); }
+}
+
+async function ww332DoSignUp() {
+  if (!ww332HasCreds()) { ww332Msg("Сначала укажите подключение к Supabase"); return; }
+  var f = ww332ReadForm();
+  if (!f.email || f.pass.length < 6) { ww332Msg("Введите email и пароль от 6 символов"); return; }
+  ww332Busy(true, "Создаём…");
+  try {
+    var j = await ww332Auth("signup", { email: f.email, password: f.pass });
+    if (j.access_token) { ww2SaveSession(j); await ww332AfterLogin(); }
+    else ww332Msg("Аккаунт создан. Подтвердите email из письма и нажмите «Войти»", true);
+  } catch (e) {
+    ww332Msg(ww332Err(e && e.message));
+  } finally { ww332Busy(false); }
+}
+
+async function ww332DoReset() {
+  if (!ww332HasCreds()) { ww332Msg("Сначала укажите подключение к Supabase"); return; }
+  var f = ww332ReadForm();
+  if (!f.email) { ww332Msg("Введите email — на него придёт ссылка"); return; }
+  try {
+    await ww332Auth("recover", { email: f.email });
+    ww332Msg("Письмо для смены пароля отправлено на " + f.email, true);
+  } catch (e) { ww332Msg(ww332Err(e && e.message)); }
+}
+
+/* После успешного входа: перенос старых данных, загрузка с сервера, снятие замка. */
+async function ww332AfterLogin() {
+  ww332Msg("Загружаем данные…", true);
+  try { await ww332MigrateLegacy(); } catch (e) {}
+  ww332GateHide();
+  var lock = document.getElementById("ww-lock"); if (lock) lock.style.display = "none";
+  try { await syncNow(false); } catch (e) {}
+  try { render(activePage()); } catch (e) {}
+  try { fillV2Settings(); } catch (e) {}
+  try { sbStatus(); } catch (e) {}
+  var s = ww2SessionSync();
+  toast("Вы вошли" + (s && s.email ? ": " + s.email : ""));
+}
+
+/* ===================== перенос со старого «ключа синхронизации» =====================
+   Выполняется один раз на устройство. Берём строку из общей таблицы ww_state по
+   старому syncId и, если в личном хранилище ещё пусто, кладём её туда. */
+async function ww332MigrateLegacy() {
+  if (localStorage.getItem(WW332_MIGK)) return;
+  var sess = await ww2Session();
+  var syncId = (typeof WW332_LEGACY_SYNC === "string" && WW332_LEGACY_SYNC) ? WW332_LEGACY_SYNC : S.settings.syncId;
+  if (!sess) return;
+  if (!syncId) { localStorage.setItem(WW332_MIGK, "1"); return; }
+  var c = ww332Creds();
+  var H = { apikey: c.key, Authorization: "Bearer " + sess.access_token, "Content-Type": "application/json" };
+  try {
+    var mine = await fetch(c.url + "/rest/v1/ww_user_state?user_id=eq." + encodeURIComponent(sess.user_id) + "&select=data", { headers: H });
+    var mineRow = mine.ok ? (await mine.json())[0] : null;
+    if (mineRow && mineRow.data) { localStorage.setItem(WW332_MIGK, "1"); return; }
+
+    var legacy = await fetch(c.url + "/rest/v1/ww_state?id=eq." + encodeURIComponent(syncId) + "&select=data,updated_at", { headers: H });
+    var row = legacy.ok ? (await legacy.json())[0] : null;
+    var data = row && row.data;
+    var localNewer = data && (S.updatedAt || 0) > (data.updatedAt || 0);
+    var payload = (data && !localNewer) ? data : S;
+    if (data && !localNewer) {
+      var keep = S.settings;
+      var merged = JSON.parse(JSON.stringify(data));
+      merged.settings = Object.assign({}, merged.settings, keep);
+      Object.keys(S).forEach(function (k) { delete S[k]; });
+      Object.assign(S, merged);
+      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      payload = S;
+    }
+    var up = await fetch(c.url + "/rest/v1/ww_user_state", {
+      method: "POST",
+      headers: Object.assign({}, H, { Prefer: "resolution=merge-duplicates" }),
+      body: JSON.stringify([{ user_id: sess.user_id, data: payload, updated_at: new Date().toISOString() }]),
+    });
+    if (up.ok) {
+      localStorage.setItem(WW332_MIGK, "1");
+      if (data) toast("Данные перенесены в ваш аккаунт");
+    }
+  } catch (e) { /* нет сети или таблицы — попробуем в следующий раз */ }
+}
+
+/* ===================== выход ===================== */
+async function ww332Logout() {
+  var ok = await wwConfirm(
+    "Локальная копия данных на этом устройстве будет удалена. Всё, что синхронизировано, останется в вашем аккаунте и вернётся при следующем входе.",
+    { title: "Выйти из аккаунта?", okText: "Выйти", cancelText: "Отмена" }
+  );
+  if (!ok) return;
+  var c = ww332Creds();
+  var sess = ww2SessionSync();
+  try { await syncNow(false); } catch (e) {}
+  try {
+    if (sess) await fetch(c.url + "/auth/v1/logout", { method: "POST", headers: { apikey: c.key, Authorization: "Bearer " + sess.access_token } });
+  } catch (e) {}
+  try {
+    [WW2K.sess, WW2K.snap, WW2K.lastRemote, WW2K.notif, LS_KEY, WW332_MIGK, "ww_state_v1"].forEach(function (k) { localStorage.removeItem(k); });
+    var fresh = seedState();
+    fresh.settings.sbUrl = c.url; fresh.settings.sbKey = c.key;
+    localStorage.setItem(LS_KEY, JSON.stringify(fresh));
+  } catch (e) {}
+  location.reload();
+}
+
+async function ww332ChangePass() {
+  var sess = await ww2Session();
+  if (!sess) { toast("Сначала войдите в аккаунт"); return; }
+  var p1 = await wwPrompt("Новый пароль (минимум 6 символов)", { title: "Смена пароля", type: "password" });
+  if (!p1) return;
+  if (String(p1).length < 6) { toast("Пароль слишком короткий"); return; }
+  var p2 = await wwPrompt("Повторите новый пароль", { title: "Смена пароля", type: "password" });
+  if (p1 !== p2) { toast("Пароли не совпадают"); return; }
+  var c = ww332Creds();
+  try {
+    var r = await fetch(c.url + "/auth/v1/user", {
+      method: "PUT",
+      headers: { apikey: c.key, Authorization: "Bearer " + sess.access_token, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: p1 }),
+    });
+    var j = {}; try { j = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error(j.error_description || j.msg || ("HTTP " + r.status));
+    toast("Пароль изменён");
+  } catch (e) { toast("Не удалось сменить пароль: " + ww332Err(e && e.message)); }
+}
+
+/* ===================== синхронизация только под сессией ===================== */
+var _ww332Sync = syncNow;
+syncNow = async function (manual) {
+  if (S.settings.observerMode) return _ww332Sync(manual);
+  var sess = await ww2Session();
+  if (!sess) {
+    if (navigator.onLine) ww332GateShow("Сессия истекла — войдите снова");
+    else if (manual) toast("Нет сети — синхронизируем при подключении");
+    return;
+  }
+  return _ww332Sync(manual);
+};
+
+/* ===================== настройки: убираем старый режим ===================== */
+function ww332FixSyncCard() {
+  var sync = document.getElementById("sb-sync");
+  if (sync && sync.closest(".fg")) sync.closest(".fg").style.display = "none";
+  if (WW332_BAKED) {
+    ["sb-url", "sb-key"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.closest(".fg")) el.closest(".fg").style.display = "none";
+    });
+    var card = document.getElementById("sb-status") && document.getElementById("sb-status").closest(".card");
+    if (card && !card.querySelector(".ww332-note")) {
+      var h = card.querySelector("h2");
+      if (h) h.insertAdjacentHTML("afterend", '<div class="sub ww332-note" style="margin:-4px 0 12px">Проект Supabase задан в приложении, данные привязаны к вашему аккаунту. Настраивать ничего не нужно.</div>');
+    }
+  }
+}
+
+var _ww332Fill = fillV2Settings;
+fillV2Settings = function () {
+  _ww332Fill();
+  ww332FixSyncCard();
+  var au = document.getElementById("ww-auth-ui");
+  if (au) {
+    var s = ww2SessionSync();
+    au.innerHTML = s
+      ? '<div class="sub" style="margin-bottom:10px">Вы вошли как <b>' + esc(s.email || "") + "</b>. Данные хранятся в вашем личном хранилище (RLS): доступа к ним нет ни у кого, кроме вас.</div>" +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="ww332ChangePass()">Сменить пароль</button><button class="btn btn-danger btn-sm" onclick="ww332Logout()">Выйти</button></div>'
+      : '<div class="sub" style="margin-bottom:10px">Вы не вошли в аккаунт.</div><button class="btn btn-primary btn-sm" onclick="ww332GateShow()">Войти</button>';
+  }
+  var card = document.getElementById("ww-auth-card");
+  if (card) {
+    var sub = card.querySelector(".sub");
+    if (sub) sub.textContent = "Вход по email и паролю — обязателен. Доступ к данным даёт только ваш аккаунт: политики RLS в базе не отдадут строку никому другому.";
+  }
+};
+
+var _ww332RS = renderSettings;
+renderSettings = function () { _ww332RS(); try { ww332FixSyncCard(); } catch (e) {} };
+
+/* ===================== старт ===================== */
+/* Показываем экран входа сразу, чтобы чужие данные не мелькнули на экране. */
+if (!S.settings.observerMode && !ww2SessionSync()) ww332GateShow();
+
+(async function ww332Boot() {
+  if (S.settings.observerMode) return;
+  var stored = ww2SessionSync();
+  if (!stored) { ww332GateShow(); return; }
+  if (!navigator.onLine) {
+    /* Офлайн пускаем по сохранённой сессии — иначе приложение стало бы
+       бесполезным без сети, а это по-прежнему офлайн-первое приложение. */
+    ww332GateHide();
+    return;
+  }
+  var sess = await ww2Session();
+  if (!sess) { ww332GateShow("Сессия истекла — войдите снова"); return; }
+  ww332GateHide();
+  try { await ww332MigrateLegacy(); } catch (e) {}
+  try { await syncNow(false); } catch (e) {}
+  try { fillV2Settings(); } catch (e) {}
+})();
+
+</script>
+<script>
+"use strict";
+/* =====================================================================
+   WiseWallet v3.32 (часть 2) — облачные резервные копии переводятся на аккаунт.
+
+   Раньше копии клались в ww_snapshots под ключом синхронизации и с anon key —
+   то есть были самым слабым местом после введения аккаунтов. Теперь ключом
+   строки служит user_id, а запросы идут с токеном пользователя, так что RLS
+   (auth.uid()::text = sync_id в supabase_schema.sql) закрывает чужие копии.
+   ===================================================================== */
+
+async function ww332SnapCtx() {
+  var sess = await ww2Session();
+  if (!sess) return null;
+  var c = ww332Creds();
+  if (!c.url || !c.key) return null;
+  return {
+    url: c.url,
+    key: sess.user_id,
+    H: { apikey: c.key, Authorization: "Bearer " + sess.access_token, "Content-Type": "application/json" },
+  };
+}
+
+wwCloudReady = function () {
+  return !!(S.settings.sbUrl && S.settings.sbKey && ww2SessionSync() && navigator.onLine);
+};
+
+wwCloudSnapshot = async function (manual) {
+  if (isObserver() && !manual) return;
+  var ctx = await ww332SnapCtx();
+  if (!ctx) { if (manual) toast("Сначала войдите в аккаунт"); return; }
+  try {
+    var r = await fetch(ctx.url + "/rest/v1/ww_snapshots", {
+      method: "POST",
+      headers: ctx.H,
+      body: JSON.stringify([{ sync_id: ctx.key, note: manual ? "Вручную" : "Автоматически", data: S }]),
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    try { localStorage.setItem(WW_CLOUD_SNAP_LAST, String(Date.now())); } catch (e) {}
+    if (manual) toast("Копия сохранена в облако");
+    wwCloudSnapList();
+  } catch (e) {
+    if (manual) toast("Не удалось сохранить: " + e.message);
+  }
+};
+
+wwCloudSnapFetch = async function () {
+  var ctx = await ww332SnapCtx();
+  if (!ctx) return [];
+  var r = await fetch(
+    ctx.url + "/rest/v1/ww_snapshots?sync_id=eq." + encodeURIComponent(ctx.key) + "&select=id,created_at,note&order=created_at.desc&limit=20",
+    { headers: ctx.H }
+  );
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+};
+
+wwCloudRestore = async function (id, when) {
+  if (isObserver()) return;
+  var ctx = await ww332SnapCtx();
+  if (!ctx) { toast("Сначала войдите в аккаунт"); return; }
+  if (!await wwConfirm(
+    "Текущие данные будут заменены копией от " + when + ". Перед заменой сохраним ещё одну копию — и локально, и в облако, так что откатиться будет можно.",
+    { title: "Восстановить из облака?", okText: "Восстановить" }
+  )) return;
+  try {
+    ww2Snapshot(true);
+    await wwCloudSnapshot(false);
+    var r = await fetch(ctx.url + "/rest/v1/ww_snapshots?id=eq." + encodeURIComponent(id) + "&select=data", { headers: ctx.H });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var rows = await r.json();
+    if (!rows.length || !rows[0].data) throw new Error("копия не найдена");
+    var restored = rows[0].data;
+    restored.updatedAt = Date.now();
+    Object.keys(S).forEach(function (k) { delete S[k]; });
+    Object.assign(S, restored);
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    try { await syncNow(false); } catch (e) {}
+    location.reload();
+  } catch (e) {
+    toast("Не удалось восстановить: " + e.message);
+  }
+};
 
 </script>
 <script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>

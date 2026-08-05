@@ -1,6 +1,22 @@
+-- =====================================================================
+-- v3.32: ВХОД ПО EMAIL/ПАРОЛЮ ОБЯЗАТЕЛЕН
+-- Что сделать один раз в своём проекте Supabase:
+--   1) выполнить весь этот файл в SQL Editor;
+--   2) Authentication -> Providers -> Email: включить
+--      (если не хочется подтверждать почту -- выключить "Confirm email");
+--   3) Authentication -> URL Configuration -> Site URL: адрес приложения
+--      (нужен для писем «Забыли пароль?»);
+--   4) в index.html вписать WW_SB_URL и WW_SB_KEY (Project Settings -> API).
+-- После этого все данные живут в ww_user_state под RLS: строку видит
+-- только её владелец (auth.uid() = user_id).
+-- =====================================================================
+
 -- WiseWallet: схема Supabase
 -- ============================================================
 -- ЧАСТЬ 1 (v1, legacy): общая таблица с ключом синхронизации.
+-- С v3.32 ИЗ ПРИЛОЖЕНИЯ БОЛЬШЕ НЕ ИСПОЛЬЗУЕТСЯ. Нужна только для одноразового
+-- переноса старых данных в аккаунт при первом входе. Когда все устройства
+-- вошли в аккаунт, таблицу можно удалить: drop table public.ww_state;
 -- Оставлена для совместимости. ВНИМАНИЕ: политики открытые —
 -- любой, у кого есть URL проекта и anon key, может читать/писать.
 -- Рекомендуется перейти на часть 2 (вход по email).
@@ -69,9 +85,10 @@ alter table public.ww_snapshots enable row level security;
 drop policy if exists ww_snapshots_select on public.ww_snapshots;
 drop policy if exists ww_snapshots_insert on public.ww_snapshots;
 drop policy if exists ww_snapshots_delete on public.ww_snapshots;
-create policy ww_snapshots_select on public.ww_snapshots for select using (true);
-create policy ww_snapshots_insert on public.ww_snapshots for insert with check (true);
-create policy ww_snapshots_delete on public.ww_snapshots for delete using (true);
+-- v3.32: sync_id теперь хранит user_id владельца, и копии видны только ему.
+create policy ww_snapshots_select on public.ww_snapshots for select using (auth.uid()::text = sync_id);
+create policy ww_snapshots_insert on public.ww_snapshots for insert with check (auth.uid()::text = sync_id);
+create policy ww_snapshots_delete on public.ww_snapshots for delete using (auth.uid()::text = sync_id);
 
 -- Держим последние 20 снимков на каждый syncId, лишние удаляются сами
 create or replace function public.ww_snapshots_prune() returns trigger
