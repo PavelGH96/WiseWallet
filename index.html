@@ -2,7 +2,10 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- v3.37: masштабирование пальцами снова разрешено. Горизонтальный "резиновый"
+     сдвиг убирают overflow-x:clip и touch-action ниже, запрет зума для этого не нужен
+     и мешает людям со слабым зрением. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>WiseWallet — учёт доходов и расходов</title>
 <meta name="theme-color" content="#f8fafc">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -56,8 +59,8 @@ body[data-theme="t5"]{--bg:#fdf4f5;--card:#ffffff;--border:#f0d8db;--border-h:#d
    Пальцем страницу можно тянуть только вверх/вниз. Блоки, которые
    действительно листаются вбок (ряды иконок, канбан, широкие таблицы),
    получают собственный touch-action ниже — иначе они бы перестали работать. */
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden;overscroll-behavior-x:none;touch-action:pan-y;-webkit-text-size-adjust:none}
-body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain;overscroll-behavior-x:none;overflow-x:hidden;width:100%;max-width:100%;touch-action:pan-y}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:clip;overscroll-behavior-x:none;touch-action:pan-y}
+body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain;overscroll-behavior-x:none;overflow-x:clip;width:100%;max-width:100%;touch-action:pan-y}
 button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .app{display:flex;min-height:100vh}
@@ -442,7 +445,7 @@ canvas{max-width:100%}
 .coins-card h2{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .coins-hint{font-size:12px;color:var(--t3);font-weight:500}
 .coins-lbl{font-size:11.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:10px 2px 2px}
-.coins-row{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 4px;-webkit-overflow-scrolling:touch}
+.coins-row{display:flex;align-items:flex-start;gap:10px;overflow-x:auto;padding:6px 2px 4px;-webkit-overflow-scrolling:touch}
 /* Блоки, которые листаются вбок намеренно — им горизонтальный жест разрешён.
    pan-x вместе с pinch-zoom не включает: масштаб остаётся заблокирован. */
 .coins-row,.kanban,.cs-table-wrap,.tbl-scroll{touch-action:pan-x pan-y}
@@ -465,7 +468,7 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 @media(prefers-reduced-motion:reduce){.coin-drag-dots{transition:none}}
 .coin-menu-btn{position:absolute;top:-4px;right:0;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);line-height:1;box-shadow:var(--sh-s);z-index:2}
 .coin-menu-btn:active{background:var(--fill)}
-@media (pointer: coarse){.coin-menu-btn{position:relative}.coin-menu-btn::after{content:"";position:absolute;inset:-12px}}
+@media (pointer: coarse){.coin-menu-btn::after{content:"";position:absolute;inset:-12px}}
 /* Подсказка «сюда можно» на противоположной колонке — покачивание, как у
    иконок iOS при удержании пальца, обводка и свечение цветом темы (--accent). */
 .coin.drop-target .disc{animation:coinJiggle .26s ease-in-out infinite}
@@ -954,7 +957,7 @@ var WW_RESET_FLAG = "ww_intentional_reset_v1";
 function wwPayloadWeight(st) {
   if (!st || typeof st !== "object") return 0;
   var n = 0;
-  ["transactions", "credits", "recurring", "budgets", "goals", "tasks", "links"].forEach(function (k) {
+  ["transactions", "credits", "recurring", "budgets", "goals", "tasks", "links", "notes"].forEach(function (k) {
     if (Array.isArray(st[k])) n += st[k].length;
   });
   ["posted", "skipped", "ww30Cr", "ww30Tx"].forEach(function (k) {
@@ -972,7 +975,14 @@ function wwLooksUntouched(st) {
   ["posted", "skipped", "ww30Cr", "ww30Tx"].forEach(function (k) {
     if (st[k] && typeof st[k] === "object") marks += Object.keys(st[k]).length;
   });
-  return tx === 0 && marks === 0;
+  /* v3.37: одних операций мало. Человек мог сначала настроить лимиты, цели,
+     регулярные платежи и кредиты — и не завести ни одной операции; такое
+     состояние раньше считалось пустым, и облако затирало его настройки.
+     Стартовый набор (счета, категории, демо-кредиты, лимиты, цели) есть и у
+     чистой установки, поэтому опираемся на журнал изменений: любая правка
+     пользователя оставляет в нём запись, а у свежего устройства он пуст. */
+  var edits = Array.isArray(st.audit) ? st.audit.length : 0;
+  return tx === 0 && marks === 0 && edits === 0;
 }
 function save() {
   S.updatedAt = Date.now();
@@ -1061,6 +1071,13 @@ const MONTHS = ["январь","февраль","март","апрель","ма�
 const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
 const fmtDay = (d) => { const x = new Date(d + "T00:00:00"); return x.getDate() + " " + MONTHS_GEN[x.getMonth()]; };
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+/* v3.37: настоящая ww28Icon объявлена ниже, в отдельном блоке <script>. Пока браузер
+   до него не дошёл, ранний рендер дашборда падал с "ww28Icon is not defined" и обрывался
+   на середине (иконки и топ категорий не дорисовывались). Ставим безопасную заглушку —
+   настоящая функция перезапишет её, как только её блок будет разобран. */
+if (typeof window.ww28Icon !== "function") {
+  window.ww28Icon = function (ic, name) { return esc(String(ic || "•")); };
+}
 
 function currentPayment(c) {
   const t = todayStr();
@@ -1399,7 +1416,7 @@ function renderDash() {
 function txRow(t) {
   const c = cat(t.categoryId) || { icon: t.type === "income" ? "💵" : "📌", name: "Без категории" };
   const tagsHtml = (t.tags && t.tags.length) ? " " + t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join("") : "";
-  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button></div>`;
+  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button></div>`;
 }
 async function delTx(id) { if (isObserver()) return; if (!await wwConfirm("Операцию можно будет вернуть только вручную.", { title: "Удалить операцию?", okText: "Удалить", danger: true })) return; S.transactions = S.transactions.filter((t) => t.id !== id); save(); render(activePage()); }
 function activePage() { return (document.querySelector(".page.active") || {}).id?.replace("page-", "") || "dashboard"; }
@@ -1413,7 +1430,10 @@ function txCard(t) {
   return `<div class="card" data-sid="${t.id}" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
       <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div style="min-width:0"><div class="rt">${esc(c.name)}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div></div>
-      <button class="btn btn-ghost btn-sm" onclick="delTx('${t.id}')" title="Удалить">✕</button>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button>
+      </div>
     </div>
     ${t.note ? `<div class="sub">${esc(t.note)}</div>` : ""}
     ${tagsHtml}
@@ -1726,7 +1746,9 @@ function ww24OpenCreditFromCal(id) {
 /* ===================== analytics ===================== */
 function setupCanvas(cv) {
   const dpr = window.devicePixelRatio || 1;
-  const w = cv.parentElement.clientWidth - 4, h = 240;
+  /* v3.37: у скрытого контейнера clientWidth = 0, ширина уходила в минус, и дальше
+     в drawDonut получался отрицательный радиус (arc: radius -30 is negative). */
+  const w = Math.max(1, (cv.parentElement ? cv.parentElement.clientWidth : 0) - 4), h = 240;
   cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + "px"; cv.style.height = h + "px";
   const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
   return { ctx, w, h };
@@ -1741,6 +1763,16 @@ function drawDonut(cv, entries, total, subLabel) {
   if (!total) return;
   const cx = w / 2, cy = h / 2;
   const R = Math.min(w, h) / 2 - 16;
+  /* v3.37: контейнер ещё скрыт (переключение вкладок) — радиус вышел бы отрицательным.
+     Тихо ждём один кадр и рисуем, когда ширина появится. */
+  if (!(R > 0)) {
+    if (cv._donutWait) cancelAnimationFrame(cv._donutWait);
+    cv._donutWait = requestAnimationFrame(function () {
+      cv._donutWait = 0;
+      if (cv.parentElement && cv.parentElement.clientWidth > 40) drawDonut(cv, entries, total, subLabel);
+    });
+    return;
+  }
   const thick = Math.max(24, Math.round(R * 0.34));
   const ringR = R - thick / 2;
   const fr = entries.map(([, v]) => v / total);
@@ -3371,7 +3403,11 @@ document.body.dataset.theme = S.settings.theme || "t9";
 ww35ThemeColor();
 applyObserverMode();
 applyRailCollapse();
-renderDash();
+/* v3.37: первый рендер откладываем до конца разбора документа. Раньше он шёл
+   раньше блоков, где объявлены SVG-иконки и обёртки render/renderDuePanel, из-за
+   чего часть дашборда молча не дорисовывалась. */
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { renderDash(); });
+else renderDash();
 window.addEventListener("online", () => syncNow(false));
 if (S.settings.sbUrl && S.settings.sbKey) syncNow(false);
 setTimeout(ww36RealtimeInit, 800);
@@ -3692,7 +3728,10 @@ async function _syncNowInner(manual) {
       if (wouldWipe) {
         doPull();
         if (manual) toast("Загружены данные из аккаунта");
-      } else if (remote && remote.data && remoteChanged && localDirty && (remote.data.updatedAt || 0) !== S.updatedAt) {
+      /* v3.37: раньше remoteChanged было истинно и при отсутствии lastRemote, поэтому
+         на первой синхронизации устройства диалог конфликта всплывал почти всегда.
+         Спрашиваем только если локально действительно есть что потерять. */
+      } else if (remote && remote.data && remoteChanged && localDirty && wwPayloadWeight(S) > 0 && (remote.data.updatedAt || 0) !== S.updatedAt) {
         if (manual || !_confAsked) {
           _confAsked = true;
           // Кнопки подписаны действием, а не «ОК/Отмена»: при риске потерять
@@ -4450,7 +4489,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.34";
+const WW_VERSION = "3.42";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6017,14 +6056,23 @@ try {
   window.editTx = function (id) {
     var t = ((typeof S !== "undefined" && S.transactions) || []).find(function (x) { return x.id === id; });
     if (!t) return;
+    if (typeof isObserver === "function" && isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
     window._txEditId = id;
     openTxModal({ _edit: true, type: t.type, categoryId: t.categoryId, amount: t.amount, accountId: t.accountId });
-    setTimeout(function () {
+    // Заполняем сразу: showModal вставляет разметку синхронно, поля уже есть.
+    // Повтор через кадр — страховка на случай, если модалку кто-то перерисует.
+    var fill = function () {
       var d = document.getElementById("tx-date"); if (d) d.value = t.date;
       var g = document.getElementById("tx-tags"); if (g) g.value = (t.tags || []).join(", ");
       var nt = document.getElementById("tx-note"); if (nt) nt.value = t.note || "";
+      var a = document.getElementById("tx-amount"); if (a && !a.value) a.value = t.amount;
+      var ac = document.getElementById("tx-acc"); if (ac && t.accountId) ac.value = t.accountId;
       var h = document.querySelector("#modal .mhead h3"); if (h) h.textContent = "Изменить операцию";
-    }, 60);
+      var sv = [].slice.call(document.querySelectorAll("#modal button")).filter(function (b) { return /Сохранить/.test(b.textContent); })[0];
+      if (sv) sv.textContent = "Сохранить изменения";
+    };
+    fill();
+    requestAnimationFrame(fill);
   };
 
   /* --- свайп вниз для закрытия модалки --- */
@@ -6613,6 +6661,7 @@ const WW331_COLS = [
   { key: "budgets", label: "Лимит", icon: "🎯", page: "budgets", name: (b) => (cat(b.categoryId) || {}).name || "Категория" },
   { key: "goals", label: "Цель", icon: "🏁", page: "goals", name: (g) => g.name || "Цель" },
   { key: "tasks", label: "Задача", icon: "✅", page: "planner", name: (t) => t.title || t.name || "Задача" },
+  { key: "notes", label: "Заметка", icon: "📝", page: "notes", name: (n) => (String(n.body || "").split("\n").filter((l) => l.trim())[0] || "Заметка").slice(0, 40) },
   { key: "accounts", label: "Счёт", icon: "👛", page: "settings", name: (a) => a.name || "Счёт" },
   { key: "categories", label: "Категория", icon: "🏷️", page: "settings", name: (c) => c.name || "Категория" },
   { key: "links", label: "Ссылка", icon: "🔗", page: "links", name: (l) => l.name || l.url || "Ссылка" },
@@ -6672,7 +6721,7 @@ function ww331Audit(prev) {
     });
   });
 }
-const WW331_ACTION = { create: ["создано", "var(--green)"], update: ["изменено", "var(--blue)"], delete: ["удалено", "var(--red)"], restore: ["откат", "var(--amber)"] };
+const WW331_ACTION = { create: ["создано", "var(--green)"], update: ["изменено", "var(--blue)"], delete: ["удалено", "var(--red)"], restore: ["откат", "var(--amber)"], error: ["сбой", "var(--red)"] };
 
 function ww331When(ts) {
   const d = new Date(ts), now = new Date();
@@ -7786,6 +7835,1602 @@ wwCloudRestore = async function (id, when) {
     toast("Не удалось восстановить: " + e.message);
   }
 };
+
+</script>
+<script>
+/* =====================================================================
+   v3.37: сбои больше не остаются только в консоли
+   На телефоне консоль никто не открывает, поэтому две ошибки (иконки
+   категорий и радиус диаграммы) жили в приложении незамеченными. Теперь
+   любой необработанный сбой показывается тостом и попадает в «Историю
+   изменений» — там его видно вместе с датой и местом в коде.
+   ===================================================================== */
+var WW337_SEEN = [];
+var WW337_MAX_TOASTS = 3;
+var _ww337Toasts = 0;
+
+function ww337Report(kind, msg, where) {
+  msg = String(msg == null ? "" : msg).slice(0, 300);
+  if (!msg) return;
+  var sig = kind + "|" + msg + "|" + (where || "");
+  if (WW337_SEEN.indexOf(sig) >= 0) return;   // один и тот же сбой не дублируем
+  WW337_SEEN.push(sig);
+  if (WW337_SEEN.length > 50) WW337_SEEN.shift();
+
+  try {
+    if (typeof ww331LogPush === "function" && typeof S === "object" && Array.isArray(S.audit)) {
+      ww331LogPush({
+        col: "app",
+        label: kind === "promise" ? "Сбой (фон)" : "Сбой",
+        action: "error",
+        title: msg,
+        fields: where ? [{ f: "where", from: "", to: String(where).slice(0, 200) }] : [],
+      });
+      if (typeof ww331Persist === "function") ww331Persist();
+      else if (typeof save === "function") save();
+    }
+  } catch (e) {}
+
+  try {
+    if (_ww337Toasts < WW337_MAX_TOASTS && typeof toast === "function") {
+      _ww337Toasts++;
+      toast("Сбой в приложении — записан в историю");
+    }
+  } catch (e) {}
+}
+
+window.addEventListener("error", function (e) {
+  var where = "";
+  try { where = (e.filename ? String(e.filename).split("/").pop() : "") + (e.lineno ? ":" + e.lineno : ""); } catch (x) {}
+  ww337Report("error", e && (e.message || (e.error && e.error.message)), where);
+});
+
+window.addEventListener("unhandledrejection", function (e) {
+  var r = e && e.reason;
+  var msg = r && (r.message || r);
+  /* Обрыв сети при синхронизации приложение обрабатывает само (офлайн-режим,
+     свой тост) — такие отказы не выдаём за сбой программы. */
+  if (/Failed to fetch|NetworkError|Load failed|network|offline/i.test(String(msg))) return;
+  ww337Report("promise", msg, "");
+});
+
+</script>
+<script>
+/* =====================================================================
+   v3.38: раздел «Хранилище» и порядок разделов
+
+   Раньше «Цели и накопления», «Ссылки» и «Пароли» были тремя отдельными
+   пунктами меню. Теперь это один раздел с внутренними вкладками, куда
+   добавлена вкладка «Заметки».
+
+   Сами страницы не переписываются: их готовая разметка переезжает внутрь
+   вкладок целиком, поэтому все старые кнопки, поиск, режимы «вида» и
+   перетаскивание продолжают работать. Старые вызовы nav("goals"),
+   nav("links"), nav("passwords") тоже работают — они открывают нужную вкладку
+   (это важно для горячих клавиш, истории изменений и центра уведомлений).
+   ===================================================================== */
+var WW40_TABS = ["goals", "notes", "links", "passwords"];
+var WW40_TAB_LABEL = { goals: "Цели и накопления", notes: "Заметки", links: "Ссылки", passwords: "Пароли" };
+var WW40_SECTIONS = [
+  ["dashboard", "Дашборд"], ["ops", "Операции"], ["budgets", "Бюджеты"],
+  ["credits", "Кредиты и платежи"], ["calendar", "Календарь"], ["planner", "Планировщик"],
+  ["vault", "Хранилище"], ["analytics", "Аналитика"], ["settings", "Настройки"],
+];
+var WW40_VAULT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 8.6V6.2M12 17.8v-2.4M8.6 12H6.2M17.8 12h-2.4"/></svg>';
+var WW40_IDEA_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9V15h7v-1.1A6 6 0 0 0 12 3z"/></svg>';
+
+/* ---------- стили вкладок ---------- */
+(function () {
+  var css = document.createElement("style");
+  css.textContent =
+    ".ww40-tabs{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:4px;margin:0 0 16px;touch-action:pan-x pan-y}" +
+    ".ww40-tabs::-webkit-scrollbar{display:none}" +
+    ".ww40-tab{flex:1 0 auto;white-space:nowrap;border:0;background:transparent;color:var(--muted);font:inherit;font-weight:700;font-size:13.5px;padding:9px 14px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;transition:background .15s ease,color .15s ease}" +
+    ".ww40-tab:hover{color:var(--text)}" +
+    ".ww40-tab.active{background:var(--accent);color:#fff}" +
+    ".ww40-tab .wwi,.ww40-tab svg{width:16px;height:16px;flex:none}" +
+    ".ww40-tab .cnt{font-weight:600;opacity:.75;font-size:12px}" +
+    ".ww40-panel{display:none}.ww40-panel.on{display:block}" +
+    ".ww40-panel .page-head{margin-top:0}" +
+    "#ww40-order-list .row{cursor:grab}" +
+    "@media(max-width:720px){.ww40-tab{font-size:13px;padding:9px 11px}.ww40-tab .cnt{display:none}}";
+  document.head.appendChild(css);
+})();
+
+/* ---------- сборка раздела ---------- */
+function ww40CurTab() {
+  var t = S && S.settings && S.settings.vaultTab;
+  return WW40_TABS.indexOf(t) >= 0 ? t : "goals";
+}
+
+function ww40TabVisible(tab) {
+  /* В режиме «Просмотр» владелец может закрывать разделы — уважаем это
+     и внутри вкладок, иначе объединение стало бы лазейкой к паролям. */
+  try {
+    if (typeof ww22Profile === "function" && ww22Profile() === "parents" && typeof ww24Sections === "function") {
+      var vis = ww24Sections();
+      if (tab === "notes") return vis.links !== false;   // заметки следуют за ссылками
+      return vis[tab] !== false;
+    }
+  } catch (e) {}
+  return true;
+}
+
+function ww40Count(tab) {
+  if (tab === "notes") {
+    return Array.isArray(S.notes) ? S.notes.filter(function (x) { return !x.trashed; }).length : 0;
+  }
+  var k = tab === "goals" ? "goals" : tab === "links" ? "links" : "passwords";
+  return Array.isArray(S[k]) ? S[k].length : 0;
+}
+
+function ww40RenderTabs() {
+  var bar = document.getElementById("ww40-tabs");
+  if (!bar) return;
+  var cur = ww40CurTab();
+  bar.innerHTML = WW40_TABS.filter(ww40TabVisible).map(function (t) {
+    var n = ww40Count(t);
+    return '<button class="ww40-tab' + (t === cur ? " active" : "") + '" data-tab="' + t + '" onclick="ww40Tab(\'' + t + '\')">' +
+      esc(WW40_TAB_LABEL[t]) + (n ? ' <span class="cnt">' + n + "</span>" : "") + "</button>";
+  }).join("");
+}
+
+function ww40BuildHub() {
+  var main = document.querySelector("main.main");
+  if (!main || document.getElementById("page-vault")) return;
+
+  var sec = document.createElement("section");
+  sec.className = "page";
+  sec.id = "page-vault";
+  sec.innerHTML = '<div class="ww40-tabs" id="ww40-tabs"></div>' +
+    WW40_TABS.map(function (t) { return '<div class="ww40-panel" id="ww40-panel-' + t + '"></div>'; }).join("");
+  main.appendChild(sec);
+
+  /* Переносим готовую разметку трёх страниц во вкладки без изменений:
+     так сохраняются id элементов, обработчики и все старые рендереры. */
+  ["goals", "links", "passwords"].forEach(function (t) {
+    var old = document.getElementById("page-" + t), panel = document.getElementById("ww40-panel-" + t);
+    if (!old || !panel) return;
+    while (old.firstChild) panel.appendChild(old.firstChild);
+    if (old.parentNode) old.parentNode.removeChild(old);
+  });
+
+  /* Содержимое вкладки «Заметки» строит блок ww41 (он ниже в файле). */
+  if (typeof ww41BuildPanel === "function") ww41BuildPanel();
+
+  ww40RenderTabs();
+}
+
+/* ---------- переключение вкладок ---------- */
+function ww40Tab(tab) {
+  if (WW40_TABS.indexOf(tab) < 0 || !ww40TabVisible(tab)) tab = ww40CurTab();
+  if (!ww40TabVisible(tab)) tab = WW40_TABS.filter(ww40TabVisible)[0] || "goals";
+  S.settings.vaultTab = tab;
+  try { save(); } catch (e) {}
+  WW40_TABS.forEach(function (t) {
+    var p = document.getElementById("ww40-panel-" + t);
+    if (p) p.classList.toggle("on", t === tab);
+  });
+  ww40RenderTabs();
+  ww40Nav("vault");   // подсветит пункт меню и вызовет рендер активной вкладки
+}
+
+/* ---------- порядок разделов ---------- */
+function ww40Order() {
+  var all = WW40_SECTIONS.map(function (s) { return s[0]; });
+  var saved = Array.isArray(S.settings.navOrder) ? S.settings.navOrder : [];
+  var out = [];
+  saved.forEach(function (k) {
+    /* в старых настройках могли быть три отдельных пункта — теперь это один */
+    if (k === "goals" || k === "links" || k === "passwords") k = "vault";
+    if (all.indexOf(k) >= 0 && out.indexOf(k) < 0) out.push(k);
+  });
+  all.forEach(function (k) { if (out.indexOf(k) < 0) out.push(k); });
+  return out;
+}
+
+function ww40HasCustomOrder() {
+  return Array.isArray(S.settings.navOrder) && S.settings.navOrder.length > 0;
+}
+
+/* Исходный порядок меню запоминаем один раз, чтобы кнопка «Сбросить порядок»
+   возвращала именно исходную раскладку вместе с заголовками групп, а не оставляла
+   пункты там, куда их перетащили. */
+var WW40_RAIL_DEFAULT = null;
+var WW40_BN_DEFAULT = null;
+
+function ww40RememberDefaults() {
+  var rail = document.querySelector(".rail");
+  if (rail && !WW40_RAIL_DEFAULT) WW40_RAIL_DEFAULT = [].slice.call(rail.children);
+  var bn = document.querySelector(".bottom-nav");
+  if (bn && !WW40_BN_DEFAULT) WW40_BN_DEFAULT = [].slice.call(bn.children);
+}
+
+function ww40ApplyOrder() {
+  var order = ww40Order(), custom = ww40HasCustomOrder();
+  ww40RememberDefaults();
+
+  var rail = document.querySelector(".rail");
+  if (rail) {
+    /* При своём порядке заголовки групп теряют смысл: пункты переехали. */
+    rail.querySelectorAll(".rail-grp").forEach(function (g) { g.style.display = custom ? "none" : ""; });
+    if (custom) {
+      var map = {};
+      rail.querySelectorAll(".rail-item[data-nav]").forEach(function (el) { map[el.dataset.nav] = el; });
+      order.forEach(function (k) { if (map[k]) rail.appendChild(map[k]); });
+    } else if (WW40_RAIL_DEFAULT) {
+      WW40_RAIL_DEFAULT.forEach(function (el) { if (el.parentNode === rail) rail.appendChild(el); });
+    }
+  }
+
+  var bn = document.querySelector(".bottom-nav");
+  if (bn) {
+    if (custom) {
+      var bmap = {}, more = null;
+      bn.querySelectorAll(".bn-item").forEach(function (el) {
+        if (el.dataset.nav) bmap[el.dataset.nav] = el; else more = el;
+      });
+      order.forEach(function (k) { if (bmap[k]) bn.appendChild(bmap[k]); });
+      if (more) bn.appendChild(more);   // «Ещё» всегда последнее
+    } else if (WW40_BN_DEFAULT) {
+      WW40_BN_DEFAULT.forEach(function (el) { if (el.parentNode === bn) bn.appendChild(el); });
+    }
+  }
+}
+
+function ww40MoveSection(key, dir) {
+  var o = ww40Order(), i = o.indexOf(key), j = i + dir;
+  if (i < 0 || j < 0 || j >= o.length) return;
+  o.splice(j, 0, o.splice(i, 1)[0]);
+  S.settings.navOrder = o;
+  save(); ww40ApplyOrder(); ww40RenderOrderCard();
+}
+
+function ww40ResetOrder() {
+  S.settings.navOrder = [];
+  save(); ww40ApplyOrder(); ww40RenderOrderCard();
+  toast("Порядок разделов сброшен");
+}
+
+function ww40RenderOrderCard() {
+  var page = document.getElementById("page-settings");
+  if (!page) return;
+  var card = document.getElementById("ww40-order-card");
+  if (!card) {
+    card = document.createElement("div");
+    card.className = "card";
+    card.id = "ww40-order-card";
+    (page.querySelector(".grid.grid-2") || page).appendChild(card);
+  }
+  var names = {};
+  WW40_SECTIONS.forEach(function (s) { names[s[0]] = s[1]; });
+  var o = ww40Order();
+  card.innerHTML = "<h2>↕️ Порядок разделов</h2>" +
+    '<div class="sub" style="margin:-4px 0 10px">Перетащите за точки или воспользуйтесь стрелками. Порядок применится и к меню слева, и к нижней панели на телефоне.</div>' +
+    '<div id="ww40-order-list">' + o.map(function (k, idx) {
+      return '<div class="row" data-sid="' + k + '"><div class="rmain"><div class="rt">' + esc(names[k] || k) + "</div>" +
+        '<div class="rs">' + (idx + 1) + " по порядку</div></div>" +
+        '<button class="btn btn-ghost btn-sm" onclick="ww40MoveSection(\'' + k + '\',-1)"' + (idx === 0 ? " disabled" : "") + ' title="Выше">↑</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="ww40MoveSection(\'' + k + '\',1)"' + (idx === o.length - 1 ? " disabled" : "") + ' title="Ниже">↓</button></div>';
+    }).join("") + "</div>" +
+    '<div style="margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="ww40ResetOrder()">Сбросить порядок</button></div>';
+
+  var list = document.getElementById("ww40-order-list");
+  if (list) {
+    list._sortCb = function (ids) {
+      S.settings.navOrder = ids;
+      save(); ww40ApplyOrder(); ww40RenderOrderCard();
+    };
+    if (typeof injectGripsAll === "function") injectGripsAll();
+  }
+}
+
+/* ---------- меню ---------- */
+function ww40Rail() {
+  var rail = document.querySelector(".rail");
+  if (!rail || rail.querySelector('.rail-item[data-nav="vault"]')) return;
+  var goals = rail.querySelector('.rail-item[data-nav="goals"]');
+  var links = rail.querySelector('.rail-item[data-nav="links"]');
+  var pass = rail.querySelector('.rail-item[data-nav="passwords"]');
+
+  var item = document.createElement("button");
+  item.className = "rail-item";
+  item.dataset.nav = "vault";
+  item.innerHTML = WW40_VAULT_ICON + "<span>Хранилище</span>";
+  item.addEventListener("click", function () { nav("vault"); });
+
+  var grp = null;
+  rail.querySelectorAll(".rail-grp").forEach(function (g) { if (/Хранилище/.test(g.textContent)) grp = g; });
+  if (grp) { grp.textContent = "Личное"; grp.parentNode.insertBefore(item, grp.nextSibling); }
+  else if (links) links.parentNode.insertBefore(item, links);
+  else rail.appendChild(item);
+
+  [goals, links, pass].forEach(function (el) { if (el && el.parentNode) el.parentNode.removeChild(el); });
+}
+
+function ww40PatchMore() {
+  var modal = document.getElementById("modal");
+  if (!modal) return;
+  var goals = modal.querySelector('.more-item[data-more="goals"]');
+  var links = modal.querySelector('.more-item[data-more="links"]');
+  var pass = modal.querySelector('.more-item[data-more="passwords"]');
+  if (!goals && !links) return;
+
+  var grp = null;
+  modal.querySelectorAll(".more-grp").forEach(function (g) { if (/Хранилище/.test(g.textContent)) grp = g; });
+
+  var item = goals || links;
+  item.dataset.more = "vault";
+  item.innerHTML = WW40_VAULT_ICON + "Хранилище: цели, заметки, ссылки, пароли";
+  item.setAttribute("onclick", "closeModal();nav('vault')");
+  if (grp) { grp.textContent = "Личное"; grp.parentNode.insertBefore(item, grp.nextSibling); }
+
+  [goals, links, pass].forEach(function (el) {
+    if (el && el !== item && el.parentNode) el.parentNode.removeChild(el);
+  });
+
+  /* Заголовок группы «Деньги» мог остаться без пунктов — пустых шапок не оставляем. */
+  modal.querySelectorAll(".more-grp").forEach(function (g) {
+    var any = false, el = g.nextElementSibling;
+    while (el && el.classList.contains("more-item")) {
+      if (el.style.display !== "none") any = true;
+      el = el.nextElementSibling;
+    }
+    if (!any) g.style.display = "none";
+  });
+}
+
+/* ---------- врезка в навигацию ---------- */
+var ww40Nav = nav;
+var ww40Render = render;
+var ww40ActivePage = activePage;
+
+nav = function (page) {
+  if (WW40_TABS.indexOf(page) >= 0) { ww40Tab(page); return; }
+  ww40Nav(page);
+};
+
+render = function (page) {
+  if (page === "vault") { ww40RenderTab(ww40CurTab()); return; }
+  if (page === "notes") { renderNotes(); return; }
+  ww40Render(page);
+};
+
+function ww40RenderTab(tab) {
+  ww40RenderTabs();
+  if (tab === "notes") { renderNotes(); return; }
+  ww40Render(tab);
+}
+
+/* Много кода спрашивает activePage(), чтобы узнать, что перерисовать и какой
+   режим «вида» применять. Снаружи активна страница «vault», но для остального
+   кода важна именно открытая вкладка — её и возвращаем. */
+activePage = function () {
+  var p = ww40ActivePage();
+  return p === "vault" ? ww40CurTab() : p;
+};
+
+if (typeof openMore === "function") {
+  var ww40More = openMore;
+  openMore = function () { ww40More.apply(null, arguments); ww40PatchMore(); };
+}
+
+if (typeof renderSettings === "function") {
+  var ww40RS = renderSettings;
+  renderSettings = function () { ww40RS.apply(null, arguments); ww40RenderOrderCard(); };
+}
+
+/* Старый applyNavOrder умел только меню слева и не знал про новый раздел. */
+if (typeof applyNavOrder === "function") applyNavOrder = ww40ApplyOrder;
+
+/* ---------- старт ---------- */
+function ww40Boot() {
+  if (!Array.isArray(S.notes)) S.notes = [];
+  ww40BuildHub();
+  ww40Rail();
+  ww40RememberDefaults();
+  ww40ApplyOrder();
+  WW40_TABS.forEach(function (t) {
+    var p = document.getElementById("ww40-panel-" + t);
+    if (p) p.classList.toggle("on", t === ww40CurTab());
+  });
+  ww40RenderTabs();
+  if (document.getElementById("page-settings") && document.querySelector("#page-settings.active")) ww40RenderOrderCard();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ww40Boot);
+else ww40Boot();
+
+</script>
+<script>
+/* =====================================================================
+   v3.39 — блок ww41
+
+   1) «Идеи» → «Заметки» с поведением заметок на iPhone: автосохранение без
+      кнопки «Сохранить», заголовок = первая строка, папки, закрепление,
+      чек-листы с тапом по галочке, форматирование, поиск, список/галерея,
+      «Недавно удалённые» с восстановлением и автоочисткой через 30 дней.
+   2) На дашборде в «Доходах» у каждого источника появилось меню ⋮ →
+      «Изменить сумму»: сумма за выбранный период правится прямо там,
+      как это уже работает у кошельков.
+   ===================================================================== */
+
+var WW41_DEF_FOLDER = "Заметки";
+var WW41_TRASH_DAYS = 30;
+var WW41_NOTE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14.2 3.7V8.2H18.8"/><path d="M8.8 12h6.4M8.8 15.5h4.4"/></svg>';
+
+(function () {
+  var css = document.createElement("style");
+  css.textContent =
+    "#ww41-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}" +
+    ".ww41-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;cursor:pointer;position:relative;min-height:120px;display:flex;flex-direction:column;gap:6px}" +
+    ".ww41-card:hover{border-color:var(--border-h)}" +
+    ".ww41-card .t{font-weight:700;font-size:14.5px;line-height:1.3}" +
+    ".ww41-card .s{font-size:12.5px;color:var(--t3);line-height:1.35;flex:1;overflow:hidden}" +
+    ".ww41-card .d{font-size:11.5px;color:var(--t3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}" +
+    ".ww41-pin{position:absolute;top:8px;right:9px;font-size:12px;opacity:.85}" +
+    ".ww41-bar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}" +
+    ".ww41-bar button{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:9px;padding:6px 10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}" +
+    ".ww41-bar button:hover{border-color:var(--border-h)}" +
+    "#ww41-body{width:100%;min-height:38vh;resize:vertical;font-size:15.5px;line-height:1.5}" +
+    ".ww41-check{margin-top:10px;display:flex;flex-direction:column;gap:2px}" +
+    ".ww41-check .it{display:flex;gap:8px;align-items:flex-start;padding:5px 2px;cursor:pointer;font-size:14.5px}" +
+    ".ww41-check .bx{flex:none;width:19px;height:19px;border-radius:50%;border:1.6px solid var(--border-h);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;margin-top:1px}" +
+    ".ww41-check .it.on .bx{background:var(--amber,#f0a83c);border-color:var(--amber,#f0a83c)}" +
+    ".ww41-check .it.on .tx{color:var(--t3);text-decoration:line-through}" +
+    ".ww41-saved{font-size:12px;color:var(--t3);align-self:center;margin-left:auto}" +
+    "@media(max-width:720px){#ww41-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}#ww41-body{min-height:46vh}}";
+  document.head.appendChild(css);
+})();
+
+/* ---------- данные ---------- */
+function ww41Notes() {
+  if (!Array.isArray(S.notes)) S.notes = [];
+  return S.notes;
+}
+
+function ww41Folders() {
+  if (!Array.isArray(S.noteFolders) || !S.noteFolders.length) S.noteFolders = [WW41_DEF_FOLDER];
+  return S.noteFolders;
+}
+
+/* Идеи из v3.38 переезжают в заметки: название становится первой строкой,
+   описание — текстом, категория — папкой. Прогон идемпотентный, потому что
+   выгрузка из облака может снова принести старый ключ ideas. */
+function ww41Migrate() {
+  if (!Array.isArray(S.ideas) || !S.ideas.length) return false;
+  var notes = ww41Notes(), folders = ww41Folders();
+  S.ideas.forEach(function (i) {
+    var folder = (i.category || "").trim() || WW41_DEF_FOLDER;
+    if (folders.indexOf(folder) < 0) folders.push(folder);
+    notes.push({
+      id: i.id || uid(),
+      body: [i.title || "Заметка", "", i.note || ""].join("\n").trim(),
+      folder: folder,
+      pinned: false,
+      created: i.created || Date.now(),
+      updated: i.created || Date.now(),
+      trashed: 0,
+    });
+  });
+  S.ideas = [];
+  try { delete S.ideas; } catch (e) {}
+  return true;
+}
+
+function ww41Purge() {
+  var notes = ww41Notes(), cut = Date.now() - WW41_TRASH_DAYS * 864e5, before = notes.length;
+  S.notes = notes.filter(function (n) { return !(n.trashed && n.trashed < cut); });
+  return S.notes.length !== before;
+}
+
+function ww41Get(id) {
+  return ww41Notes().filter(function (n) { return n.id === id; })[0] || null;
+}
+
+function ww41Title(n) {
+  var lines = String(n.body || "").split("\n").filter(function (l) { return l.trim(); });
+  var t = (lines[0] || "").replace(/^#{1,3}\s*/, "").replace(/^[-*]\s*\[[ xX]\]\s*/, "").replace(/^[-*]\s+/, "").trim();
+  return t || "Новая заметка";
+}
+
+function ww41Snippet(n) {
+  var lines = String(n.body || "").split("\n").filter(function (l) { return l.trim(); });
+  lines.shift();
+  var s = lines.join("  ").replace(/^#{1,3}\s*/g, "").replace(/[-*]\s*\[[ xX]\]/g, "•").replace(/\*\*/g, "").trim();
+  return s.slice(0, 140);
+}
+
+function ww41Date(ts) {
+  var d = new Date(ts || Date.now()), now = new Date();
+  var p = function (n) { return n < 10 ? "0" + n : "" + n; };
+  var hm = p(d.getHours()) + ":" + p(d.getMinutes());
+  if (d.toDateString() === now.toDateString()) return "Сегодня " + hm;
+  if (d.toDateString() === new Date(now.getTime() - 864e5).toDateString()) return "Вчера " + hm;
+  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear();
+}
+
+function ww41Checks(n) {
+  var done = 0, all = 0;
+  String(n.body || "").split("\n").forEach(function (l) {
+    var m = l.match(/^\s*[-*]\s*\[([ xX])\]/);
+    if (!m) return;
+    all++;
+    if (m[1] !== " ") done++;
+  });
+  return { done: done, all: all };
+}
+
+function ww41Folder() {
+  var f = S.settings.noteFolder;
+  if (f === "trash" || f === "all") return f;
+  return ww41Folders().indexOf(f) >= 0 ? f : "all";
+}
+
+/* ---------- разметка вкладки ---------- */
+function ww41BuildPanel() {
+  var panel = document.getElementById("ww40-panel-notes");
+  if (!panel || panel.dataset.ready) return;
+  panel.dataset.ready = "1";
+  panel.innerHTML =
+    '<div class="page-head"><div><h1>Заметки</h1><div class="sub" id="note-sub"></div></div>' +
+    '<button class="btn btn-primary" onclick="ww41New()">＋ Заметка</button></div>' +
+    '<div class="toolbar"><input id="note-q" placeholder="Поиск по заметкам..." oninput="renderNotes()" style="flex:0 1 260px">' +
+    '<div class="chips" id="note-chips"></div>' +
+    '<button class="btn btn-ghost btn-sm" id="note-view" onclick="ww41ToggleView()" title="Список или галерея"></button></div>' +
+    '<div id="notes-list"></div>';
+}
+
+function ww41ToggleView() {
+  S.settings.notesView = S.settings.notesView === "grid" ? "list" : "grid";
+  save(); renderNotes();
+}
+
+/* ---------- список ---------- */
+function renderNotes() {
+  ww41BuildPanel();
+  var listEl = document.getElementById("notes-list");
+  if (!listEl) return;
+
+  var dirty = ww41Migrate();
+  if (ww41Purge()) dirty = true;
+  /* Пустые заметки не копим — как на iPhone, они просто не остаются. */
+  var open = ww41Editing;
+  var kept = ww41Notes().filter(function (n) { return n.id === open || String(n.body || "").trim(); });
+  if (kept.length !== ww41Notes().length) { S.notes = kept; dirty = true; }
+  if (dirty) { try { save(); } catch (e) {} }
+
+  var folder = ww41Folder(), grid = S.settings.notesView === "grid";
+  var q = ((document.getElementById("note-q") || {}).value || "").toLowerCase();
+  var all = ww41Notes();
+  var trashCount = all.filter(function (n) { return n.trashed; }).length;
+
+  var chips = document.getElementById("note-chips");
+  if (chips) {
+    var html = ['<button class="chip' + (folder === "all" ? " active" : "") + '" onclick="ww41SetFolder(\'all\')">Все</button>'];
+    ww41Folders().forEach(function (f) {
+      var n = all.filter(function (x) { return !x.trashed && (x.folder || WW41_DEF_FOLDER) === f; }).length;
+      html.push('<button class="chip' + (folder === f ? " active" : "") + '" onclick="ww41SetFolder(' + JSON.stringify(f).replace(/"/g, "&quot;") + ')">' + esc(f) + (n ? " · " + n : "") + "</button>");
+    });
+    html.push('<button class="chip' + (folder === "trash" ? " active" : "") + '" onclick="ww41SetFolder(\'trash\')">Недавно удалённые' + (trashCount ? " · " + trashCount : "") + "</button>");
+    html.push('<button class="chip" onclick="ww41NewFolder()" title="Новая папка">＋ Папка</button>');
+    if (folder !== "all" && folder !== "trash") html.push('<button class="chip" onclick="ww41FolderMenu()" title="Переименовать или удалить папку">⋮</button>');
+    chips.innerHTML = html.join("");
+  }
+
+  var vb = document.getElementById("note-view");
+  if (vb) vb.textContent = grid ? "☰ Списком" : "▦ Галереей";
+
+  var list = all.filter(function (n) {
+    if (folder === "trash") { if (!n.trashed) return false; }
+    else if (n.trashed) return false;
+    else if (folder !== "all" && (n.folder || WW41_DEF_FOLDER) !== folder) return false;
+    if (!q) return true;
+    return String(n.body || "").toLowerCase().indexOf(q) >= 0;
+  });
+
+  list.sort(function (a, b) {
+    if (folder !== "trash" && !!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return (b.updated || 0) - (a.updated || 0);
+  });
+
+  var sub = document.getElementById("note-sub");
+  if (sub) {
+    var act = all.filter(function (n) { return !n.trashed; }).length;
+    sub.textContent = folder === "trash"
+      ? "Удалённые заметки хранятся " + WW41_TRASH_DAYS + " дней"
+      : (act ? "Заметок: " + act + " · автосохранение при вводе" : "");
+  }
+
+  if (!list.length) {
+    listEl.className = "card";
+    listEl.innerHTML = '<div class="empty"><div class="big">' + WW41_NOTE_ICON + "</div>" +
+      (folder === "trash" ? "Корзина пуста" : q ? "Ничего не найдено" : "Первая заметка — кнопка «＋ Заметка»") + "</div>";
+    return;
+  }
+
+  if (folder === "trash") {
+    listEl.className = "card";
+    listEl.innerHTML =
+      '<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button class="btn btn-ghost btn-sm" onclick="ww41EmptyTrash()">Очистить корзину</button></div>' +
+      list.map(function (n) {
+        return '<div class="row">' +
+          '<div class="ic">' + WW41_NOTE_ICON + "</div>" +
+          '<div class="rmain"><div class="rt">' + esc(ww41Title(n)) + "</div>" +
+          '<div class="rs">Удалена ' + ww41Date(n.trashed) + "</div></div>" +
+          '<button class="btn btn-ghost btn-sm" onclick="ww41Restore(\'' + n.id + '\')" title="Восстановить">↩</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="ww41DeleteForever(\'' + n.id + '\')" title="Удалить навсегда">' + WWI.trash + "</button></div>";
+      }).join("");
+    return;
+  }
+
+  if (grid) {
+    listEl.className = "";
+    listEl.innerHTML = '<div id="ww41-grid">' + list.map(function (n) {
+      var ch = ww41Checks(n);
+      return '<div class="ww41-card" onclick="ww41Open(\'' + n.id + '\')">' +
+        (n.pinned ? '<span class="ww41-pin">📌</span>' : "") +
+        '<div class="t">' + esc(ww41Title(n)) + "</div>" +
+        '<div class="s">' + esc(ww41Snippet(n) || "Нет текста") + "</div>" +
+        '<div class="d"><span>' + ww41Date(n.updated) + "</span>" +
+        (ch.all ? "<span>☑︎ " + ch.done + "/" + ch.all + "</span>" : "") +
+        (folder === "all" ? '<span class="tag">' + esc(n.folder || WW41_DEF_FOLDER) + "</span>" : "") +
+        "</div></div>";
+    }).join("") + "</div>";
+    return;
+  }
+
+  listEl.className = "card";
+  listEl.innerHTML = list.map(function (n) {
+    var ch = ww41Checks(n);
+    return '<div class="row" data-sid="' + n.id + '" onclick="ww41Open(\'' + n.id + '\')" style="cursor:pointer">' +
+      '<div class="ic">' + WW41_NOTE_ICON + "</div>" +
+      '<div class="rmain"><div class="rt">' + (n.pinned ? "📌 " : "") + esc(ww41Title(n)) + "</div>" +
+      '<div class="rs">' + ww41Date(n.updated) +
+      (ch.all ? " · ☑︎ " + ch.done + "/" + ch.all : "") +
+      (folder === "all" ? ' · <span class="tag">' + esc(n.folder || WW41_DEF_FOLDER) + "</span>" : "") +
+      (ww41Snippet(n) ? " · " + esc(ww41Snippet(n).slice(0, 70)) : "") + "</div></div>" +
+      '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();ww41Pin(\'' + n.id + '\')" title="' + (n.pinned ? "Открепить" : "Закрепить") + '">' + (n.pinned ? "📌" : "📍") + "</button>" +
+      '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();ww41Open(\'' + n.id + '\')" title="Открыть">' + WWI.pencil + "</button>" +
+      '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();ww41Delete(\'' + n.id + '\')" title="Удалить">' + WWI.trash + "</button></div>";
+  }).join("");
+
+  listEl._sortCb = function (ids) {
+    if (typeof reorderById === "function") reorderById(S.notes, ids);
+    save(); renderNotes();
+  };
+  if (typeof injectGripsAll === "function") injectGripsAll();
+}
+
+function ww41SetFolder(f) { S.settings.noteFolder = f; save(); renderNotes(); }
+
+async function ww41NewFolder() {
+  if (isObserver()) return;
+  var name = await wwPrompt("Папки помогают разложить заметки по темам.", { title: "Новая папка", okText: "Создать" });
+  if (name === null) return;
+  name = String(name).trim();
+  if (!name) return;
+  if (ww41Folders().indexOf(name) < 0) ww41Folders().push(name);
+  S.settings.noteFolder = name;
+  save(); renderNotes();
+  toast("Папка «" + name + "» создана");
+}
+
+async function ww41FolderMenu() {
+  if (isObserver()) return;
+  var cur = ww41Folder();
+  if (cur === "all" || cur === "trash") return;
+  var name = await wwPrompt("Пустое имя — папка будет удалена, а её заметки переедут в «" + WW41_DEF_FOLDER + "».", {
+    title: "Папка «" + cur + "»", defaultValue: cur, okText: "Сохранить",
+  });
+  if (name === null) return;
+  name = String(name).trim();
+  var folders = ww41Folders();
+  if (!name) {
+    if (!await wwConfirm("Заметки не пропадут — они переедут в «" + WW41_DEF_FOLDER + "».", { title: "Удалить папку «" + cur + "»?", okText: "Удалить", danger: true })) return;
+    S.noteFolders = folders.filter(function (f) { return f !== cur; });
+    if (!S.noteFolders.length) S.noteFolders = [WW41_DEF_FOLDER];
+    ww41Notes().forEach(function (n) { if ((n.folder || WW41_DEF_FOLDER) === cur) n.folder = WW41_DEF_FOLDER; });
+    S.settings.noteFolder = "all";
+    save(); renderNotes(); toast("Папка удалена");
+    return;
+  }
+  if (name === cur) return;
+  folders[folders.indexOf(cur)] = name;
+  ww41Notes().forEach(function (n) { if ((n.folder || WW41_DEF_FOLDER) === cur) n.folder = name; });
+  S.settings.noteFolder = name;
+  save(); renderNotes(); toast("Папка переименована");
+}
+
+/* ---------- редактор ---------- */
+var ww41Editing = null;
+var ww41SaveTimer = null;
+
+function ww41New() {
+  if (isObserver()) return;
+  var folder = ww41Folder();
+  if (folder === "all" || folder === "trash") folder = ww41Folders()[0] || WW41_DEF_FOLDER;
+  var n = { id: uid(), body: "", folder: folder, pinned: false, created: Date.now(), updated: Date.now(), trashed: 0 };
+  ww41Notes().unshift(n);
+  save();
+  ww41Open(n.id);
+}
+
+function ww41Open(id) {
+  var n = ww41Get(id);
+  if (!n) return;
+  if (n.trashed) { toast("Заметка в корзине — сначала восстановите её"); return; }
+  if (isObserver()) {
+    showModal('<div class="mhead"><h3>' + esc(ww41Title(n)) + '</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+      '<div style="white-space:pre-wrap;font-size:15px;line-height:1.5">' + esc(n.body || "") + "</div>");
+    return;
+  }
+  ww41Editing = id;
+  showModal('<div class="mhead"><h3>Заметка</h3>' +
+    '<button class="x" onclick="ww41Done()">✕</button></div>' +
+    '<div class="ww41-bar">' +
+    '<button onclick="ww41Fmt(\'h\')" title="Заголовок">Aa</button>' +
+    '<button onclick="ww41Fmt(\'b\')" title="Жирный"><b>Ж</b></button>' +
+    '<button onclick="ww41Fmt(\'i\')" title="Курсив"><i>К</i></button>' +
+    '<button onclick="ww41Fmt(\'list\')" title="Список">• Список</button>' +
+    '<button onclick="ww41Fmt(\'check\')" title="Чек-лист">☑︎ Чек-лист</button>' +
+    '<button onclick="ww41Pin(\'' + id + '\',1)" id="ww41-pin-btn">' + (n.pinned ? "📌 Закреплена" : "📍 Закрепить") + "</button>" +
+    '<button onclick="ww41Copy(\'' + id + '\')" title="Скопировать текст">⧉ Копировать</button>' +
+    '<span class="ww41-saved" id="ww41-saved">' + ww41Date(n.updated) + "</span></div>" +
+    '<div class="fg"><textarea id="ww41-body" placeholder="Первая строка станет заголовком..." oninput="ww41Type()">' + esc(n.body || "") + "</textarea></div>" +
+    '<div class="ww41-check" id="ww41-check"></div>' +
+    '<div class="fg"><label>Папка</label><select id="ww41-folder" onchange="ww41MoveNote()">' +
+    ww41Folders().map(function (f) { return '<option value="' + esc(f) + '"' + ((n.folder || WW41_DEF_FOLDER) === f ? " selected" : "") + ">" + esc(f) + "</option>"; }).join("") +
+    "</select></div>" +
+    '<div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="ww41Done()">Готово</button>' +
+    '<button class="btn btn-danger" onclick="ww41Delete(\'' + id + '\')">Удалить</button></div>');
+  ww41RenderChecks();
+  var ta = document.getElementById("ww41-body");
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+/* Автосохранение: пишем с задержкой, чтобы не дёргать хранилище на каждой букве. */
+function ww41Type() {
+  var n = ww41Get(ww41Editing), ta = document.getElementById("ww41-body");
+  if (!n || !ta) return;
+  n.body = ta.value;
+  n.updated = Date.now();
+  var badge = document.getElementById("ww41-saved");
+  if (badge) badge.textContent = "Сохраняется...";
+  clearTimeout(ww41SaveTimer);
+  ww41SaveTimer = setTimeout(function () {
+    try { save(); } catch (e) {}
+    if (badge) badge.textContent = "Сохранено " + ww41Date(n.updated);
+    ww41RenderChecks();
+    try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+  }, 500);
+}
+
+function ww41Flush() {
+  clearTimeout(ww41SaveTimer);
+  var n = ww41Get(ww41Editing), ta = document.getElementById("ww41-body");
+  if (n && ta) { n.body = ta.value; n.updated = Date.now(); }
+  try { save(); } catch (e) {}
+}
+
+function ww41Done() {
+  ww41Flush();
+  ww41Editing = null;
+  closeModal();
+  try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+}
+
+function ww41MoveNote() {
+  var n = ww41Get(ww41Editing), sel = document.getElementById("ww41-folder");
+  if (!n || !sel) return;
+  n.folder = sel.value;
+  n.updated = Date.now();
+  save();
+  toast("Заметка в папке «" + n.folder + "»");
+  try { renderNotes(); } catch (e) {}
+}
+
+/* Форматирование текущей строки или выделения — как панель «Aa» на iPhone. */
+function ww41Fmt(kind) {
+  var ta = document.getElementById("ww41-body");
+  if (!ta) return;
+  var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+
+  if (kind === "b" || kind === "i") {
+    var mark = kind === "b" ? "**" : "*";
+    var sel = v.slice(s, e) || (kind === "b" ? "текст" : "текст");
+    ta.value = v.slice(0, s) + mark + sel + mark + v.slice(e);
+    ta.selectionStart = s + mark.length;
+    ta.selectionEnd = s + mark.length + sel.length;
+  } else {
+    var ls = v.lastIndexOf("\n", s - 1) + 1;
+    var le = v.indexOf("\n", s);
+    if (le < 0) le = v.length;
+    var line = v.slice(ls, le);
+    var bare = line.replace(/^\s*(#{1,3}\s*|[-*]\s*\[[ xX]\]\s*|[-*]\s+)/, "");
+    var pre = kind === "h" ? "## " : kind === "check" ? "- [ ] " : "- ";
+    var next = line === pre + bare ? bare : pre + bare;
+    ta.value = v.slice(0, ls) + next + v.slice(le);
+    var caret = ls + next.length;
+    ta.selectionStart = ta.selectionEnd = caret;
+  }
+  ta.focus();
+  ww41Type();
+}
+
+function ww41RenderChecks() {
+  var box = document.getElementById("ww41-check");
+  var n = ww41Get(ww41Editing);
+  if (!box || !n) return;
+  var items = [];
+  String(n.body || "").split("\n").forEach(function (l, idx) {
+    var m = l.match(/^\s*[-*]\s*\[([ xX])\]\s*(.*)$/);
+    if (m) items.push({ idx: idx, on: m[1] !== " ", text: m[2] });
+  });
+  if (!items.length) { box.innerHTML = ""; return; }
+  var done = items.filter(function (i) { return i.on; }).length;
+  box.innerHTML = '<div class="sub" style="margin-bottom:2px">Чек-лист · ' + done + " из " + items.length + "</div>" +
+    items.map(function (i) {
+      return '<div class="it' + (i.on ? " on" : "") + '" onclick="ww41Check(' + i.idx + ')">' +
+        '<span class="bx">' + (i.on ? "✓" : "") + '</span><span class="tx">' + esc(i.text || "...") + "</span></div>";
+    }).join("");
+}
+
+function ww41Check(lineIdx) {
+  var n = ww41Get(ww41Editing), ta = document.getElementById("ww41-body");
+  if (!n) return;
+  var lines = String(n.body || "").split("\n");
+  var l = lines[lineIdx];
+  if (l == null) return;
+  lines[lineIdx] = /\[ \]/.test(l) ? l.replace("[ ]", "[x]") : l.replace(/\[[xX]\]/, "[ ]");
+  n.body = lines.join("\n");
+  n.updated = Date.now();
+  if (ta) ta.value = n.body;
+  save();
+  ww41RenderChecks();
+  try { renderNotes(); } catch (e) {}
+}
+
+function ww41Pin(id, fromEditor) {
+  if (isObserver()) return;
+  var n = ww41Get(id);
+  if (!n) return;
+  n.pinned = !n.pinned;
+  n.updated = Date.now();
+  save();
+  if (fromEditor) {
+    var b = document.getElementById("ww41-pin-btn");
+    if (b) b.innerHTML = n.pinned ? "📌 Закреплена" : "📍 Закрепить";
+  }
+  try { renderNotes(); } catch (e) {}
+  toast(n.pinned ? "Заметка закреплена" : "Заметка откреплена");
+}
+
+function ww41Copy(id) {
+  var n = ww41Get(id);
+  if (!n) return;
+  var txt = String(n.body || "");
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+    else {
+      var t = document.createElement("textarea");
+      t.value = txt; document.body.appendChild(t); t.select();
+      document.execCommand("copy"); t.remove();
+    }
+    toast("Текст заметки скопирован");
+  } catch (e) { toast("Не удалось скопировать"); }
+}
+
+/* Удаление — в «Недавно удалённые», как на iPhone, с возможностью отменить. */
+function ww41Delete(id) {
+  if (isObserver()) return;
+  var n = ww41Get(id);
+  if (!n) return;
+  n.trashed = Date.now();
+  n.pinned = false;
+  if (ww41Editing === id) { ww41Editing = null; clearTimeout(ww41SaveTimer); closeModal(); }
+  save();
+  try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+  if (typeof ww2UndoToast === "function") {
+    ww2UndoToast("Заметка в «Недавно удалённых»", function () {
+      n.trashed = 0; save();
+      try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+    });
+  } else toast("Заметка в «Недавно удалённых»");
+}
+
+function ww41Restore(id) {
+  if (isObserver()) return;
+  var n = ww41Get(id);
+  if (!n) return;
+  n.trashed = 0;
+  n.updated = Date.now();
+  save();
+  try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+  toast("Заметка восстановлена");
+}
+
+async function ww41DeleteForever(id) {
+  if (isObserver()) return;
+  if (!await wwConfirm("Эту заметку уже не получится вернуть.", { title: "Удалить навсегда?", okText: "Удалить", danger: true })) return;
+  S.notes = ww41Notes().filter(function (n) { return n.id !== id; });
+  save();
+  try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+}
+
+async function ww41EmptyTrash() {
+  if (isObserver()) return;
+  var n = ww41Notes().filter(function (x) { return x.trashed; }).length;
+  if (!n) return;
+  if (!await wwConfirm("Заметок будет удалено: " + n + ". Вернуть их будет нельзя.", { title: "Очистить корзину?", okText: "Очистить", danger: true })) return;
+  S.notes = ww41Notes().filter(function (x) { return !x.trashed; });
+  save();
+  try { renderNotes(); ww40RenderTabs(); } catch (e) {}
+  toast("Корзина очищена");
+}
+
+/* =====================================================================
+   Дашборд: правка суммы дохода прямо в «Быстром вводе»
+   ===================================================================== */
+
+function ww41IncPeriodTx(catId) {
+  return S.transactions.filter(function (t) {
+    return t.type === "income" && t.categoryId === catId && (typeof ww26In === "function" ? ww26In(t.date) : true);
+  }).sort(function (a, b) { return String(a.date).localeCompare(String(b.date)); });
+}
+
+function ww41IncTotal(catId) {
+  return ww41IncPeriodTx(catId).reduce(function (s, t) { return s + +t.amount; }, 0);
+}
+
+/* Дата для новой операции: сегодня, если период включает сегодня,
+   иначе последний день выбранного периода — чтобы сумма попала «внутрь». */
+function ww41IncDate() {
+  var today = todayStr();
+  try {
+    if (typeof ww26In === "function" && ww26In(today)) return today;
+    var r = ww26RangeFor(ww26Period());
+    if (r && r.to) return r.to;
+  } catch (e) {}
+  return today;
+}
+
+function ww41IncMenu(e, catId) {
+  if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
+  if (typeof ww26ClearSel === "function") ww26ClearSel();
+  var existing = document.getElementById("ww41-inc-menu");
+  if (existing) { existing.remove(); if (existing.dataset.id === catId) return; }
+  var menu = document.createElement("div");
+  menu.id = "ww41-inc-menu";
+  menu.className = "view-menu-pop";
+  menu.dataset.id = catId;
+  menu.innerHTML =
+    '<button class="view-menu-item" onclick="ww41EditIncome(\'' + catId + '\')">✎ Изменить сумму</button>' +
+    '<button class="view-menu-item" onclick="ww41RenameIncome(\'' + catId + '\')">Aa Переименовать</button>';
+  document.body.appendChild(menu);
+  var r = e.currentTarget.getBoundingClientRect();
+  menu.style.top = Math.min(r.bottom + 6, window.innerHeight - 100) + "px";
+  menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 186)) + "px";
+}
+
+document.addEventListener("click", function (e) {
+  var m = document.getElementById("ww41-inc-menu");
+  if (m && !m.contains(e.target) && !e.target.closest(".ww41-inc-btn")) m.remove();
+});
+
+async function ww41EditIncome(catId) {
+  var m = document.getElementById("ww41-inc-menu");
+  if (m) m.remove();
+  if (isObserver()) return;
+  var c = cat(catId);
+  if (!c) return;
+  var cur = ww41IncTotal(catId);
+  var per = (typeof ww26Label === "function" ? ww26Label().toLowerCase() : "период");
+  var v = await wwPrompt("Сумма дохода за " + per + ". Разницу приложение само проведёт операцией по этому источнику — история и остатки счётов останутся сходящимися.", {
+    title: "Доход «" + c.name + "»", type: "number", defaultValue: cur, okText: "Сохранить",
+    validate: function (x) {
+      if (x === "" || isNaN(parseFloat(String(x).replace(",", ".")))) return "Введите число";
+      if (parseFloat(String(x).replace(",", ".")) < 0) return "Доход не может быть отрицательным";
+      return "";
+    },
+  });
+  if (v === null) return;
+  var target = Math.round(parseFloat(String(v).replace(",", ".")) * 100) / 100;
+  var diff = Math.round((target - cur) * 100) / 100;
+  if (!diff) { toast("Сумма не изменилась"); return; }
+
+  var txs = ww41IncPeriodTx(catId);
+
+  if (txs.length === 1) {
+    /* Одна операция за период — просто исправляем её сумму, без «корректировок». */
+    if (target === 0) S.transactions = S.transactions.filter(function (t) { return t.id !== txs[0].id; });
+    else txs[0].amount = target;
+  } else if (diff > 0) {
+    var accId = (txs.length ? txs[txs.length - 1].accountId : null) ||
+      ((S.accounts.filter(function (a) { return !a.archived; })[0] || {}).id) ||
+      ((S.accounts[0] || {}).id);
+    if (!accId) { await wwAlert("Сначала добавьте счёт, на который поступает доход.", { title: "Нет счёта" }); return; }
+    S.transactions.push({
+      id: uid(), date: ww41IncDate(), type: "income", amount: diff,
+      accountId: accId, categoryId: catId, note: "Правка суммы на дашборде",
+      tags: ["правка"], createdAt: Date.now(),
+    });
+  } else {
+    /* Уменьшение: снимаем нужное с самых свежих операций, чтобы не плодить
+       «отрицательные доходы», которых в учёте не бывает. */
+    var left = -diff;
+    for (var i = txs.length - 1; i >= 0 && left > 0.004; i--) {
+      var t = txs[i], take = Math.min(+t.amount, left);
+      t.amount = Math.round((+t.amount - take) * 100) / 100;
+      left = Math.round((left - take) * 100) / 100;
+      if (t.amount <= 0.004) S.transactions = S.transactions.filter(function (x) { return x.id !== t.id; });
+    }
+  }
+
+  save();
+  try { renderCoins(); } catch (e) {}
+  try { if (activePage() === "dashboard") render("dashboard"); } catch (e) {}
+  toast("Доход «" + c.name + "» за " + per + ": " + money(target));
+}
+
+async function ww41RenameIncome(catId) {
+  var m = document.getElementById("ww41-inc-menu");
+  if (m) m.remove();
+  if (isObserver()) return;
+  var c = cat(catId);
+  if (!c) return;
+  var v = await wwPrompt("Название источника дохода видно на дашборде и в операциях.", {
+    title: "Переименовать «" + c.name + "»", defaultValue: c.name, okText: "Сохранить",
+    validate: function (x) { return String(x || "").trim() ? "" : "Введите название"; },
+  });
+  if (v === null) return;
+  c.name = String(v).trim();
+  save();
+  try { renderCoins(); } catch (e) {}
+  try { renderSettings(); } catch (e) {}
+  toast("Переименовано");
+}
+
+/* Кнопку ⋮ добавляем после отрисовки монет: сам шаблон монет не трогаем,
+   поэтому перетаскивание и тап-режим продолжают работать как раньше. */
+function ww41PatchCoins() {
+  var box = document.getElementById("coins-inc");
+  if (!box) return;
+  box.querySelectorAll(".coin.inc[data-inc]").forEach(function (coin) {
+    if (coin.querySelector(".ww41-inc-btn")) return;
+    var id = coin.dataset.inc;
+    var b = document.createElement("button");
+    b.className = "coin-menu-btn ww41-inc-btn";
+    b.type = "button";
+    b.textContent = "⋮";
+    b.title = "Изменить сумму или название";
+    b.addEventListener("pointerdown", function (ev) { ev.stopPropagation(); });
+    b.addEventListener("click", function (ev) { ev.stopPropagation(); ww41IncMenu(ev, id); });
+    coin.insertBefore(b, coin.firstChild);
+  });
+}
+
+if (typeof renderCoins === "function") {
+  var ww41Coins = renderCoins;
+  renderCoins = function () {
+    ww41Coins.apply(null, arguments);
+    try { ww41PatchCoins(); } catch (e) {}
+  };
+}
+
+/* ---------- старт ---------- */
+function ww41Boot() {
+  var dirty = ww41Migrate();
+  if (ww41Purge()) dirty = true;
+  ww41Folders();
+  if (dirty) { try { save(); } catch (e) {} }
+  ww41BuildPanel();
+  try { ww40RenderTabs(); } catch (e) {}
+  try { ww41PatchCoins(); } catch (e) {}
+  try { if (activePage() === "notes") renderNotes(); } catch (e) {}
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ww41Boot);
+else ww41Boot();
+
+</script>
+<script>
+/* ==========================================================================
+   v3.41 (ww42) — модальные окна и клавиатура на iPhone
+
+   Симптом: в планировщике при нажатии «＋ Задача» нижний лист открывался
+   смятым — видны только заголовок «Новая задача» и крестик, поля появлялись
+   лишь после закрытия клавиатуры.
+
+   Причина: поле фокусируется сразу, iOS поднимает клавиатуру, но layout
+   viewport при этом НЕ уменьшается — вместо этого система «поддвигает»
+   страницу вверх. Слой position:fixed;inset:0 остаётся высотой во весь
+   экран, его нижняя половина уезжает под клавиатуру, а лист (align-items:
+   flex-end) прижимается к этому невидимому низу. Плюс max-height:88dvh
+   считается от полного экрана, поэтому лист ещё и оказывается прокручен.
+
+   Решение: слой окна привязывается к visual viewport (реальной видимой
+   области): его top и height берутся из window.visualViewport, а при поднятой
+   клавиатуре лист ограничивается этой же высотой. Тогда форма сразу видна
+   целиком над клавиатурой, а сфокусированное поле держится в видимой зоне.
+   ========================================================================== */
+(function () {
+  var vv = window.visualViewport;
+  var root = document.documentElement;
+
+  var css = [
+    /* Слой окна живёт в реальной видимой области, а не во весь экран. */
+    ".overlay.open,.dlg-ov.open{top:var(--ww42-vtop,0px);bottom:auto;height:var(--ww42-vh,100%)}",
+    /* Ограничиваем лист только при поднятой клавиатуре — на ПК всё как было. */
+    "body.ww42-kb .overlay.open .modal,body.ww42-kb .dlg-ov.open .dlg{max-height:calc(var(--ww42-vh,100%) - 8px)}",
+    /* При клавиатуре нижние отступы «под жест» не нужны — они съедают место. */
+    "body.ww42-kb .overlay.open .modal{padding-bottom:16px}",
+    "body.ww42-kb .dlg-ov.open .dlg{padding-bottom:14px}",
+  ].join("");
+  var st = document.createElement("style");
+  st.id = "ww42-css";
+  st.textContent = css;
+  document.head.appendChild(st);
+
+  var KB_MIN = 120; // меньше — это адресная строка/тулбар, а не клавиатура
+
+  function ww42Apply() {
+    var h = vv ? vv.height : window.innerHeight;
+    var top = vv ? vv.offsetTop : 0;
+    root.style.setProperty("--ww42-vh", Math.round(h) + "px");
+    root.style.setProperty("--ww42-vtop", Math.round(top) + "px");
+    var kb = !!vv && window.innerHeight - h > KB_MIN;
+    document.body.classList.toggle("ww42-kb", kb);
+    return kb;
+  }
+
+  var pending = 0;
+  function ww42Schedule() {
+    if (pending) return;
+    pending = requestAnimationFrame(function () { pending = 0; ww42Apply(); });
+  }
+
+  /* Сфокусированное поле не должно уезжать под край листа. */
+  function ww42KeepVisible() {
+    var el = document.activeElement;
+    if (!el || !el.closest || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+    var box = el.closest(".modal,.dlg");
+    if (!box) return;
+    var r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    if (r.bottom > b.bottom - 6 || r.top < b.top + 6) {
+      try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { try { el.scrollIntoView(); } catch (e2) {} }
+    }
+  }
+
+  if (vv) {
+    vv.addEventListener("resize", function () { ww42Schedule(); setTimeout(ww42KeepVisible, 80); });
+    vv.addEventListener("scroll", ww42Schedule);
+  }
+  window.addEventListener("resize", ww42Schedule);
+  window.addEventListener("orientationchange", function () { setTimeout(ww42Apply, 250); });
+
+  document.addEventListener("focusin", function (e) {
+    if (!e.target || !e.target.closest || !e.target.closest(".modal,.dlg")) return;
+    // Клавиатура появляется не мгновенно, поэтому пересчитываем дважды.
+    setTimeout(function () { ww42Apply(); ww42KeepVisible(); }, 120);
+    setTimeout(function () { ww42Apply(); ww42KeepVisible(); }, 420);
+  });
+  document.addEventListener("focusout", function (e) {
+    if (!e.target || !e.target.closest || !e.target.closest(".modal,.dlg")) return;
+    setTimeout(ww42Apply, 220);
+  });
+
+  /* Новое окно всегда открывается сверху формы, а не в прокрученном виде. */
+  if (typeof showModal === "function") {
+    var _sm42 = showModal;
+    window.showModal = showModal = function (html, opts) {
+      _sm42(html, opts);
+      var m = document.getElementById("modal");
+      if (m) m.scrollTop = 0;
+      ww42Apply();
+      requestAnimationFrame(function () { if (m) m.scrollTop = 0; ww42Apply(); });
+      return undefined;
+    };
+  }
+
+  /* Когда окно закрывается, класс клавиатуры не должен «залипать». */
+  if (typeof closeModal === "function") {
+    var _cm42 = closeModal;
+    window.closeModal = closeModal = function () {
+      var r = _cm42.apply(null, arguments);
+      setTimeout(ww42Apply, 60);
+      return r;
+    };
+  }
+
+  window.ww42Apply = ww42Apply;
+  window.ww42KeepVisible = ww42KeepVisible;
+  ww42Apply();
+})();
+
+</script>
+<script>
+/* =========================================================================
+   WiseWallet v3.42 — ww43: финансовый отчёт в PDF за выбранный период
+   Настройки → «Финансовый отчёт (PDF)». По умолчанию — текущий месяц,
+   можно выбрать неделю/прошлый месяц/квартал/полгода/год/всё время/свои даты.
+   В отчёте: доходы за период, сколько потрачено и сколько ещё предстоит оплатить.
+   ========================================================================= */
+(function () {
+  "use strict";
+
+  var WW43_KEY = "ww43_report_period_v1";
+  var WW43_OPTS = [
+    ["month", "Текущий месяц"],
+    ["prevmonth", "Прошлый месяц"],
+    ["week", "Эта неделя"],
+    ["quarter", "Квартал"],
+    ["half", "Полгода"],
+    ["year", "Год"],
+    ["all", "Всё время"],
+  ];
+  var WW43_MON = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+
+  function iso(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function today() {
+    return typeof todayStr === "function" ? todayStr() : iso(new Date());
+  }
+  function fmtD(d) {
+    return d ? d.split("-").reverse().join(".") : "";
+  }
+  function human(d) {
+    if (!d) return "";
+    var p = d.split("-").map(Number);
+    return p[2] + " " + WW43_MON[p[1] - 1] + " " + p[0];
+  }
+  function m(v) {
+    return typeof money === "function" ? money(v) : String(Math.round(v || 0));
+  }
+  function esc2(s) {
+    return typeof esc === "function" ? esc(String(s == null ? "" : s)) : String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ---------- период отчёта (свой, не влияет на дашборд) ---------- */
+  function period() {
+    try {
+      var p = JSON.parse(localStorage.getItem(WW43_KEY));
+      if (p && p.type) return p;
+    } catch (e) {}
+    return { type: "month" };
+  }
+  function setPeriod(p) {
+    try { localStorage.setItem(WW43_KEY, JSON.stringify(p)); } catch (e) {}
+    open();
+  }
+  function range(p) {
+    var now = new Date(), y = now.getFullYear(), mo = now.getMonth(), from = null, to = null;
+    var t = (p || {}).type;
+    if (t === "week") {
+      var base = new Date(y, mo, now.getDate()), dow = (base.getDay() + 6) % 7;
+      from = new Date(base); from.setDate(base.getDate() - dow);
+      to = new Date(from); to.setDate(from.getDate() + 6);
+    } else if (t === "prevmonth") {
+      from = new Date(y, mo - 1, 1); to = new Date(y, mo, 0);
+    } else if (t === "quarter") {
+      var q = Math.floor(mo / 3); from = new Date(y, q * 3, 1); to = new Date(y, q * 3 + 3, 0);
+    } else if (t === "half") {
+      var h = mo < 6 ? 0 : 6; from = new Date(y, h, 1); to = new Date(y, h + 6, 0);
+    } else if (t === "year") {
+      from = new Date(y, 0, 1); to = new Date(y, 11, 31);
+    } else if (t === "all") {
+      return { from: null, to: null };
+    } else if (t === "custom" && p.from && p.to) {
+      return { from: p.from, to: p.to };
+    } else {
+      from = new Date(y, mo, 1); to = new Date(y, mo + 1, 0);
+    }
+    return { from: from ? iso(from) : null, to: to ? iso(to) : null };
+  }
+  function label(p) {
+    var t = (p || {}).type;
+    for (var i = 0; i < WW43_OPTS.length; i++) if (WW43_OPTS[i][0] === t) return WW43_OPTS[i][1];
+    if (t === "custom") return "Свой период";
+    return "Текущий месяц";
+  }
+  function rangeTxt(p) {
+    var r = range(p);
+    return r.from ? human(r.from) + " — " + human(r.to) : "все операции без ограничений";
+  }
+
+  /* ---------- сбор данных ---------- */
+  function catName(cid) {
+    var c = typeof cat === "function" ? cat(cid) : null;
+    return c ? (c.icon ? c.icon + " " : "") + c.name : "📌 Без категории";
+  }
+  function collect(p) {
+    var r = range(p), from = r.from, to = r.to, tdy = today();
+    var inR = function (d) { return !!d && (!from || d >= from) && (!to || d <= to); };
+    var txs = ((S && S.transactions) || []).filter(function (t) { return !t.transfer && inR(t.date); });
+    var incBy = {}, expBy = {}, inc = 0, exp = 0, biggest = [];
+    txs.forEach(function (t) {
+      var a = +t.amount || 0;
+      if (t.type === "income") { incBy[t.categoryId] = (incBy[t.categoryId] || 0) + a; inc += a; }
+      else { expBy[t.categoryId] = (expBy[t.categoryId] || 0) + a; exp += a; biggest.push({ date: t.date, amount: a, cid: t.categoryId, note: t.note || "" }); }
+    });
+    biggest.sort(function (a, b) { return b.amount - a.amount; });
+
+    /* ещё предстоит оплатить: платежи по кредитам и регулярные расходы
+       с датой в периоде, но не раньше сегодняшнего дня */
+    var due = [];
+    ((S && S.credits) || []).forEach(function (c) {
+      if (c.status && c.status !== "active") return;
+      var sch = [];
+      try { sch = buildSchedule(c) || []; } catch (e) { sch = []; }
+      sch.forEach(function (x) {
+        if (inR(x.date) && x.date >= tdy) due.push({ kind: "credit", name: c.name, date: x.date, amount: +x.payment || 0, note: x.grace ? "льготный платёж" : "платёж по кредиту" });
+      });
+      if (!sch.length && c.payDay && +c.payment) {
+        var d0 = monthDay(tdy.slice(0, 7), c.payDay);
+        if (inR(d0) && d0 >= tdy) due.push({ kind: "credit", name: c.name, date: d0, amount: +c.payment || 0, note: "платёж по кредиту" });
+      }
+    });
+    ((S && S.recurring) || []).filter(function (x) { return x.type === "expense"; }).forEach(function (x) {
+      months(from, to, tdy).forEach(function (ym) {
+        var d = monthDay(ym, +x.day || 1);
+        if (inR(d) && d >= tdy) due.push({ kind: "recur", name: x.name, date: d, amount: +x.amount || 0, note: "регулярный платёж · " + ((typeof cat === "function" && cat(x.categoryId) || {}).name || "без категории") });
+      });
+    });
+    due.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var dueTotal = due.reduce(function (s, x) { return s + x.amount; }, 0);
+
+    /* доходы, которые ещё ожидаются в периоде (справочно) */
+    var waitInc = 0;
+    ((S && S.recurring) || []).filter(function (x) { return x.type === "income"; }).forEach(function (x) {
+      months(from, to, tdy).forEach(function (ym) {
+        var d = monthDay(ym, +x.day || 1);
+        if (inR(d) && d >= tdy) waitInc += +x.amount || 0;
+      });
+    });
+
+    return {
+      from: from, to: to, txCount: txs.length,
+      inc: inc, exp: exp, net: inc - exp,
+      incBy: incBy, expBy: expBy,
+      biggest: biggest.slice(0, 10),
+      due: due, dueTotal: dueTotal, waitInc: waitInc,
+      left: inc - exp - dueTotal,
+    };
+  }
+  function monthDay(ym, day) {
+    var y = +ym.slice(0, 4), mo = +ym.slice(5, 7) - 1;
+    var dim = new Date(y, mo + 1, 0).getDate();
+    return iso(new Date(y, mo, Math.min(Math.max(1, day || 1), dim)));
+  }
+  function months(from, to, tdy) {
+    var start = from && from > tdy ? from : tdy;
+    var end = to || iso(new Date(new Date().getFullYear(), new Date().getMonth() + 12, 1));
+    if (start > end) return [];
+    var out = [], y = +start.slice(0, 4), mo = +start.slice(5, 7) - 1, guard = 0;
+    while (guard++ < 240) {
+      var ym = y + "-" + String(mo + 1).padStart(2, "0");
+      if (ym > end.slice(0, 7)) break;
+      out.push(ym);
+      mo++; if (mo > 11) { mo = 0; y++; }
+    }
+    return out;
+  }
+
+  /* ---------- HTML отчёта ---------- */
+  function rows(obj, tot) {
+    var ks = Object.keys(obj).sort(function (a, b) { return obj[b] - obj[a]; });
+    if (!ks.length) return '<tr><td colspan="3" class="mut">Операций нет</td></tr>';
+    return ks.map(function (cid) {
+      return '<tr><td>' + esc2(catName(cid)) + '</td><td class="r">' + m(obj[cid]) + '</td><td class="r">' + (tot ? Math.round(obj[cid] / tot * 100) : 0) + '%</td></tr>';
+    }).join("");
+  }
+  function reportHtml(p) {
+    var d = collect(p);
+    var per = d.from ? human(d.from) + " — " + human(d.to) : "за всё время";
+    var dueRows = d.due.length
+      ? d.due.map(function (x) {
+          return '<tr><td>' + fmtD(x.date) + '</td><td>' + (x.kind === "credit" ? "💳 " : "🔁 ") + esc2(x.name) + '<div class="mut sm">' + esc2(x.note) + '</div></td><td class="r">' + m(x.amount) + '</td></tr>';
+        }).join("")
+      : '<tr><td colspan="3" class="mut">В этом периоде оплачивать больше нечего</td></tr>';
+    var bigRows = d.biggest.length
+      ? d.biggest.map(function (x) {
+          return '<tr><td>' + fmtD(x.date) + '</td><td>' + esc2(catName(x.cid)) + (x.note ? '<div class="mut sm">' + esc2(x.note) + '</div>' : "") + '</td><td class="r">' + m(x.amount) + '</td></tr>';
+        }).join("")
+      : '<tr><td colspan="3" class="mut">Расходов нет</td></tr>';
+    var accRows = ((S && S.accounts) || []).filter(function (a) { return !a.archived; }).map(function (a) {
+      var b = 0;
+      try { b = typeof accBalance === "function" ? accBalance(a.id) : 0; } catch (e) { b = 0; }
+      return '<tr><td>' + esc2(a.name) + '</td><td class="r">' + m(b) + '</td></tr>';
+    }).join("") || '<tr><td colspan="2" class="mut">Счётов нет</td></tr>';
+
+    return '<div class="ww43-doc">' +
+      '<h1>Финансовый отчёт</h1>' +
+      '<div class="ww43-sub">Период: <b>' + esc2(per) + '</b> · ' + esc2(label(p)) + ' · сформирован ' + fmtD(today()) + '</div>' +
+      '<div class="ww43-cards">' +
+        '<div class="c"><span>Доходы за период</span><b class="pos">+' + m(d.inc) + '</b></div>' +
+        '<div class="c"><span>Потрачено</span><b class="neg">−' + m(d.exp) + '</b></div>' +
+        '<div class="c"><span>Предстоит оплатить</span><b class="warn">' + m(d.dueTotal) + '</b></div>' +
+        '<div class="c"><span>Разница доходов и расходов</span><b class="' + (d.net >= 0 ? "pos" : "neg") + '">' + (d.net >= 0 ? "+" : "−") + m(Math.abs(d.net)) + '</b></div>' +
+        '<div class="c"><span>Останется после платежей</span><b class="' + (d.left >= 0 ? "pos" : "neg") + '">' + (d.left >= 0 ? "+" : "−") + m(Math.abs(d.left)) + '</b></div>' +
+        '<div class="c"><span>Ожидаемые доходы</span><b>' + m(d.waitInc) + '</b></div>' +
+      '</div>' +
+      '<div class="mut sm">Учтено операций: ' + d.txCount + '. «Предстоит оплатить» — платежи по кредитам и регулярные расходы с датой от ' + fmtD(today()) + ' до конца периода.</div>' +
+      '<h2>Доходы по категориям</h2><table><thead><tr><th>Категория</th><th class="r">Сумма</th><th class="r">Доля</th></tr></thead><tbody>' + rows(d.incBy, d.inc) + '</tbody>' +
+        '<tfoot><tr><td>Итого</td><td class="r">' + m(d.inc) + '</td><td class="r">100%</td></tr></tfoot></table>' +
+      '<h2>Расходы по категориям</h2><table><thead><tr><th>Категория</th><th class="r">Сумма</th><th class="r">Доля</th></tr></thead><tbody>' + rows(d.expBy, d.exp) + '</tbody>' +
+        '<tfoot><tr><td>Итого</td><td class="r">' + m(d.exp) + '</td><td class="r">100%</td></tr></tfoot></table>' +
+      '<h2>Ещё предстоит оплатить</h2><table><thead><tr><th>Дата</th><th>Назначение</th><th class="r">Сумма</th></tr></thead><tbody>' + dueRows + '</tbody>' +
+        '<tfoot><tr><td colspan="2">Итого к оплате</td><td class="r">' + m(d.dueTotal) + '</td></tr></tfoot></table>' +
+      '<h2>Крупнейшие расходы периода</h2><table><thead><tr><th>Дата</th><th>Категория</th><th class="r">Сумма</th></tr></thead><tbody>' + bigRows + '</tbody></table>' +
+      '<h2>Остатки на счетах (на сегодня)</h2><table><thead><tr><th>Счёт</th><th class="r">Остаток</th></tr></thead><tbody>' + accRows + '</tbody></table>' +
+      '<div class="ww43-foot">WiseWallet v' + (typeof WW_VERSION !== "undefined" ? WW_VERSION : "") + ' · личный учёт финансов</div>' +
+    '</div>';
+  }
+
+  var PRINT_CSS =
+    '#ww43-print{display:none}' +
+    '@media print{@page{margin:14mm}' +
+    'body{background:#fff!important}body *{visibility:hidden!important}' +
+    '#ww43-print,#ww43-print *{visibility:visible!important}' +
+    '#ww43-print{display:block!important;position:absolute;left:0;top:0;width:100%;color:#000;font-family:Arial,Helvetica,sans-serif}' +
+    '#ww43-print h1{font-size:23px;margin:0 0 4px}' +
+    '#ww43-print h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #000;padding-bottom:3px;page-break-after:avoid}' +
+    '#ww43-print .ww43-sub{color:#555;font-size:12px;margin-bottom:12px}' +
+    '#ww43-print .ww43-cards{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 8px}' +
+    '#ww43-print .ww43-cards .c{flex:1 1 30%;border:1px solid #bbb;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}' +
+    '#ww43-print .ww43-cards span{font-size:10.5px;color:#555}' +
+    '#ww43-print .ww43-cards b{font-size:16px}' +
+    '#ww43-print .pos{color:#0a7d33}#ww43-print .neg{color:#b3261e}#ww43-print .warn{color:#a25a00}' +
+    '#ww43-print table{width:100%;border-collapse:collapse;margin-bottom:6px;page-break-inside:auto}' +
+    '#ww43-print tr{page-break-inside:avoid}' +
+    '#ww43-print th,#ww43-print td{border-bottom:1px solid #ccc;padding:6px 4px;font-size:12.5px;text-align:left;vertical-align:top}' +
+    '#ww43-print tfoot td{font-weight:700;border-top:1px solid #000;border-bottom:none}' +
+    '#ww43-print td.r,#ww43-print th.r{text-align:right;white-space:nowrap}' +
+    '#ww43-print .mut{color:#777}#ww43-print .sm{font-size:10.5px}' +
+    '#ww43-print .ww43-foot{margin-top:18px;color:#888;font-size:11px;text-align:center}}';
+
+  function fileName(p) {
+    var r = range(p);
+    return "WiseWallet-отчёт-" + (r.from ? r.from + "_" + r.to : "всё-время");
+  }
+
+  function toPdf() {
+    var p = period();
+    var host = document.getElementById("ww43-print");
+    if (!host) { host = document.createElement("div"); host.id = "ww43-print"; document.body.appendChild(host); }
+    host.innerHTML = reportHtml(p);
+    var st = document.getElementById("ww43-print-style");
+    if (!st) { st = document.createElement("style"); st.id = "ww43-print-style"; st.textContent = PRINT_CSS; document.head.appendChild(st); }
+    var legacy = document.getElementById("print-report");
+    if (legacy) legacy.innerHTML = "";
+    try { closeModal(); } catch (e) {}
+    var oldTitle = document.title;
+    document.title = fileName(p);
+    if (typeof toast === "function") toast("Открываю печать — выберите «Сохранить в PDF»");
+    setTimeout(function () {
+      try { window.print(); } catch (e) {}
+      setTimeout(function () { document.title = oldTitle; }, 1500);
+    }, 120);
+  }
+
+  function toHtmlFile() {
+    var p = period();
+    var doc = '<!doctype html><html lang="ru"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>' + esc2(fileName(p)) + '</title><style>' +
+      'body{margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}' +
+      PRINT_CSS.replace(/#ww43-print\{display:none\}/, "").replace(/@media print\{@page\{margin:14mm\}/, "").replace(/\}$/, "") +
+      '#ww43-print{display:block}</style></head><body><div id="ww43-print">' + reportHtml(p) + '</div></body></html>';
+    if (typeof ww331Download === "function") ww331Download(doc, fileName(p) + ".html", "text/html;charset=utf-8");
+    if (typeof toast === "function") toast("Файл отчёта сохранён");
+  }
+
+  /* ---------- окно выбора периода и предпросмотра ---------- */
+  function open() {
+    var p = period(), d = collect(p), r = range(p);
+    var chips = WW43_OPTS.map(function (o) {
+      var on = p.type === o[0] || (o[0] === "month" && !p.type);
+      return '<button class="btn btn-sm ' + (on ? "btn-primary" : "btn-ghost") + '" onclick="ww43SetPeriod({type:\'' + o[0] + '\'})">' + o[1] + '</button>';
+    }).join("");
+    var duePreview = d.due.slice(0, 5).map(function (x) {
+      return '<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">' +
+        '<span>' + (x.kind === "credit" ? "💳 " : "🔁 ") + esc2(x.name) + ' <span class="sub">' + fmtD(x.date) + '</span></span>' +
+        '<b style="white-space:nowrap">' + m(x.amount) + '</b></div>';
+    }).join("") || '<div class="sub">Больше платить в этом периоде нечего.</div>';
+
+    showModal('<div class="mhead"><h3>📄 Финансовый отчёт</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+      '<div class="sub" style="margin:-6px 0 10px">Отчёт за выбранный период: доходы, сколько потрачено и сколько ещё предстоит оплатить. Период не влияет на дашборд.</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + chips + '</div>' +
+      '<div class="fg"><label>Свой период</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+        '<input type="date" id="ww43-from" value="' + (p.from || r.from || today()) + '">' +
+        '<input type="date" id="ww43-to" value="' + (p.to || r.to || today()) + '">' +
+        '<button class="btn btn-ghost btn-sm" onclick="ww43Custom()">Применить</button></div></div>' +
+      '<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin:6px 0 12px">' +
+        '<div style="font-weight:600;margin-bottom:2px">' + esc2(label(p)) + '</div>' +
+        '<div class="sub" style="margin-bottom:8px">' + esc2(rangeTxt(p)) + '</div>' +
+        '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>Доходы</span><b style="color:var(--pos,#22a558)">+' + m(d.inc) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>Потрачено</span><b style="color:var(--neg,#e5484d)">−' + m(d.exp) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>Предстоит оплатить</span><b>' + m(d.dueTotal) + '</b></div>' +
+        '<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid var(--border);margin-top:4px"><span>Останется после платежей</span><b>' + (d.left >= 0 ? "+" : "−") + m(Math.abs(d.left)) + '</b></div>' +
+        '<div class="sub" style="margin-top:8px">Учтено операций: ' + d.txCount + '</div>' +
+      '</div>' +
+      '<div style="font-weight:600;margin-bottom:4px">Ближайшие платежи</div>' + duePreview +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
+        '<button class="btn btn-primary" style="flex:1;min-width:180px" onclick="ww43ToPdf()">📄 Сохранить PDF</button>' +
+        '<button class="btn btn-ghost" onclick="ww43ToHtml()">⬇ Файл HTML</button>' +
+      '</div>' +
+      '<div class="sub" style="margin-top:8px">В окне печати выберите «Сохранить в PDF» (на iPhone — «Поделиться» → «Печать» → «Сохранить в Файлы»).</div>');
+  }
+
+  function custom() {
+    var f = document.getElementById("ww43-from"), t = document.getElementById("ww43-to");
+    if (!f || !t || !f.value || !t.value || f.value > t.value) {
+      if (typeof toast === "function") toast("Укажите корректный диапазон дат");
+      return;
+    }
+    setPeriod({ type: "custom", from: f.value, to: t.value });
+  }
+
+  /* ---------- карточка в настройках ---------- */
+  function card() {
+    var page = document.getElementById("page-settings");
+    if (!page) return;
+    var c = document.getElementById("ww43-card");
+    if (!c) {
+      c = document.createElement("div");
+      c.className = "card";
+      c.id = "ww43-card";
+      c.style.marginTop = "14px";
+      var anchor = document.getElementById("ww331-card");
+      if (anchor && anchor.parentNode === page) page.insertBefore(c, anchor);
+      else page.appendChild(c);
+    }
+    var p = period(), d = collect(p);
+    c.innerHTML = '<h2>📄 Финансовый отчёт (PDF)</h2>' +
+      '<div class="sub" style="margin:-6px 0 12px">Доходы, расходы и предстоящие платежи за период. По умолчанию — текущий месяц, период можно выбрать любой.</div>' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+        '<div><div style="font-weight:600">' + esc2(label(p)) + '</div><div class="sub">' + esc2(rangeTxt(p)) + '</div></div>' +
+        '<div class="sub" style="text-align:right">Доходы ' + m(d.inc) + '<br>Потрачено ' + m(d.exp) + '<br>К оплате ' + m(d.dueTotal) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '<button class="btn btn-primary" onclick="ww43Open()">📄 Сформировать отчёт</button>' +
+        '<button class="btn btn-ghost" onclick="ww43ToPdf()">⚡ Сразу в PDF</button>' +
+      '</div>';
+  }
+
+  window.ww43Period = period;
+  window.ww43SetPeriod = setPeriod;
+  window.ww43Range = range;
+  window.ww43Label = label;
+  window.ww43Collect = collect;
+  window.ww43ReportHtml = reportHtml;
+  window.ww43Open = open;
+  window.ww43Custom = custom;
+  window.ww43ToPdf = toPdf;
+  window.ww43ToHtml = toHtmlFile;
+  window.ww43Card = card;
+
+  function boot() {
+    if (typeof renderSettings === "function") {
+      var prev = renderSettings;
+      window.renderSettings = function () {
+        prev.apply(this, arguments);
+        try { card(); } catch (e) {}
+      };
+    }
+    /* старая кнопка «PDF-отчёт» в блоке «Данные» теперь открывает выбор периода */
+    if (typeof window.exportPdf === "function") {
+      window.ww43LegacyPdf = window.exportPdf;
+      window.exportPdf = function () { open(); };
+    }
+    try { if (typeof activePage === "function" && activePage() === "settings") card(); } catch (e) {}
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
 
 </script>
 <script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>

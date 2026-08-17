@@ -108,3 +108,12 @@ $$;
 drop trigger if exists ww_snapshots_prune_trg on public.ww_snapshots;
 create trigger ww_snapshots_prune_trg after insert on public.ww_snapshots
 for each row execute function public.ww_snapshots_prune();
+
+-- ---------------------------------------------------------------------------
+-- v3.37: одноразовая уборка после перехода на вход по email/паролю.
+-- Старая таблица ww_state была открыта всем, кто знает ключ синхронизации.
+-- Выполните строку ниже ПОСЛЕ того, как все ваши устройства хотя бы раз
+-- вошли в аккаунт (данные переедут в ww_user_state автоматически):
+--
+-- drop table if exists public.ww_state;
+-- ---------------------------------------------------------------------------
