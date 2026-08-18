@@ -183,6 +183,9 @@ body.sorting{cursor:grabbing}
 #page-settings .card h2.set-h{cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:0;user-select:none}
 #page-settings .card:not(.collapsed) h2.set-h{margin-bottom:12px}
 #page-settings .set-caret{color:var(--t3);font-size:13px;transition:transform .18s ease;flex-shrink:0}
+#page-settings .set-title{display:flex;align-items:center;gap:9px;min-width:0;text-align:left}
+#page-settings .set-icon{width:20px;min-width:20px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1}
+#page-settings .set-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #page-settings .card.collapsed .set-caret{transform:rotate(-90deg)}
 #page-settings .card.collapsed .set-body{display:none}
 #page-settings .card.collapsed{align-self:start}
@@ -457,7 +460,7 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 .coin .disc{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--border);background:var(--card);box-shadow:var(--sh-s);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .coin.acc,.coin.inc,.coin.cat{cursor:grab;position:relative}
 /* Подсказка «это можно перетащить»: те же точки, что у ручек в списках.
-   Ярлыки перетаскиваются долгим нажатием (не отдельной ручкой), поэтому
+   Ярлыки перетаскиваются долгим нажатием (не отдельно�� ручкой), поэтому
    точки — чисто визуальный намёк и не перехватывают события. */
 .coin-drag-dots{position:absolute;top:-2px;left:2px;display:grid;grid-template-columns:repeat(2,2px);gap:2px;opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:1}
 .coin-drag-dots i{width:2px;height:2px;border-radius:50%;background:var(--t3);display:block}
@@ -711,7 +714,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="grid grid-4" id="dash-stats"></div>
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планиро��ание</h2>
+        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планиро����ание</h2>
         <span class="sub" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
@@ -1272,7 +1275,7 @@ function addDaysStr(s, n) { const d = new Date(ymdToUTC(s)); d.setUTCDate(d.getU
 function periodPhrase(p) {
   const now = new Date();
   if (p.type === "week") return "на этой неделе";
-  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " кварт��ле";
+  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " ��варт��ле";
   if (p.type === "half") return now.getMonth() < 6 ? "в первом полугодии" : "во втором полугодии";
   if (p.type === "year") return "в " + now.getFullYear() + " году";
   if (p.type === "all") return "за всё время";
@@ -1619,7 +1622,7 @@ function renderCredits() {
     }
   }
   const listEl = document.getElementById("credit-list");
-  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.bank + '</div>Кредитов пока нет</div>'; return; }
+  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.bank + '</div>Кред��тов пока нет</div>'; return; }
   const _crShown = S.credits.filter(crCreditInPeriod);
   if (!_crShown.length) {
     listEl.className = "section card";
@@ -2738,7 +2741,7 @@ function openCreditModal(id) {
         <div class="fg"><label>С</label><input id="cr-gfrom" type="date" value="${c?.graceFrom || ""}"></div>
         <div class="fg"><label>По</label><input id="cr-gto" type="date" value="${c?.graceTo || ""}"></div>
       </div>
-      <div class="fg"><label>Льготный платёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
+      <div class="fg"><label>Льготный п��атёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
     </details>
     <details class="cr-sect"${c && c.end ? " open" : ""}><summary>Сроки кредита</summary>
       <div class="fg-row">
@@ -4490,7 +4493,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.51";
+const WW_VERSION = "3.52";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5832,7 +5835,7 @@ document.addEventListener("click", (e) => {
 });
 let _ww26Drag = null;
 /* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
-   Короткое нажатие — прежний режим «источник → цель», скролл не блокируется. */
+   Короткое нажатие — прежний режим «источник → цель», скролл не б��окируется. */
 function ww26StartGhost(st) {
   const r = st.el.getBoundingClientRect();
   const g = st.el.cloneNode(true);
@@ -6293,6 +6296,24 @@ try {
    перестраиваем разметку, а превращаем в аккордеон уже готовый DOM. */
 (function () {
   var OPEN_BY_DEFAULT = []; /* v3.51: все карточки по умолчанию закрыты */
+  var WW52_ICONS = {
+    "Тема": "🎨", "Счета": "💳", "Категории": "🏷️", "Напоминания о платежах": "🔔",
+    "Синхронизация Supabase": "🔄", "Данные": "💾", "Безопасность": "🔒",
+    "Аккаунт Supabase": "👤", "Резервные копии": "🗄️", "Приложение": "📱",
+    "Фоновые push": "📡", "Порядок разделов": "↕️", "Финансовый отчёт (PDF)": "📄",
+    "Журнал, уведомления и календарь": "🧰"
+  };
+  function ww52PlainTitle(text) {
+    return String(text || "").replace("⌄", "").trim().replace(/^[^A-Za-zА-Яа-яЁё0-9]+/u, "").trim();
+  }
+  function ww52Decorate(h, text) {
+    var label = ww52PlainTitle(text), icon = WW52_ICONS[label] || "⚙️";
+    h.textContent = "";
+    var title = document.createElement("span"); title.className = "set-title";
+    var ic = document.createElement("span"); ic.className = "set-icon"; ic.setAttribute("aria-hidden", "true"); ic.textContent = icon;
+    var tx = document.createElement("span"); tx.className = "set-label"; tx.textContent = label;
+    title.appendChild(ic); title.appendChild(tx); h.appendChild(title);
+  }
   function accordion() {
     var page = document.getElementById("page-settings");
     if (!page) return;
@@ -6307,7 +6328,9 @@ try {
       if (ready) return;
       card.removeAttribute("data-acc");
       card.dataset.acc = "1";
-      var key = (h.textContent || "").trim().slice(0, 40);
+      var originalTitle = (h.textContent || "").trim();
+      var key = originalTitle.slice(0, 40);
+      ww52Decorate(h, originalTitle);
       var body = document.createElement("div");
       body.className = "set-body";
       while (h.nextSibling) body.appendChild(h.nextSibling);
@@ -6444,7 +6467,7 @@ function wwExportNudge() {
   }
   el.innerHTML = `<div style="margin-top:14px;padding:12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:var(--radius-s)">
     <div style="font-weight:700;font-size:13.5px;color:var(--amber);margin-bottom:4px">Скачайте копию себе на диск</div>
-    <div class="sub" style="margin-bottom:10px">${last ? "Прошло больше месяца с последнего экспорта." : "Вы ещё ни разу не сохраняли данные в файл."} Копии в облаке лежат в том же проекте Supabase, что и данные — файл на своём диске от этого не зависит.</div>
+    <div class="sub" style="margin-bottom:10px">${last ? "Прошло больше ��есяца с последнего экспорта." : "Вы ещё ни разу не сохраняли данные в файл."} Копии в облаке лежат в том же проекте Supabase, что и данные — файл на своём диске от этого не зависит.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="exportJson();wwExportDone()">Скачать JSON</button>
       <button class="btn btn-ghost btn-sm" onclick="exportXlsx();wwExportDone()">Скачать XLSX</button>
@@ -6675,7 +6698,7 @@ const WW331_COLS = [
 ];
 const WW331_FIELDS = {
   amount: "сумма", date: "дата", note: "комментарий", tags: "метки", categoryId: "категория", accountId: "счёт",
-  balance: "остаток", balanceFull: "полный остаток", payment: "платёж", rate: "ставка", name: "название",
+  balance: "оста��ок", balanceFull: "полный остаток", payment: "платёж", rate: "ставка", name: "название",
   limit: "лимит", target: "цель", saved: "накоплено", day: "день", payDay: "день платежа", status: "статус",
   done: "выполнено", type: "тип", deadline: "срок", start: "начало", end: "конец", title: "название",
   gracePayment: "льготный платёж", graceTo: "конец льготного периода", lender: "кредитор", icon: "иконка",
@@ -6949,7 +6972,7 @@ function ww331SetTagScope(s) { _ww331TagScope = s; ww331RenderTagReport(); ww331
 function ww331TagReportModalMaybe() { if (document.querySelector("#modal #ww331-tagrep-modal")) ww331TagReport(); }
 function ww331TagTable(scope) {
   const rows = ww331TagStats(scope);
-  if (!rows.length) return '<div class="empty">Нет операций с метками за период</div>';
+  if (!rows.length) return '<div class="empty">Нет опе��аций с метками за период</div>';
   const max = Math.max(...rows.map((r) => r.exp + r.inc)) || 1;
   return rows.map((r) => `<div class="row"><div class="rmain">
       <div class="rt"><span class="tag">#${esc(r.tag)}</span> <span class="sub">· ${r.n} оп.</span></div>
@@ -7082,7 +7105,7 @@ function ww331BulkTagApply(replace) {
     t.tags = replace ? raw.slice() : [...new Set([...(t.tags || []), ...raw])];
     n++;
   });
-  save(); closeModal(); render(activePage()); toast(`Метки обновлены у ${n} операций`);
+  save(); closeModal(); render(activePage()); toast(`Метки обновлены у ${n} ��пераций`);
 }
 function ww331BulkExport() {
   const list = S.transactions.filter((t) => _ww331Sel.has(t.id)).sort((a, b) => a.date.localeCompare(b.date));
@@ -8856,7 +8879,7 @@ async function ww41EditIncome(catId) {
     var accId = (txs.length ? txs[txs.length - 1].accountId : null) ||
       ((S.accounts.filter(function (a) { return !a.archived; })[0] || {}).id) ||
       ((S.accounts[0] || {}).id);
-    if (!accId) { await wwAlert("Сначала добавьте счёт, на который поступает доход.", { title: "Нет счёта" }); return; }
+    if (!accId) { await wwAlert("Сначала добавьте счёт, на кот��рый поступает доход.", { title: "Нет счёта" }); return; }
     S.transactions.push({
       id: uid(), date: ww41IncDate(), type: "income", amount: diff,
       accountId: accId, categoryId: catId, note: "Правка суммы на дашборде",
@@ -10117,7 +10140,7 @@ else ww41Boot();
 
   /* Нижняя панель динамически перестраивается настройкой порядка разделов,
      но сам nav остаётся тем же. MutationObserver страхует редкие случаи,
-     когда WebView пересчитывает его положение после замены кнопок. */
+     ког��а WebView пересчитывает его положение после замены кнопок. */
   var obs = new MutationObserver(schedule);
   function boot() {
     var nav = document.querySelector(".bottom-nav");
@@ -10134,7 +10157,7 @@ else ww41Boot();
 
 </script>
 <script>
-/* ===================== v3.49: компактная панель быстрых действий ===================== */
+/* ===================== v3.49: компактная панель быстрых действи�� ===================== */
 (function () {
   var bar, toggle, toggleBadge, notifBadge, obs;
 
