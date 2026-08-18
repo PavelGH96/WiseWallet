@@ -711,7 +711,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="grid grid-4" id="dash-stats"></div>
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планирование</h2>
+        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планиро��ание</h2>
         <span class="sub" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
@@ -939,7 +939,7 @@ if (!Array.isArray(S.budgets)) S.budgets = [];
 if (!Array.isArray(S.goals)) S.goals = [];
 if (!Array.isArray(S.tasks)) S.tasks = [];
 if (!Array.isArray(S.links)) S.links = [];
-if (typeof S.settings.observerMode !== "boolean") S.settings.observerMode = false;
+S.settings.observerMode = false; /* v3.46: однопользовательский режим */
 if (!["t9", "t10", "t1", "t3", "t4", "t5"].includes(S.settings.theme)) S.settings.theme = "t9";
 if (typeof S.settings.reminderDays !== "number") S.settings.reminderDays = 3;
 if (!S.settings.dismissed || typeof S.settings.dismissed !== "object") S.settings.dismissed = {};
@@ -1242,7 +1242,7 @@ function upcomingReminders(days) {
 function renderReminders() {
   const el = document.getElementById("dash-reminders"); if (!el) return;
   // Напоминания всегда «от сегодня» — при просмотре другого месяца дашборда
-  // они вводят в заблуждение (для этого есть панель «К оплате» — она честно
+  // они вводят в заблуждение (для этого есть панель «К оплате» — он�� честно
   // показывает статус именно выбранного месяца).
   const viewingOther = (typeof ww316Ym === "function") && ww316Ym() !== todayStr().slice(0, 7);
   const days = viewingOther ? 0 : (+S.settings.reminderDays || 0);
@@ -1272,7 +1272,7 @@ function addDaysStr(s, n) { const d = new Date(ymdToUTC(s)); d.setUTCDate(d.getU
 function periodPhrase(p) {
   const now = new Date();
   if (p.type === "week") return "на этой неделе";
-  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " квартале";
+  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " кварт��ле";
   if (p.type === "half") return now.getMonth() < 6 ? "в первом полугодии" : "во втором полугодии";
   if (p.type === "year") return "в " + now.getFullYear() + " году";
   if (p.type === "all") return "за всё время";
@@ -2265,7 +2265,7 @@ function ww36RealtimeInit() {
 function sbStatus(msg) {
   const el = document.getElementById("sb-status"); if (!el) return;
   const live = !msg && ww36RealtimeStatus() === "live" ? " · 🟢 живая синхронизация" : "";
-  el.textContent = (msg || (S.settings.sbUrl && S.settings.sbKey ? "Настроено. Последняя синхронизация: " + (S.settings.lastSync ? new Date(S.settings.lastSync).toLocaleString("ru-RU") : "ещё не было") : "Не настроено. Схема таблицы — в supabase_schema.sql")) + live;
+  el.textContent = (msg || (S.settings.sbUrl && S.settings.sbKey ? "Настроено. Последняя синхронизация: " + (S.settings.lastSync ? new Date(S.settings.lastSync).toLocaleString("ru-RU") : "��щё не было") : "Не настроено. Схема таблицы — в supabase_schema.sql")) + live;
 }
 async function syncNow(manual) {
   const { sbUrl, sbKey, syncId } = S.settings;
@@ -2628,7 +2628,7 @@ function ww319Label(p) {
   const now = new Date();
   if (p.type === "week") return "НЕДЕЛЯ";
   if (p.type === "quarter") return ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " КВАРТАЛ";
-  if (p.type === "half") return "ПОЛГОДА";
+  if (p.type === "half") return "ПО��ГОДА";
   if (p.type === "year") return String(now.getFullYear());
   if (p.type === "all") return "ВЕСЬ ПЕРИОД";
   if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "ПРОИЗВОЛЬНЫЙ"; }
@@ -2959,7 +2959,7 @@ async function addToGoal(id) {
   const v = await wwPrompt(`Накоплено ${money(g.saved)} из ${money(g.target)}. Отрицательная сумма — снять с цели.`, {
     title: `Пополнить «${g.name}»`, type: "number", okText: "Пополнить", placeholder: "0",
     quick: left > 0 ? [{ label: "До цели " + money(left), value: left }] : [],
-    validate: (x) => parseFloat(String(x).replace(",", ".")) ? "" : "Введите сумму",
+    validate: (x) => parseFloat(String(x).replace(",", ".")) ? "" : "Введите с��мму",
   });
   if (v === null) return;
   const n = parseFloat((v || "").replace(",", ".").replace(/\s/g, ""));
@@ -4489,7 +4489,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.42";
+const WW_VERSION = "3.49";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4642,7 +4642,7 @@ const WW22_PROFILES = {
   parents: { icon: "🔒", name: "Просмотр", desc: "Только просмотр, без редактирования. Позже здесь появится настройка видимых разделов — сейчас видно всё." },
   demo: { icon: "🎬", name: "Демо-режим", desc: "Вымышленные данные для показа — доступно внутри «Моя», не связано с вашими данными" },
 };
-function ww22Profile() { return localStorage.getItem(WW22_PROF_KEY) || "main"; }
+function ww22Profile() { return "main"; } /* v3.46: приложение только для владельца */
 
 /* ---- демо-данные ---- */
 function ww22DemoState() {
@@ -4721,7 +4721,7 @@ function ww22DemoState() {
     ],
     links: [
       { id: uid(), title: "Курсы валют ЦБ", category: "Финансы", url: "https://cbr.ru", created: Date.now() },
-      { id: uid(), title: "Госуслуги", category: "Документы", url: "https://gosuslugi.ru", created: Date.now() },
+      { id: uid(), title: "Гос��слуги", category: "Документы", url: "https://gosuslugi.ru", created: Date.now() },
     ],
     passwords: [
       { id: uid(), title: "Демо-сервис", category: "Пример", login: "demo@example.com", password: "demo1234", url: "https://example.com", note: "Пример записи", created: Date.now() },
@@ -5844,7 +5844,7 @@ function ww26StartGhost(st) {
 }
 /* Снимок исходной раскладки ряда: позиции всех «слотов» и порядок соседей.
    Дальше во время движения мы только пересчитываем, в какой слот попадёт
-   перетаскиваемый ярлык, и раздвигаем остальных смещением по этим слотам. */
+   перетаскиваемый ярлык, и раздвигаем остальны�� смещением по этим слотам. */
 function ww26LayoutInit(st) {
   const row = st.el.parentElement;
   if (!row) return;
@@ -6581,7 +6581,7 @@ async function wwViewerSetPin() {
 }
 async function wwViewerClearPin() {
   if (isObserver()) return;
-  if (!await wwConfirm("Все, кто заходил по коду, потеряют доступ при следующем запуске приложения.", { title: "Отключить вход по коду?", okText: "Отключить", danger: true })) return;
+  if (!await wwConfirm("Все, кто заходил по коду, потеряют доступ при следующем запуске приложения.", { title: "Отключить вход по коду?", okText: "Отклю��ить", danger: true })) return;
   delete S.viewerPin;
   save(); renderSettings();
   toast("Вход по коду отключён");
@@ -6878,9 +6878,9 @@ function ww331OpenNotifs() {
   const list = ww331Notifs();
   const unread = list.filter((n) => !ww331IsRead(n.key)).length;
   showModal(`<div class="mhead"><h3>🔔 Уведомления${unread ? ` <span class="badge red">${unread}</span>` : ""}</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <div style="max-height:56vh;overflow:auto">${list.length ? list.map((n) => {
+    <div id="ww331-notif-scroll" style="max-height:56vh;overflow:auto">${list.length ? list.map((n) => {
       const read = ww331IsRead(n.key);
-      return `<div class="ww331-row${read ? "" : " ww331-unread"}">
+      return `<div class="ww331-row${read ? "" : " ww331-unread"}" data-ww47-key="${esc(n.key)}">
         <div class="ww331-ic">${n.icon}</div>
         <div class="ww331-main" style="cursor:pointer" onclick="ww331NotifGo('${n.key}','${n.page}')">
           <div class="ww331-t">${esc(n.title)}${n.urgent ? ' <span class="badge red">срочно</span>' : ""}</div>
@@ -7585,7 +7585,7 @@ async function ww332AfterLogin() {
 }
 
 /* ===================== перенос со старого «ключа синхронизации» =====================
-   Выполняется один раз на устройство. Берём строку из общей таблицы ww_state по
+   Выполняется один раз на устройство. Берём с��року из общей таблицы ww_state по
    старому syncId и, если в личном хранилище ещё пусто, кладём её туда. */
 async function ww332MigrateLegacy() {
   if (localStorage.getItem(WW332_MIGK)) return;
@@ -7912,7 +7912,7 @@ window.addEventListener("unhandledrejection", function (e) {
 var WW40_TABS = ["goals", "notes", "links", "passwords"];
 var WW40_TAB_LABEL = { goals: "Цели и накопления", notes: "Заметки", links: "Ссылки", passwords: "Пароли" };
 var WW40_SECTIONS = [
-  ["dashboard", "Дашборд"], ["ops", "Операции"], ["budgets", "Бюджеты"],
+  ["dashboard", "Дашборд"], ["ops", "Операции"],
   ["credits", "Кредиты и платежи"], ["calendar", "Календарь"], ["planner", "Планировщик"],
   ["vault", "Хранилище"], ["analytics", "Аналитика"], ["settings", "Настройки"],
 ];
@@ -8034,7 +8034,7 @@ function ww40HasCustomOrder() {
 }
 
 /* Исходный порядок меню запоминаем один раз, чтобы кнопка «Сбросить порядок»
-   возвращала именно исходную раскладку вместе с заголовками групп, а не оставляла
+   возвращала именно исхо��ную раскладку вместе с заголовками групп, а не оставляла
    пункты там, куда их перетащили. */
 var WW40_RAIL_DEFAULT = null;
 var WW40_BN_DEFAULT = null;
@@ -9271,10 +9271,10 @@ else ww41Boot();
 
   var PRINT_CSS =
     '#ww43-print{display:none}' +
-    '@media print{@page{margin:14mm}' +
-    'body{background:#fff!important}body *{visibility:hidden!important}' +
-    '#ww43-print,#ww43-print *{visibility:visible!important}' +
-    '#ww43-print{display:block!important;position:absolute;left:0;top:0;width:100%;color:#000;font-family:Arial,Helvetica,sans-serif}' +
+    '@media print{@page{margin:12mm}' +
+    'html,body{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;position:static!important;top:auto!important;left:auto!important;background:#fff!important}' +
+    'body>*{display:none!important}' +
+    'body>#ww43-print{display:block!important;position:static!important;left:auto!important;top:auto!important;width:auto!important;color:#000;font-family:Arial,Helvetica,sans-serif}' +
     '#ww43-print h1{font-size:23px;margin:0 0 4px}' +
     '#ww43-print h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #000;padding-bottom:3px;page-break-after:avoid}' +
     '#ww43-print .ww43-sub{color:#555;font-size:12px;margin-bottom:12px}' +
@@ -9289,7 +9289,9 @@ else ww41Boot();
     '#ww43-print tfoot td{font-weight:700;border-top:1px solid #000;border-bottom:none}' +
     '#ww43-print td.r,#ww43-print th.r{text-align:right;white-space:nowrap}' +
     '#ww43-print .mut{color:#777}#ww43-print .sm{font-size:10.5px}' +
-    '#ww43-print .ww43-foot{margin-top:18px;color:#888;font-size:11px;text-align:center}}';
+    '#ww43-print .ww43-foot{margin-top:18px;color:#888;font-size:11px;text-align:center}' +
+    '#ww43-print .ww43-doc{overflow:visible;page-break-after:avoid}' +
+    '#ww43-print .ww43-doc>*:last-child{page-break-after:avoid;margin-bottom:0}}';
 
   function fileName(p) {
     var r = range(p);
@@ -9303,8 +9305,11 @@ else ww41Boot();
     host.innerHTML = reportHtml(p);
     var st = document.getElementById("ww43-print-style");
     if (!st) { st = document.createElement("style"); st.id = "ww43-print-style"; st.textContent = PRINT_CSS; document.head.appendChild(st); }
+    /* старые артефакты печати давали лишние пустые страницы */
     var legacy = document.getElementById("print-report");
-    if (legacy) legacy.innerHTML = "";
+    if (legacy && legacy.parentNode) legacy.parentNode.removeChild(legacy);
+    var legacySt = document.getElementById("print-style");
+    if (legacySt && legacySt.parentNode) legacySt.parentNode.removeChild(legacySt);
     try { closeModal(); } catch (e) {}
     var oldTitle = document.title;
     document.title = fileName(p);
@@ -9321,7 +9326,7 @@ else ww41Boot();
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>' + esc2(fileName(p)) + '</title><style>' +
       'body{margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff}' +
-      PRINT_CSS.replace(/#ww43-print\{display:none\}/, "").replace(/@media print\{@page\{margin:14mm\}/, "").replace(/\}$/, "") +
+      PRINT_CSS.replace(/#ww43-print\{display:none\}/, "").replace(/@media print\{@page\{margin:12mm\}/, "").replace(/\}$/, "") +
       '#ww43-print{display:block}</style></head><body><div id="ww43-print">' + reportHtml(p) + '</div></body></html>';
     if (typeof ww331Download === "function") ww331Download(doc, fileName(p) + ".html", "text/html;charset=utf-8");
     if (typeof toast === "function") toast("Файл отчёта сохранён");
@@ -9428,6 +9433,777 @@ else ww41Boot();
     try { if (typeof activePage === "function" && activePage() === "settings") card(); } catch (e) {}
   }
 
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.44: единый переключатель периода во всех вкладках =====================
+   За основу взято оформление дашборда: строка «◀ ПЕРИОД ▾ ▶» по центру сразу под заголовком.
+   Раньше на каждой вкладке он стоял по-своему: в тулбаре (операции), в шапке календаря,
+   внутри карточки (кредиты, регулярные платежи), в подзаголовке (бюджеты), а в аналитике его не было.
+   Здесь переключатели переносятся/создаются в одном месте с одинаковой разметкой.
+*/
+(function () {
+  var CSS_ID = "ww44-css";
+  var CSS =
+    ".ww44-bar{display:flex;justify-content:center;align-items:center;margin:0 0 14px}" +
+    ".ww44-bar .ww319-per{flex-wrap:nowrap}" +
+    ".ww44-bar:empty{display:none;margin:0}" +
+    "@media(max-width:700px){.ww44-bar{margin-bottom:12px}}";
+
+  function css() {
+    if (document.getElementById(CSS_ID)) return;
+    var st = document.createElement("style");
+    st.id = CSS_ID;
+    st.textContent = CSS;
+    document.head.appendChild(st);
+  }
+
+  function label(p) {
+    try { return ww319Label(p); } catch (e) { return "Период"; }
+  }
+
+  /* Полоса периода строго под заголовком страницы */
+  function bar(pageId) {
+    var page = document.getElementById("page-" + pageId);
+    if (!page) return null;
+    var found = page.querySelector(":scope > .ww44-bar");
+    if (found) return found;
+    var head = page.querySelector(":scope > .page-head");
+    if (!head) return null;
+    var el = document.createElement("div");
+    el.className = "ww44-bar";
+    el.setAttribute("data-ww44", pageId);
+    head.insertAdjacentElement("afterend", el);
+    return el;
+  }
+
+  /* Переносит уже существующий переключатель в общее место */
+  function move(pageId, selector) {
+    var page = document.getElementById("page-" + pageId);
+    var host = bar(pageId);
+    if (!page || !host) return;
+    var per = page.querySelector(selector);
+    if (!per || per.parentElement === host) return;
+    var oldWrap = per.parentElement;
+    host.appendChild(per);
+    /* пустая обёртка от прежней вёрстки не должна занимать место */
+    if (oldWrap && oldWrap !== host && !oldWrap.children.length && !(oldWrap.textContent || "").trim()) {
+      var keep = oldWrap.className && /toolbar|cal-head|page-head/.test(oldWrap.className);
+      if (!keep) oldWrap.remove();
+    }
+  }
+
+  function per(pageId, prevCall, sheetCall, btnId, text, title) {
+    var host = bar(pageId);
+    if (!host) return;
+    if (document.getElementById(btnId)) return;
+    var span = document.createElement("span");
+    span.className = "ww319-per";
+    span.innerHTML =
+      '<button class="ww31-navm" onclick="' + prevCall.replace("%d", "-1") + '" title="Предыдущий период">\u25c0</button>' +
+      '<button id="' + btnId + '" class="ww319-pill" onclick="' + sheetCall + '" title="' + title + '">' + text + " \u25be</button>" +
+      '<button class="ww31-navm" onclick="' + prevCall.replace("%d", "1") + '" title="Следующий период">\u25b6</button>';
+    host.appendChild(span);
+  }
+
+  /* ---------- бюджеты: свой месяц живёт внутри renderBudgets, читаем его из подзаголовка ---------- */
+  var _budCache = null;
+  function parseYm(txt) {
+    txt = (txt || "").trim();
+    var m = -1;
+    try {
+      for (var i = 0; i < MONTHS.length; i++) {
+        if (txt.toLowerCase().indexOf(MONTHS[i].toLowerCase()) === 0) { m = i; break; }
+      }
+    } catch (e) {}
+    var y = (txt.match(/(\d{4})/) || [])[1];
+    if (m < 0 || !y) return null;
+    return y + "-" + String(m + 1).padStart(2, "0");
+  }
+  function readBudPill(scope) {
+    var pill = scope && scope.querySelector(".ww319-pill");
+    return pill ? parseYm(pill.textContent) : null;
+  }
+  function budYm() {
+    var fresh = readBudPill(document.getElementById("budget-sub"));
+    if (fresh) { _budCache = fresh; return fresh; }
+    return _budCache || todayStr().slice(0, 7);
+  }
+  function budDelta(from, to) {
+    return (+to.slice(0, 4) - +from.slice(0, 4)) * 12 + (+to.slice(5, 7) - +from.slice(5, 7));
+  }
+  window.ww44BudShift = function (d) {
+    if (typeof shiftBudgetMonth === "function") shiftBudgetMonth(d);
+  };
+  window.ww44BudSheet = function () {
+    var cur = budYm();
+    if (typeof ww319MonthSheet !== "function") return;
+    ww319MonthSheet("Месяц бюджетов", cur, function (ym) {
+      var d = budDelta(cur, ym);
+      if (d) window.ww44BudShift(d); else if (typeof renderBudgets === "function") renderBudgets();
+    });
+  };
+
+  /* ---------- кредиты и регулярные платежи: один период на всю вкладку ---------- */
+  window.ww44CrShift = function (d) {
+    if (typeof crShiftMonth === "function") crShiftMonth(d);
+  };
+
+  /* ---------- аналитика: пончик считаем по выбранному периоду, а не всегда по текущему месяцу ---------- */
+  function anRange() {
+    try { return ww26RangeFor(ww26Period()); } catch (e) { return { from: null, to: null }; }
+  }
+  function anDonut() {
+    var cv = document.getElementById("chart-donut");
+    var leg = document.getElementById("donut-legend");
+    if (!cv || typeof drawDonut !== "function") return;
+    var r = anRange();
+    var data = {}, icons = {};
+    (S.transactions || []).forEach(function (t) {
+      if (t.type !== "expense") return;
+      if (r.from && t.date < r.from) return;
+      if (r.to && t.date > r.to) return;
+      var c = (typeof cat === "function" && cat(t.categoryId)) || { name: "Прочее", icon: "\ud83d\udccc" };
+      data[c.name] = (data[c.name] || 0) + +t.amount;
+      icons[c.name] = c.icon;
+    });
+    var isPlan = false;
+    if (!Object.keys(data).length) {
+      isPlan = true;
+      (S.recurring || []).filter(function (x) { return x.type === "expense"; }).forEach(function (x) {
+        data[x.name] = +x.amount;
+        icons[x.name] = ((typeof cat === "function" && cat(x.categoryId)) || { icon: "\ud83d\udccc" }).icon;
+      });
+      var cp = (S.credits || []).filter(function (c) { return c.status === "active"; })
+        .reduce(function (s, c) { return s + currentPayment(c).amount; }, 0);
+      if (cp) { data["Платежи по кредитам"] = cp; icons["Платежи по кредитам"] = WWI.bank; }
+    }
+    var entries = Object.entries(data).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8);
+    var total = entries.reduce(function (s, e) { return s + e[1]; }, 0);
+    drawDonut(cv, entries.map(function (e) { return [e[0], e[1], icons[e[0]]]; }), total, isPlan ? "план на месяц" : "факт за период");
+    if (leg) {
+      leg.innerHTML = entries.map(function (e, i) {
+        return '<span><i style="background:' + PALETTE[i % PALETTE.length] + '"></i>' + esc(e[0]) + " \u00b7 " +
+          (total ? Math.round((e[1] / total) * 100) : 0) + "%</span>";
+      }).join("");
+    }
+    var h2 = cv.closest(".card") && cv.closest(".card").querySelector("h2");
+    if (h2) h2.textContent = "Структура расходов \u00b7 " + label(ww26Period()).toLowerCase();
+  }
+
+  function sync() {
+    var cr = document.getElementById("ww44-cr-btn");
+    if (cr && typeof crPeriod === "function") cr.textContent = label(crPeriod()) + " \u25be";
+    var an = document.getElementById("ww44-an-btn");
+    if (an && typeof ww26Period === "function") an.textContent = label(ww26Period()) + " \u25be";
+    var bd = document.getElementById("ww44-bud-btn");
+    if (bd) bd.textContent = budYm().slice(5, 7) && (function () {
+      var ym = budYm(), y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+      var sameYear = y === new Date().getFullYear();
+      return MONTHS[m].toUpperCase() + (sameYear ? "" : " " + y) + " \u25be";
+    })();
+  }
+
+  /* Дубликаты внутри карточек убираем: период у вкладки один */
+  function dedupe() {
+    var prog = document.getElementById("credit-month-progress");
+    if (prog) {
+      var p1 = prog.querySelector(".ww319-per");
+      if (p1) {
+        var lbl = p1.querySelector("span");
+        if (lbl) p1.insertAdjacentElement("beforebegin", lbl);
+        p1.remove();
+      }
+    }
+    var rc = document.querySelector("#recur-section .ww319-per");
+    if (rc) rc.remove();
+    var sub = document.getElementById("budget-sub");
+    if (sub) {
+      var oldPer = sub.querySelector(".ww319-per");
+      if (oldPer) {
+        var cached = readBudPill(oldPer);
+        if (cached) _budCache = cached;
+        oldPer.remove();
+      }
+      if (!(sub.textContent || "").trim()) sub.style.display = "none";
+    }
+  }
+
+  function apply() {
+    css();
+    /* дашборд — эталон: тот же переключатель, но в стандартной полосе */
+    move("dashboard", ".ww319-per");
+    move("ops", ".toolbar .ww319-per");
+    move("calendar", ".cal-head .ww319-per");
+    per("credits", "ww44CrShift(%d)", "crPeriodSheet()", "ww44-cr-btn", "Месяц", "Период вкладки: кредиты и регулярные платежи");
+    per("budgets", "ww44BudShift(%d)", "ww44BudSheet()", "ww44-bud-btn", "Месяц", "Месяц бюджетов");
+    per("analytics", "ww26ShiftMonth(%d)", "ww26PeriodSheet()", "ww44-an-btn", "Месяц", "Период учёта");
+    dedupe();
+    sync();
+  }
+
+  function boot() {
+    apply();
+    if (typeof render === "function") {
+      var _r = render;
+      render = function () {
+        var out = _r.apply(this, arguments);
+        try { apply(); } catch (e) {}
+        try { if (activePage() === "analytics") anDonut(); } catch (e) {}
+        return out;
+      };
+      window.render = render;
+    }
+    if (typeof renderAnalytics === "function") {
+      var _a = renderAnalytics;
+      renderAnalytics = function () {
+        var out = _a.apply(this, arguments);
+        try { apply(); } catch (e) {}
+        try { anDonut(); } catch (e) {}
+        return out;
+      };
+      window.renderAnalytics = renderAnalytics;
+    }
+    /* смена общего периода раньше обновляла только дашборд */
+    if (typeof ww26SetPeriod === "function") {
+      var _sp = ww26SetPeriod;
+      ww26SetPeriod = function () {
+        var out = _sp.apply(this, arguments);
+        try {
+          if (activePage() === "analytics" && typeof renderAnalytics === "function") renderAnalytics();
+          else apply();
+        } catch (e) {}
+        return out;
+      };
+      window.ww26SetPeriod = ww26SetPeriod;
+    }
+    ["renderCredits", "renderBudgets", "renderRecurList", "renderOps", "renderCal"].forEach(function (name) {
+      if (typeof window[name] !== "function") return;
+      var _o = window[name];
+      window[name] = function () {
+        var out = _o.apply(this, arguments);
+        try { apply(); } catch (e) {}
+        return out;
+      };
+    });
+  }
+
+  window.ww44Apply = apply;
+  window.ww44Donut = anDonut;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.45: порядок разделов реально применяется везде =====================
+   Старый экран сохранял порядок всех разделов, но мобильная нижняя панель состояла
+   из четырёх жёстко заданных кнопок. Поэтому раздел из «Ещё» не мог подняться вниз,
+   и пользователь фактически продолжал видеть старую раскладку.
+*/
+(function () {
+  var LABEL = {
+    dashboard: "Дашборд", ops: "Операции", credits: "Кредиты",
+    calendar: "Календарь", planner: "Планировщик", vault: "Хранилище",
+    analytics: "Аналитика", settings: "Настройки"
+  };
+
+  function rawActive() {
+    var p = document.querySelector("main .page.active");
+    return p && p.id ? p.id.replace(/^page-/, "") : "dashboard";
+  }
+
+  function visible(key) {
+    try {
+      if (typeof ww22Profile === "function" && ww22Profile() === "parents" && typeof ww24Sections === "function") {
+        var v = ww24Sections();
+        if (key === "vault") return v.goals !== false || v.links !== false || v.passwords !== false;
+        return v[key] !== false;
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  function order() {
+    var o = typeof ww40Order === "function" ? ww40Order() : Object.keys(LABEL);
+    return o.filter(function (k) { return LABEL[k] && visible(k); });
+  }
+
+  function icon(key) {
+    var rail = document.querySelector('.rail-item[data-nav="' + key + '"] svg');
+    return rail ? rail.outerHTML : '<span aria-hidden="true">•</span>';
+  }
+
+  function bottomButton(key, active) {
+    return '<button class="bn-item' + (active === key ? " active" : "") + '" data-nav="' + key +
+      '" onclick="nav(\'' + key + '\')">' + icon(key) + esc(LABEL[key]) + "</button>";
+  }
+
+  function buildBottom() {
+    var bn = document.querySelector(".bottom-nav");
+    if (!bn) return;
+    var o = order(), first = o.slice(0, 4), active = rawActive();
+    bn.innerHTML = first.map(function (k) { return bottomButton(k, active); }).join("") +
+      '<button class="bn-item' + (first.indexOf(active) < 0 ? " active" : "") +
+      '" id="ww45-more" onclick="openMore()" aria-label="Остальные разделы">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Ещё</button>';
+  }
+
+  function moreHtml() {
+    var rest = order().slice(4);
+    return '<div class="mhead"><h3>Ещё</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+      '<div class="sub" style="margin:-5px 0 10px">Разделы идут в порядке, заданном в настройках.</div>' +
+      '<div class="more-grp">Остальные разделы</div>' +
+      rest.map(function (k) {
+        return '<button class="more-item" data-more="' + k + '" onclick="closeModal();nav(\'' + k + '\')">' +
+          icon(k) + esc(LABEL[k]) + "</button>";
+      }).join("");
+  }
+
+  /* Открыв��ем «Ещё» из полного сохранённого порядка, а не из старого статичного списка. */
+  function installMore() {
+    window.openMore = function () { showModal(moreHtml()); };
+    openMore = window.openMore;
+  }
+
+  /* В старом коде «исходный» DOM запоминался уже после применения сохранённого
+     порядка. Поэтому сброс мог визуально сработать лишь после перезапуска. */
+  function restoreRailDefault() {
+    var rail = document.querySelector(".rail");
+    if (!rail) return;
+    var groups = {};
+    rail.querySelectorAll(".rail-grp").forEach(function (g) {
+      var t = (g.textContent || "").trim();
+      if (/Деньги/.test(t)) groups.money = g;
+      else if (/Планы/.test(t)) groups.plans = g;
+      else if (/Личное|Хранилище/.test(t)) groups.personal = g;
+      else if (/Прочее/.test(t)) groups.other = g;
+      g.style.display = "";
+    });
+    var map = {};
+    rail.querySelectorAll(".rail-item[data-nav]").forEach(function (el) { map[el.dataset.nav] = el; });
+    [[groups.money,["dashboard","ops"]],
+     [groups.plans,["credits","calendar","planner"]],
+     [groups.personal,["vault"]],
+     [groups.other,["analytics","settings"]]].forEach(function (part) {
+      if (part[0]) rail.appendChild(part[0]);
+      part[1].forEach(function (k) { if (map[k]) rail.appendChild(map[k]); });
+    });
+  }
+
+  function apply() {
+    buildBottom();
+  }
+
+  function boot() {
+    installMore();
+
+    if (typeof ww40ApplyOrder === "function") {
+      var prevApply = ww40ApplyOrder;
+      ww40ApplyOrder = function () {
+        var out = prevApply.apply(this, arguments);
+        try {
+          if (typeof ww40HasCustomOrder === "function" && !ww40HasCustomOrder()) restoreRailDefault();
+          apply();
+        } catch (e) {}
+        return out;
+      };
+      window.ww40ApplyOrder = ww40ApplyOrder;
+      if (typeof applyNavOrder === "function") {
+        applyNavOrder = ww40ApplyOrder;
+        window.applyNavOrder = applyNavOrder;
+      }
+    }
+
+    /* После перехода обновляем подсветку новой динамической нижней панели. */
+    if (typeof nav === "function") {
+      var prevNav = nav;
+      nav = function () {
+        var out = prevNav.apply(this, arguments);
+        try { apply(); } catch (e) {}
+        return out;
+      };
+      window.nav = nav;
+    }
+
+    /* При открытии настроек также синхронизируем меню после загрузки/синхронизации состояния. */
+    if (typeof renderSettings === "function") {
+      var prevSettings = renderSettings;
+      renderSettings = function () {
+        var out = prevSettings.apply(this, arguments);
+        try { if (typeof ww40ApplyOrder === "function") ww40ApplyOrder(); else apply(); } catch (e) {}
+        return out;
+      };
+      window.renderSettings = renderSettings;
+    }
+
+    try { if (typeof ww40ApplyOrder === "function") ww40ApplyOrder(); else apply(); } catch (e) {}
+  }
+
+  window.ww45Order = order;
+  window.ww45BuildBottom = buildBottom;
+  window.ww45MoreHtml = moreHtml;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.46: без «Бюджетов», только один профиль ===================== */
+(function () {
+  var PROFILE_KEYS = ["ww_profile_v2", "ww22_switched", "ww_viewer_session_v1", "ww_demo_state_v1"];
+
+  function forceSingleUser(saveState) {
+    try { PROFILE_KEYS.forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+    try {
+      if (S && S.settings) S.settings.observerMode = false;
+      if (S) { delete S.viewerPin; delete S.viewSections; }
+      if (saveState && typeof save === "function") save();
+    } catch (e) {}
+    try { if (typeof applyObserverMode === "function") applyObserverMode(); } catch (e) {}
+    document.body.classList.remove("observer");
+  }
+
+  function removeCardByTitle(title) {
+    document.querySelectorAll("#page-settings .card h2").forEach(function (h) {
+      if ((h.textContent || "").trim() === title && h.closest(".card")) {
+        h.closest(".card").style.display = "none";
+        h.closest(".card").setAttribute("aria-hidden", "true");
+      }
+    });
+  }
+
+  function cleanUi() {
+    /* Бюджеты остаются в резервных данных, но полностью исчезают из интерфейса. */
+    document.querySelectorAll('[data-nav="budgets"],.more-item[data-more="budgets"]').forEach(function (el) { el.remove(); });
+    var bp = document.getElementById("page-budgets");
+    if (bp) { bp.classList.remove("active"); bp.style.display = "none"; bp.setAttribute("aria-hidden", "true"); }
+
+    /* Удаляем обе старые системы профилей: «Редактор/Наблюдатель» и «Моя/Просмотр/Демо». */
+    var prof = document.getElementById("ww22-prof-card"); if (prof) prof.remove();
+    var badge = document.getElementById("ww22-badge"); if (badge) badge.remove();
+    var obsBadge = document.getElementById("observer-badge"); if (obsBadge) obsBadge.remove();
+    var viewer = document.getElementById("ww-viewer"); if (viewer) viewer.remove();
+    removeCardByTitle("Режим этого устройства");
+  }
+
+  function removeBudgetFromOrder() {
+    try {
+      if (Array.isArray(WW40_SECTIONS)) WW40_SECTIONS = WW40_SECTIONS.filter(function (s) { return s[0] !== "budgets"; });
+      if (S && S.settings && Array.isArray(S.settings.navOrder)) {
+        S.settings.navOrder = S.settings.navOrder.filter(function (k) { return k !== "budgets"; });
+      }
+    } catch (e) {}
+  }
+
+  function boot() {
+    forceSingleUser(false);
+    removeBudgetFromOrder();
+
+    /* Эти функции оставлены как безопасные заглушки для старых сохранённых ссылок. */
+    window.ww22Profile = function () { return "main"; };
+    window.ww22Switch = function () {};
+    window.ww22Cards = function () {};
+    window.ww22FillProf = function () {};
+    window.wwViewerBoot = function () {};
+    window.wwViewerShow = function () {};
+    window.wwViewerVerify = function () { return true; };
+    window.setObserverMode = function () {
+      if (S && S.settings) S.settings.observerMode = false;
+      try { applyObserverMode(); } catch (e) {}
+    };
+
+    if (typeof nav === "function") {
+      var prevNav = nav;
+      nav = function (page) {
+        if (page === "budgets") page = "dashboard";
+        var out = prevNav.apply(this, arguments.length ? [page].concat([].slice.call(arguments, 1)) : ["dashboard"]);
+        try { cleanUi(); } catch (e) {}
+        return out;
+      };
+      window.nav = nav;
+    }
+
+    if (typeof ww331Notifs === "function") {
+      var prevNotifs = ww331Notifs;
+      ww331Notifs = function () {
+        return prevNotifs.apply(this, arguments).filter(function (n) {
+          return n.page !== "budgets" && String(n.key || "").indexOf("budget:") !== 0;
+        });
+      };
+      window.ww331Notifs = ww331Notifs;
+    }
+
+    if (typeof ww40ApplyOrder === "function") {
+      var prevOrder = ww40ApplyOrder;
+      ww40ApplyOrder = function () {
+        removeBudgetFromOrder();
+        var out = prevOrder.apply(this, arguments);
+        try { cleanUi(); } catch (e) {}
+        return out;
+      };
+      window.ww40ApplyOrder = ww40ApplyOrder;
+      if (typeof applyNavOrder === "function") { applyNavOrder = ww40ApplyOrder; window.applyNavOrder = applyNavOrder; }
+    }
+
+    if (typeof renderSettings === "function") {
+      var prevSettings = renderSettings;
+      renderSettings = function () {
+        var out = prevSettings.apply(this, arguments);
+        try { forceSingleUser(false); cleanUi(); } catch (e) {}
+        return out;
+      };
+      window.renderSettings = renderSettings;
+    }
+
+    try {
+      if (typeof ww40ApplyOrder === "function") ww40ApplyOrder();
+      forceSingleUser(true);
+      cleanUi();
+    } catch (e) {}
+  }
+
+  window.ww46CleanUi = cleanUi;
+  window.ww46SingleUser = forceSingleUser;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.47: уведомления не прыгают наверх ===================== */
+(function () {
+  function rowFor(key) {
+    var rows = document.querySelectorAll("#ww331-notif-scroll .ww331-row[data-ww47-key]");
+    for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute("data-ww47-key") === String(key)) return rows[i];
+    return null;
+  }
+
+  function markRow(row) {
+    if (!row) return;
+    row.classList.remove("ww331-unread");
+    var btn = row.querySelector('button[title="Отметить прочитанным"]');
+    if (btn) {
+      var done = document.createElement("span");
+      done.className = "sub ww47-read";
+      done.style.fontSize = "11px";
+      done.textContent = "прочитано";
+      btn.replaceWith(done);
+    }
+  }
+
+  function syncHead() {
+    var h = document.querySelector("#modal .mhead h3");
+    if (!h) return;
+    var n = 0;
+    try { n = ww331UnreadCount(); } catch (e) {}
+    var badge = h.querySelector(".badge");
+    if (n > 0) {
+      if (!badge) { badge = document.createElement("span"); badge.className = "badge red"; h.appendChild(document.createTextNode(" ")); h.appendChild(badge); }
+      badge.textContent = String(n);
+    } else if (badge) badge.remove();
+  }
+
+  function boot() {
+    if (typeof ww331MarkRead === "function") {
+      ww331MarkRead = function (key, silent) {
+        /* Никакого повторного ww331OpenNotifs(): меняем только нажатую строку,
+           поэтому scrollTop внутреннего списка и самого modal остаются прежними. */
+        S.notifRead[key] = Date.now();
+        ww331Persist();
+        ww331Refresh();
+        if (!silent) {
+          markRow(rowFor(key));
+          syncHead();
+        }
+      };
+      window.ww331MarkRead = ww331MarkRead;
+    }
+
+    if (typeof ww331MarkAllRead === "function") {
+      ww331MarkAllRead = function () {
+        ww331Notifs().forEach(function (n) { S.notifRead[n.key] = Date.now(); });
+        ww331Persist();
+        ww331Refresh();
+        document.querySelectorAll("#ww331-notif-scroll .ww331-row").forEach(markRow);
+        syncHead();
+        toast("Все уведомления прочитаны");
+      };
+      window.ww331MarkAllRead = ww331MarkAllRead;
+    }
+  }
+
+  window.ww47MarkRow = markRow;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.48: нижняя навигация всегда закреплена ===================== */
+(function () {
+  var raf = 0;
+  var vv = window.visualViewport;
+
+  var st = document.createElement("style");
+  st.id = "ww48-css";
+  st.textContent =
+    "@media(max-width:820px){" +
+    ".bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;margin:0!important;isolation:isolate;will-change:transform;transform:translate3d(0,var(--ww48-shift,0px),0)!important}" +
+    ".bottom-nav .bn-item:active{transform:scale(.94)}" +
+    "}";
+  document.head.appendChild(st);
+
+  function apply() {
+    raf = 0;
+    var nav = document.querySelector(".bottom-nav");
+    if (!nav || window.innerWidth > 820) {
+      document.documentElement.style.removeProperty("--ww48-shift");
+      return;
+    }
+
+    /* Сначала измеряем чистое положение fixed без прежней компенсации. */
+    document.documentElement.style.setProperty("--ww48-shift", "0px");
+    nav.style.setProperty("position", "fixed", "important");
+    nav.style.setProperty("left", "0", "important");
+    nav.style.setProperty("right", "0", "important");
+    nav.style.setProperty("bottom", "0", "important");
+    nav.style.setProperty("top", "auto", "important");
+
+    var rect = nav.getBoundingClientRect();
+    /* В iOS visual viewport может быть короче layout viewport из-за панелей
+       браузера или клавиатуры. getBoundingClientRect использует ту же систему
+       координат, поэтому целевой низ = offsetTop + height. */
+    var target = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    var delta = Math.round(target - rect.bottom);
+    /* Мелкую субпиксельную погрешность не компенсируем. */
+    if (Math.abs(delta) < 1) delta = 0;
+    document.documentElement.style.setProperty("--ww48-shift", delta + "px");
+    nav.dataset.ww48Pinned = "1";
+    nav.dataset.ww48Delta = String(delta);
+  }
+
+  function schedule() {
+    if (raf) return;
+    raf = requestAnimationFrame(apply);
+  }
+
+  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("resize", schedule, { passive: true });
+  window.addEventListener("orientationchange", function () { setTimeout(apply, 120); });
+  if (vv) {
+    vv.addEventListener("scroll", schedule, { passive: true });
+    vv.addEventListener("resize", schedule, { passive: true });
+  }
+
+  /* Нижняя панель динамически перестраивается настройкой порядка разделов,
+     но сам nav остаётся тем же. MutationObserver страхует редкие случаи,
+     когда WebView пересчитывает его положение после замены кнопок. */
+  var obs = new MutationObserver(schedule);
+  function boot() {
+    var nav = document.querySelector(".bottom-nav");
+    if (nav) obs.observe(nav, { childList: true, subtree: true });
+    apply();
+    setTimeout(apply, 120);
+    setTimeout(apply, 500);
+  }
+
+  window.ww48PinBottomNav = apply;
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+
+</script>
+<script>
+/* ===================== v3.49: компактная панель быстрых действий ===================== */
+(function () {
+  var bar, toggle, toggleBadge, notifBadge, obs;
+
+  var st = document.createElement("style");
+  st.id = "ww49-css";
+  st.textContent =
+    ".ww49-toggle{display:none}" +
+    "@media(max-width:900px){" +
+      ".ww331-bar.ww49-ready{right:0!important;bottom:calc(148px + env(safe-area-inset-bottom,0px));gap:7px;align-items:flex-end;transition:right .16s ease}" +
+      ".ww331-bar.ww49-ready.ww49-open{right:12px!important;padding:7px;background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--border);border-radius:18px;box-shadow:var(--sh);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}" +
+      ".ww331-bar.ww49-ready:not(.ww49-open)>.ww331-bbtn:not(.ww49-toggle){display:none!important}" +
+      ".ww331-bar.ww49-ready.ww49-open>.ww331-bbtn:not(.ww49-toggle){display:flex;animation:ww49In .14s ease both}" +
+      ".ww331-bar.ww49-ready .ww49-toggle{display:flex;width:30px;height:48px;border-radius:14px 0 0 14px;border-right:0;opacity:.88;font-size:22px;padding:0;transition:width .16s,border-radius .16s,opacity .16s,transform .12s}" +
+      ".ww331-bar.ww49-ready.ww49-open .ww49-toggle{width:42px;height:42px;border-radius:14px;border-right:1px solid var(--border);opacity:1;font-size:19px}" +
+      ".ww331-bar.ww49-ready .ww49-toggle:active{transform:scale(.94)}" +
+      ".ww49-toggle .ww49-dots{line-height:1;transform:translateY(-1px)}" +
+      ".ww49-toggle .ww331-badge{top:-6px;right:1px}" +
+      "@keyframes ww49In{from{opacity:0;transform:translateX(8px) scale(.96)}to{opacity:1;transform:none}}" +
+    "}";
+  document.head.appendChild(st);
+
+  function syncBadge() {
+    if (!toggleBadge || !notifBadge) return;
+    var shown = getComputedStyle(notifBadge).display !== "none" && (notifBadge.textContent || "").trim();
+    toggleBadge.textContent = shown || "";
+    toggleBadge.style.display = shown ? "flex" : "none";
+  }
+
+  function setOpen(on) {
+    if (!bar || !toggle) return;
+    on = !!on && window.innerWidth <= 900;
+    bar.classList.toggle("ww49-open", on);
+    toggle.setAttribute("aria-expanded", on ? "true" : "false");
+    toggle.setAttribute("title", on ? "Свернуть быстрые действия" : "Быстрые действия");
+    var dots = toggle.querySelector(".ww49-dots");
+    if (dots) dots.textContent = on ? "×" : "⋮";
+    try { localStorage.setItem("ww49_quickbar_open", on ? "1" : "0"); } catch (e) {}
+  }
+
+  function close() { setOpen(false); }
+  function open() { setOpen(true); }
+  function toggleOpen(ev) { if (ev) { ev.preventDefault(); ev.stopPropagation(); } setOpen(!bar.classList.contains("ww49-open")); }
+
+  function boot() {
+    bar = document.getElementById("ww331-bar");
+    if (!bar || document.getElementById("ww49-toggle")) return;
+    toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "ww331-bbtn ww49-toggle";
+    toggle.id = "ww49-toggle";
+    toggle.setAttribute("aria-controls", "ww331-bar");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.innerHTML = '<span class="ww49-dots">⋮</span><span class="ww331-badge" id="ww49-badge" style="display:none">0</span>';
+    toggle.onclick = toggleOpen;
+    bar.appendChild(toggle);
+    bar.classList.add("ww49-ready");
+    toggleBadge = document.getElementById("ww49-badge");
+    notifBadge = document.getElementById("ww331-badge");
+
+    /* При запуске всегда компактно: панель не должна неожиданно закрывать контент. */
+    setOpen(false);
+    syncBadge();
+
+    if (notifBadge) {
+      obs = new MutationObserver(syncBadge);
+      obs.observe(notifBadge, { attributes: true, childList: true, characterData: true, subtree: true });
+    }
+
+    /* После выбора любой команды панель больше не остаётся поверх карточек. */
+    bar.addEventListener("click", function (e) {
+      var btn = e.target.closest(".ww331-bbtn");
+      if (btn && btn !== toggle) setTimeout(close, 0);
+    });
+    document.addEventListener("pointerdown", function (e) {
+      if (bar.classList.contains("ww49-open") && !bar.contains(e.target)) close();
+    }, true);
+    window.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("resize", function () { if (window.innerWidth > 900) close(); }, { passive: true });
+    document.addEventListener("visibilitychange", function () { if (document.hidden) close(); });
+  }
+
+  window.ww49QuickBarOpen = open;
+  window.ww49QuickBarClose = close;
+  window.ww49QuickBarToggle = toggleOpen;
+  window.ww49QuickBarSync = syncBadge;
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
