@@ -983,7 +983,7 @@ function wwLooksUntouched(st) {
      состояние раньше считалось пустым, и облако затирало его настройки.
      Стартовый набор (счета, категории, демо-кредиты, лимиты, цели) есть и у
      чистой установки, поэтому опираемся на журнал изменений: любая правка
-     пользователя оставляет в нём запись, а у свежего устройства он пуст. */
+     пользователя оставляет в нём запись, а у свежего устр��йства он пуст. */
   var edits = Array.isArray(st.audit) ? st.audit.length : 0;
   return tx === 0 && marks === 0 && edits === 0;
 }
@@ -1271,7 +1271,7 @@ function renderReminders() {
 function ymdToUTC(s) { const p = s.split("-").map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
 function daysBetween(a, b) { return Math.round((ymdToUTC(a) - ymdToUTC(b)) / 86400000); }
 function addDaysStr(s, n) { const d = new Date(ymdToUTC(s)); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-/* Человеко-читаемая фраза для периода дашборда — «в июле», «на этой неделе» и т.п. */
+/* Человеко-читаемая фраза д��я периода дашборда — «в июле», «на этой неделе» и т.п. */
 function periodPhrase(p) {
   const now = new Date();
   if (p.type === "week") return "на этой неделе";
@@ -1349,7 +1349,7 @@ function renderDash() {
     const prevInc = prevTx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
     const planInc = planIncomeMonth();
     incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
-    paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстрее плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
+    paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстр��е плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
   }
   const _stat = {
     capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги, на сегодня</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
@@ -3795,7 +3795,7 @@ function ww316CrPay(c, ym) {
 /* Оплачено ли — с допуском меньше рубля. Из-за округления при частичной
    оплате (пользователь вводит «1222» вместо «1222.28») может копиться
    разница в копейки, из-за которой строка вечно висит «частично оплачено»,
-   хотя обе суммы визуально показывают одно и то же округлённое число. */
+   хотя обе суммы визуально п��казывают одно и то же округлённое число. */
 function ww30IsPaid(posted, full) { return full > 0 ? (full - posted) < 1 : true; }
 function ww30Data() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
@@ -4195,7 +4195,7 @@ function renderSchedule(id) {
       <div><div class="sub">Закроете</div><b>${payoff}</b><div class="sub">${plan.rows.length} платежей</div></div>
       <div><div class="sub">Переплата (проценты)</div><b style="color:var(--red)">${money(plan.totalInt)}</b><div class="sub">всего выплатите ${money(plan.totalPaid)}</div></div>
     </div>` + cmp +
-    `<div style="max-height:300px;overflow:auto"><table class="cs-table"><tr><th>Дата</th><th>Платёж</th><th>Проценты</th><th>Долг</th><th>Остаток</th></tr>` +
+    `<div style="max-height:300px;overflow:auto"><table class="cs-table"><tr><th>Дата</th><th>Платёж</th><th>Проценты</th><th>Долг</th><th>Остато��</th></tr>` +
     plan.rows.slice(0, 120).map((r) => `<tr><td>${r.d.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" })}</td><td>${money(r.pay)}</td><td>${money(r.interest)}</td><td>${money(r.principal)}</td><td>${money(r.bal)}</td></tr>`).join("") +
     (plan.rows.length > 120 ? `<tr><td colspan="5" class="sub">… ещё ${plan.rows.length - 120} платежей</td></tr>` : "") + `</table></div>`;
 }
@@ -4493,7 +4493,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.52";
+const WW_VERSION = "3.53";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5835,7 +5835,7 @@ document.addEventListener("click", (e) => {
 });
 let _ww26Drag = null;
 /* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
-   Короткое нажатие — прежний режим «источник → цель», скролл не б��окируется. */
+   Короткое нажатие — преж��ий режим «источник → цель», скролл не б��окируется. */
 function ww26StartGhost(st) {
   const r = st.el.getBoundingClientRect();
   const g = st.el.cloneNode(true);
@@ -6482,7 +6482,7 @@ function wwExportNudge() {
    Как устроено:
    - Вы задаёте код в Настройках → «Учётные записи». Хранится ХЕШ кода в
      синхронизируемых данных (S.viewerPin), сам код нигде не лежит открытым.
-   - Ссылка вида ?viewer=<syncId> открывает упрощённый экран входа вместо
+   - С��ылка вида ?viewer=<syncId> открывает упрощённый экран входа вместо
      обычной формы «URL / ключ / syncId».
    - ПОСТОЯННАЯ ПРОВЕРКА: устройство запоминает хеш кода, которым вошли, и
      сверяет его при каждом запуске и при каждой синхронизации. Сменили код —
@@ -7077,7 +7077,7 @@ function ww331BulkCatApply() {
   const c = cat(cid); if (!c) return;
   let n = 0;
   S.transactions.forEach((t) => { if (_ww331Sel.has(t.id)) { t.categoryId = cid; t.type = c.type; n++; } });
-  save(); closeModal(); render(activePage()); toast(`Категория изменена у ${n} операций`);
+  save(); closeModal(); render(activePage()); toast(`К��тегория изменена у ${n} операций`);
 }
 function ww331BulkTag() {
   if (isObserver() || !_ww331Sel.size) return;
@@ -8376,7 +8376,7 @@ function ww41Date(ts) {
   var p = function (n) { return n < 10 ? "0" + n : "" + n; };
   var hm = p(d.getHours()) + ":" + p(d.getMinutes());
   if (d.toDateString() === now.toDateString()) return "Сегодня " + hm;
-  if (d.toDateString() === new Date(now.getTime() - 864e5).toDateString()) return "Вчера " + hm;
+  if (d.toDateString() === new Date(now.getTime() - 864e5).toDateString()) return "Вчер�� " + hm;
   return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear();
 }
 
@@ -9294,7 +9294,7 @@ else ww41Boot();
       '<h2>Ещё предстоит оплатить</h2><table><thead><tr><th>Дата</th><th>Назначение</th><th class="r">Сумма</th></tr></thead><tbody>' + dueRows + '</tbody>' +
         '<tfoot><tr><td colspan="2">Итого к оплате</td><td class="r">' + m(d.dueTotal) + '</td></tr></tfoot></table>' +
       '<h2>Крупнейшие расходы периода</h2><table><thead><tr><th>Дата</th><th>Категория</th><th class="r">Сумма</th></tr></thead><tbody>' + bigRows + '</tbody></table>' +
-      '<h2>Остатки на счетах (на сегодня)</h2><table><thead><tr><th>Счёт</th><th class="r">Остаток</th></tr></thead><tbody>' + accRows + '</tbody></table>' +
+      '<h2>Остатки н�� счетах (на сегодня)</h2><table><thead><tr><th>Счёт</th><th class="r">Остаток</th></tr></thead><tbody>' + accRows + '</tbody></table>' +
       '<div class="ww43-foot">WiseWallet v' + (typeof WW_VERSION !== "undefined" ? WW_VERSION : "") + ' · личный учёт финансов</div>' +
     '</div>';
   }
@@ -9393,10 +9393,11 @@ else ww41Boot();
       '</div>' +
       '<div style="font-weight:600;margin-bottom:4px">Ближайшие платежи</div>' + duePreview +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
-        '<button class="btn btn-primary" style="flex:1;min-width:180px" onclick="ww43ToPdf()">📄 Сохранить PDF</button>' +
+        '<button class="btn btn-primary" style="flex:1;min-width:180px" onclick="ww53DownloadPdf(this)">⬇ Скачать PDF</button>' +
+        '<button class="btn btn-ghost" onclick="ww43ToPdf()">🖨 Печать</button>' +
         '<button class="btn btn-ghost" onclick="ww43ToHtml()">⬇ Файл HTML</button>' +
       '</div>' +
-      '<div class="sub" style="margin-top:8px">В окне печати выберите «Сохранить в PDF» (на iPhone — «Поделиться» → «Печать» → «Сохранить в Файлы»).</div>');
+      '<div class="sub" style="margin-top:8px">«Скачать PDF» создаёт готовый электронный .pdf без окна печати. На iPhone выберите «Сохранить в Файлы» в системном меню.</div>');
   }
 
   function custom() {
@@ -9431,7 +9432,7 @@ else ww41Boot();
       '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<button class="btn btn-primary" onclick="ww43Open()">📄 Сформировать отчёт</button>' +
-        '<button class="btn btn-ghost" onclick="ww43ToPdf()">⚡ Сразу в PDF</button>' +
+        '<button class="btn btn-ghost" onclick="ww53DownloadPdf(this)">⬇ Скачать PDF</button>' +
       '</div>';
   }
 
@@ -10290,6 +10291,160 @@ window.ww50DataSignature = ww50DataSignature;
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
+})();
+
+/* ===================== v3.53: прямое сохранение электронного PDF ===================== */
+(function () {
+  var PW = 1240, PH = 1754, M = 70, BOTTOM = 95;
+
+  function mm(v) { return typeof money === "function" ? money(v) : new Intl.NumberFormat("ru-RU").format(Math.round(v || 0)) + " ₽"; }
+  function humanIso(s) { if (!s) return ""; var a = s.split("-"); return a[2] + "." + a[1] + "." + a[0]; }
+  function catLabel(id) { try { var c = cat(id); return c ? (c.icon ? c.icon + " " : "") + c.name : "Без категории"; } catch (e) { return "Без категории"; } }
+  function pdfFileName(p) { var r = ww43Range(p); return "WiseWallet-financial-report-" + (r.from ? r.from + "_" + r.to : "all-time") + ".pdf"; }
+
+  function makeCanvases(p) {
+    var d = ww43Collect(p), r = ww43Range(p), pages = [], pg = null, c = null, y = 0;
+    function newPage() {
+      pg = document.createElement("canvas"); pg.width = PW; pg.height = PH;
+      c = pg.getContext("2d", { alpha: false }); c.fillStyle = "#fff"; c.fillRect(0, 0, PW, PH);
+      c.textBaseline = "top"; pages.push(pg); y = M;
+    }
+    function font(size, bold) { c.font = (bold ? "700 " : "400 ") + size + "px Arial, Helvetica, sans-serif"; }
+    function ensure(h) { if (!pg) newPage(); if (y + h > PH - BOTTOM) newPage(); }
+    function fit(text, max) {
+      text = String(text == null ? "" : text); if (c.measureText(text).width <= max) return text;
+      while (text.length > 1 && c.measureText(text + "…").width > max) text = text.slice(0, -1);
+      return text + "…";
+    }
+    function wrap(text, max) {
+      var words = String(text == null ? "" : text).split(/\s+/), out = [], line = "";
+      words.forEach(function (w) { var t = line ? line + " " + w : w; if (line && c.measureText(t).width > max) { out.push(line); line = w; } else line = t; });
+      if (line) out.push(line); return out.length ? out : [""];
+    }
+    function text(textValue, x, width, size, bold, color, lh) {
+      font(size, bold); c.fillStyle = color || "#18202b"; var lines = wrap(textValue, width), lineH = lh || Math.round(size * 1.28);
+      lines.forEach(function (ln) { c.fillText(ln, x, y); y += lineH; }); return lines.length * lineH;
+    }
+    function title(s) {
+      ensure(68); y += 12; font(24, true); c.fillStyle = "#18202b"; c.fillText(s, M, y); y += 38;
+      c.fillStyle = "#138b79"; c.fillRect(M, y, PW - M * 2, 3); y += 14;
+    }
+    function lineRow(left, middle, right, note) {
+      var h = note ? 68 : 48; ensure(h); c.strokeStyle = "#dfe5e8"; c.lineWidth = 1; c.beginPath(); c.moveTo(M, y); c.lineTo(PW - M, y); c.stroke(); y += 11;
+      font(20, false); c.fillStyle = "#18202b"; c.fillText(fit(left, 210), M, y); c.fillText(fit(middle, 600), M + 230, y);
+      font(20, true); var rr = fit(right, 230); c.fillText(rr, PW - M - c.measureText(rr).width, y);
+      if (note) { font(16, false); c.fillStyle = "#74808d"; c.fillText(fit(note, 600), M + 230, y + 27); }
+      y += h - 11;
+    }
+    function categorySection(name, obj, total) {
+      title(name); var ids = Object.keys(obj || {}).sort(function (a, b) { return obj[b] - obj[a]; });
+      if (!ids.length) lineRow("—", "Операций нет", "0 ₽");
+      ids.forEach(function (id) { lineRow("", catLabel(id), mm(obj[id]), total ? Math.round(obj[id] / total * 100) + "% от суммы" : ""); });
+      ensure(58); c.fillStyle = "#f2f5f6"; c.fillRect(M, y, PW - M * 2, 50); font(20, true); c.fillStyle = "#18202b"; c.fillText("Итого", M + 14, y + 14);
+      var s = mm(total); c.fillText(s, PW - M - 14 - c.measureText(s).width, y + 14); y += 62;
+    }
+
+    newPage();
+    font(38, true); c.fillStyle = "#18202b"; c.fillText("Финансовый отчёт", M, y); y += 54;
+    font(19, false); c.fillStyle = "#687482";
+    var per = r.from ? humanIso(r.from) + " — " + humanIso(r.to) : "за всё время";
+    c.fillText("Период: " + per + " · сформирован " + new Date().toLocaleDateString("ru-RU"), M, y); y += 38;
+
+    var cards = [
+      ["Доходы за период", "+" + mm(d.inc), "#16845b"], ["Потрачено", "−" + mm(d.exp), "#c13d42"],
+      ["Предстоит оплатить", mm(d.dueTotal), "#a86400"], ["Доходы минус расходы", (d.net >= 0 ? "+" : "−") + mm(Math.abs(d.net)), d.net >= 0 ? "#16845b" : "#c13d42"],
+      ["Останется после платежей", (d.left >= 0 ? "+" : "−") + mm(Math.abs(d.left)), d.left >= 0 ? "#16845b" : "#c13d42"], ["Ожидаемые доходы", mm(d.waitInc), "#18202b"]
+    ];
+    for (var i = 0; i < cards.length; i++) {
+      var col = i % 2, row = Math.floor(i / 2), x = M + col * 550, yy = y + row * 105;
+      c.fillStyle = "#f5f7f8"; c.strokeStyle = "#dfe5e8"; c.lineWidth = 1; c.beginPath(); c.roundRect(x, yy, 520, 88, 12); c.fill(); c.stroke();
+      font(17, false); c.fillStyle = "#687482"; c.fillText(cards[i][0], x + 18, yy + 14);
+      font(27, true); c.fillStyle = cards[i][2]; c.fillText(fit(cards[i][1], 480), x + 18, yy + 43);
+    }
+    y += 335; font(17, false); c.fillStyle = "#687482"; c.fillText("Учтено операций: " + d.txCount, M, y); y += 24;
+
+    categorySection("Доходы по категориям", d.incBy, d.inc);
+    categorySection("Расходы по категориям", d.expBy, d.exp);
+
+    title("Ещё предстоит оплатить");
+    if (!d.due.length) lineRow("—", "В этом периоде оплачивать больше нечего", "0 ₽");
+    d.due.forEach(function (x) { lineRow(humanIso(x.date), x.name, mm(x.amount), x.note || ""); });
+    ensure(58); c.fillStyle = "#fff6e8"; c.fillRect(M, y, PW - M * 2, 50); font(20, true); c.fillStyle = "#7b4d00"; c.fillText("Итого к оплате", M + 14, y + 14);
+    var dt = mm(d.dueTotal); c.fillText(dt, PW - M - 14 - c.measureText(dt).width, y + 14); y += 62;
+
+    title("Крупнейшие расходы периода");
+    if (!d.biggest.length) lineRow("—", "Расходов нет", "0 ₽");
+    d.biggest.forEach(function (x) { lineRow(humanIso(x.date), catLabel(x.cid), mm(x.amount), x.note || ""); });
+
+    title("Остатки на счетах (на сегодня)");
+    var accs = ((S && S.accounts) || []).filter(function (a) { return !a.archived; });
+    if (!accs.length) lineRow("—", "Счётов нет", "0 ₽");
+    accs.forEach(function (a) { var b = 0; try { b = accBalance(a.id); } catch (e) {} lineRow("", a.name, mm(b)); });
+
+    pages.forEach(function (canvas, idx) {
+      var x = canvas.getContext("2d"); x.font = "400 15px Arial, Helvetica, sans-serif"; x.fillStyle = "#8a949e"; x.textBaseline = "top";
+      x.fillText("WiseWallet v" + (typeof WW_VERSION !== "undefined" ? WW_VERSION : "") + " · электронный PDF", M, PH - 52);
+      var pn = "Страница " + (idx + 1) + " из " + pages.length; x.fillText(pn, PW - M - x.measureText(pn).width, PH - 52);
+    });
+    return pages;
+  }
+
+  function jpegBytes(canvas) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) { if (!blob) { reject(new Error("Не удалось создать страницу PDF")); return; } blob.arrayBuffer().then(function (b) { resolve(new Uint8Array(b)); }, reject); }, "image/jpeg", 0.90);
+    });
+  }
+  function enc(s) { return new TextEncoder().encode(s); }
+  function buildPdf(images) {
+    var chunks = [], offsets = [], pos = 0, count = 2 + images.length * 3;
+    function push(b) { chunks.push(b); pos += b.length; }
+    function obj(n, body) { offsets[n] = pos; push(enc(n + " 0 obj\n" + body + "\nendobj\n")); }
+    push(new Uint8Array([37,80,68,70,45,49,46,52,10,37,226,227,207,211,10]));
+    obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    var kids = images.map(function (_, i) { return (3 + i * 3) + " 0 R"; }).join(" ");
+    obj(2, "<< /Type /Pages /Count " + images.length + " /Kids [" + kids + "] >>");
+    images.forEach(function (img, i) {
+      var page = 3 + i * 3, content = page + 1, image = page + 2;
+      obj(page, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 " + image + " 0 R >> >> /Contents " + content + " 0 R >>");
+      var cmd = "q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n";
+      obj(content, "<< /Length " + enc(cmd).length + " >>\nstream\n" + cmd + "endstream");
+      offsets[image] = pos;
+      push(enc(image + " 0 obj\n<< /Type /XObject /Subtype /Image /Width " + PW + " /Height " + PH + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.length + " >>\nstream\n"));
+      push(img); push(enc("\nendstream\nendobj\n"));
+    });
+    var xref = pos; push(enc("xref\n0 " + (count + 1) + "\n0000000000 65535 f \n"));
+    for (var n = 1; n <= count; n++) push(enc(String(offsets[n]).padStart(10, "0") + " 00000 n \n"));
+    push(enc("trailer\n<< /Size " + (count + 1) + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n"));
+    return new Blob(chunks, { type: "application/pdf" });
+  }
+
+  async function build(p) {
+    var canvases = makeCanvases(p || ww43Period()), images = [];
+    for (var i = 0; i < canvases.length; i++) images.push(await jpegBytes(canvases[i]));
+    return buildPdf(images);
+  }
+  function anchorDownload(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; a.style.display = "none";
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 3000);
+  }
+  async function download(btn) {
+    var old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = "Формирую PDF…"; }
+    if (typeof toast === "function") toast("Формирую электронный PDF…");
+    try {
+      var p = ww43Period(), blob = await build(p), name = pdfFileName(p), file = new File([blob], name, { type: "application/pdf" });
+      var isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isiOS && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: "Финансовый отчёт WiseWallet" });
+      else anchorDownload(blob, name);
+      try { closeModal(); } catch (e) {}
+      if (typeof toast === "function") toast("PDF готов: " + name);
+    } catch (e) {
+      if (e && e.name !== "AbortError") { if (typeof toast === "function") toast("Не удалось сохранить PDF: " + (e.message || e)); }
+    } finally { if (btn) { btn.disabled = false; btn.textContent = old; } }
+  }
+
+  window.ww53BuildPdf = build;
+  window.ww53DownloadPdf = download;
+  window.ww53PdfFileName = pdfFileName;
 })();
 
 </script>
