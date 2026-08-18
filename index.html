@@ -4490,7 +4490,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.50";
+const WW_VERSION = "3.51";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6292,14 +6292,20 @@ try {
    Карточки настроек досыпаются несколькими модулями асинхронно, поэтому не
    перестраиваем разметку, а превращаем в аккордеон уже готовый DOM. */
 (function () {
-  var OPEN_BY_DEFAULT = ["Тема", "Синхронизация"];
+  var OPEN_BY_DEFAULT = []; /* v3.51: все карточки по умолчанию закрыты */
   function accordion() {
-    var grid = document.querySelector("#page-settings .grid.grid-2");
-    if (!grid) return;
+    var page = document.getElementById("page-settings");
+    if (!page) return;
     var saved = (S.settings && S.settings.setOpen) || {};
-    grid.querySelectorAll(".card").forEach(function (card) {
+    page.querySelectorAll(".card").forEach(function (card) {
       var h = card.querySelector("h2");
-      if (!h || card.dataset.acc) return;
+      if (!h) return;
+      /* Динамические карточки отчёта и журнала заменяют innerHTML при каждом
+         renderSettings. data-acc на card остаётся, а set-body исчезает — в таком
+         случае аккордеон нужно собрать заново. */
+      var ready = card.dataset.acc && h.classList.contains("set-h") && card.querySelector(":scope > .set-body");
+      if (ready) return;
+      card.removeAttribute("data-acc");
       card.dataset.acc = "1";
       var key = (h.textContent || "").trim().slice(0, 40);
       var body = document.createElement("div");
@@ -10243,6 +10249,25 @@ function ww50DataSignature(st) {
   try { return JSON.stringify(ww50Stable(data)); } catch (e) { return ""; }
 }
 window.ww50DataSignature = ww50DataSignature;
+
+</script>
+<script>
+/* ===================== v3.51: все разделы настроек изначально свёрнуты ===================== */
+(function () {
+  var KEY = "ww51_settings_collapsed_v1";
+  function boot() {
+    try {
+      if (!localStorage.getItem(KEY)) {
+        S.settings.setOpen = {};
+        /* Это только состояние интерфейса — updatedAt финансовых данных не меняем. */
+        localStorage.setItem(LS_KEY, JSON.stringify(S));
+        localStorage.setItem(KEY, "1");
+      }
+    } catch (e) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
 
 </script>
 <script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>
