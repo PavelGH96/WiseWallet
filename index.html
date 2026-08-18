@@ -3718,7 +3718,8 @@ async function _syncNowInner(manual) {
     } else {
       const remoteNewer = remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt;
       const remoteChanged = remote && remote.updated_at && remote.updated_at !== lastRemote;
-      const localDirty = S.updatedAt > (S.settings.lastSync || 0);
+      const sameUserData = !!(remote && remote.data && typeof ww50DataSignature === "function" && ww50DataSignature(S) === ww50DataSignature(remote.data));
+      const localDirty = !sameUserData && S.updatedAt > (S.settings.lastSync || 0);
       // Главная защита: пустое локальное состояние не имеет права перезаписать
       // непустое облако, даже если его метка времени свежее. Именно так дважды
       // терялись данные: свежая установка ставит метку «сейчас» и выигрывала спор.
@@ -4489,7 +4490,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.49";
+const WW_VERSION = "3.50";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9857,11 +9858,20 @@ else ww41Boot();
   var PROFILE_KEYS = ["ww_profile_v2", "ww22_switched", "ww_viewer_session_v1", "ww_demo_state_v1"];
 
   function forceSingleUser(saveState) {
-    try { PROFILE_KEYS.forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+    var changed = false;
     try {
+      PROFILE_KEYS.forEach(function (k) {
+        if (localStorage.getItem(k) !== null) { localStorage.removeItem(k); changed = true; }
+      });
+    } catch (e) {}
+    try {
+      if (S && S.settings && S.settings.observerMode) changed = true;
       if (S && S.settings) S.settings.observerMode = false;
-      if (S) { delete S.viewerPin; delete S.viewSections; }
-      if (saveState && typeof save === "function") save();
+      if (S && Object.prototype.hasOwnProperty.call(S, "viewerPin")) { delete S.viewerPin; changed = true; }
+      if (S && Object.prototype.hasOwnProperty.call(S, "viewSections")) { delete S.viewSections; changed = true; }
+      /* Это очистка локальной конфигурации, а не финансовая правка: сохраняем
+         напрямую, не вызывая save() и не меняя updatedAt. */
+      if (saveState && changed) localStorage.setItem(LS_KEY, JSON.stringify(S));
     } catch (e) {}
     try { if (typeof applyObserverMode === "function") applyObserverMode(); } catch (e) {}
     document.body.classList.remove("observer");
@@ -10207,6 +10217,32 @@ else ww41Boot();
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
+
+</script>
+<script>
+/* ===================== v3.50: синхронизация без ложных конфликтов ===================== */
+/* Стабильный снимок только пользовательских финансовых данных. Служебные поля
+   updatedAt/lastSync, уведомления, журналы, тема и локальные настройки устройства
+   не должны превращать обычный вход на ПК в «конфликт». */
+function ww50Stable(value) {
+  if (Array.isArray(value)) return value.map(ww50Stable);
+  if (!value || typeof value !== "object") return value;
+  var out = {};
+  Object.keys(value).sort().forEach(function (k) { out[k] = ww50Stable(value[k]); });
+  return out;
+}
+function ww50DataSignature(st) {
+  st = st || {};
+  var keys = [
+    "accounts", "categories", "transactions", "credits", "recurring", "goals",
+    "tasks", "links", "passwords", "notes", "noteFolders", "posted", "skipped",
+    "ww30Cr", "ww30Tx"
+  ];
+  var data = {};
+  keys.forEach(function (k) { data[k] = st[k] == null ? (k === "posted" || k === "skipped" || k === "ww30Cr" || k === "ww30Tx" ? {} : []) : st[k]; });
+  try { return JSON.stringify(ww50Stable(data)); } catch (e) { return ""; }
+}
+window.ww50DataSignature = ww50DataSignature;
 
 </script>
 <script>(function(){function h(){var s=document.getElementById("ww-splash");if(s&&!s.classList.contains("hide")){s.classList.add("hide");setTimeout(function(){try{s.remove()}catch(e){}},420)}}if(document.readyState==="complete"){setTimeout(h,150)}else{window.addEventListener("load",function(){setTimeout(h,150)})}setTimeout(h,4000)})();</script>

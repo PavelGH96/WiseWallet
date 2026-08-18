@@ -1,5 +1,5 @@
 /* WiseWallet service worker: network-first для HTML (свежая версия сразу) + cache-first для ассетов + web push */
-const CACHE = "wisewallet-v3.49";
+const CACHE = "wisewallet-v3.50";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-192-maskable.png", "./icon-512-maskable.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
