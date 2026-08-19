@@ -460,7 +460,7 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 .coin .disc{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--border);background:var(--card);box-shadow:var(--sh-s);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
 .coin.acc,.coin.inc,.coin.cat{cursor:grab;position:relative}
 /* Подсказка «это можно перетащить»: те же точки, что у ручек в списках.
-   Ярлыки перетаскиваются долгим нажатием (не отдельно�� ручкой), поэтому
+   Ярлыки перетаскиваются долгим нажатием (не отдельной ручкой), поэтому
    точки — чисто визуальный намёк и не перехватывают события. */
 .coin-drag-dots{position:absolute;top:-2px;left:2px;display:grid;grid-template-columns:repeat(2,2px);gap:2px;opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:1}
 .coin-drag-dots i{width:2px;height:2px;border-radius:50%;background:var(--t3);display:block}
@@ -714,7 +714,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="grid grid-4" id="dash-stats"></div>
     <div class="section card" style="border-color:var(--accent)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планиро����ание</h2>
+        <h2 style="margin:0"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg> Финансовое планирование</h2>
         <span class="sub" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
@@ -983,7 +983,7 @@ function wwLooksUntouched(st) {
      состояние раньше считалось пустым, и облако затирало его настройки.
      Стартовый набор (счета, категории, демо-кредиты, лимиты, цели) есть и у
      чистой установки, поэтому опираемся на журнал изменений: любая правка
-     пользователя оставляет в нём запись, а у свежего устр��йства он пуст. */
+     пользователя оставляет в нём запись, а у свежего устройства он пуст. */
   var edits = Array.isArray(st.audit) ? st.audit.length : 0;
   return tx === 0 && marks === 0 && edits === 0;
 }
@@ -1245,7 +1245,7 @@ function upcomingReminders(days) {
 function renderReminders() {
   const el = document.getElementById("dash-reminders"); if (!el) return;
   // Напоминания всегда «от сегодня» — при просмотре другого месяца дашборда
-  // они вводят в заблуждение (для этого есть панель «К оплате» — он�� честно
+  // они вводят в заблуждение (для этого есть панель «К оплате» — она честно
   // показывает статус именно выбранного месяца).
   const viewingOther = (typeof ww316Ym === "function") && ww316Ym() !== todayStr().slice(0, 7);
   const days = viewingOther ? 0 : (+S.settings.reminderDays || 0);
@@ -1271,11 +1271,11 @@ function renderReminders() {
 function ymdToUTC(s) { const p = s.split("-").map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
 function daysBetween(a, b) { return Math.round((ymdToUTC(a) - ymdToUTC(b)) / 86400000); }
 function addDaysStr(s, n) { const d = new Date(ymdToUTC(s)); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-/* Человеко-читаема�� фраза д��я периода дашборда — «в июле», «на этой неделе» и т.п. */
+/* Человеко-читаемая фраза для периода дашборда — «в июле», «на этой неделе» и т.п. */
 function periodPhrase(p) {
   const now = new Date();
   if (p.type === "week") return "на этой неделе";
-  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " ��варт��ле";
+  if (p.type === "quarter") return "в " + ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " квартале";
   if (p.type === "half") return now.getMonth() < 6 ? "в первом полугодии" : "во втором полугодии";
   if (p.type === "year") return "в " + now.getFullYear() + " году";
   if (p.type === "all") return "за всё время";
@@ -1349,7 +1349,7 @@ function renderDash() {
     const prevInc = prevTx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
     const planInc = planIncomeMonth();
     incHint = prevInc ? momTxt(inc, prevInc) : (planInc ? `план: ${money(planInc)}` : "факт");
-    paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстр��е плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
+    paceTxt = exp === 0 ? `план на месяц: ${money(plan)}` : (paceOver ? `↑ быстрее плана · прогноз ≈ ${money(projected)}` : `✓ в рамках · прогноз ≈ ${money(projected)}`);
   }
   const _stat = {
     capital: `<div class="card stat" data-sid="capital"><div class="lbl">Капитал</div><div class="val ${capital < 0 ? "neg" : ""}">${money(capital)}</div><div class="hint">баланс ${money(bal)} − долги, на сегодня</div>${sparklineSvg(capitalSparklineSeries())}</div>`,
@@ -1622,7 +1622,7 @@ function renderCredits() {
     }
   }
   const listEl = document.getElementById("credit-list");
-  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.bank + '</div>Кред��тов пока нет</div>'; return; }
+  if (!S.credits.length) { listEl.className = "section card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.bank + '</div>Кредитов пока нет</div>'; return; }
   const _crShown = S.credits.filter(crCreditInPeriod);
   if (!_crShown.length) {
     listEl.className = "section card";
@@ -2060,7 +2060,7 @@ function saveRecur(id) {
   save(); closeModal(); renderSettings();
 }
 function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x) => x.id === id); if (!r) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); ww2UndoToast("Регулярный платёж удалён", () => { S.recurring.push(r); save(); renderSettings(); }); }
-async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, archived: false }); save(); renderSettings(); }
+async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, balance0From: todayStr(), archived: false }); save(); renderSettings(); }
 async function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = await wwPrompt("", { title: "Название счёта", defaultValue: a.name, okText: "Сохранить" }); if (!n) return; a.name = n; save(); renderSettings(); }
 function restoreAccount(id) { if (isObserver()) return; const a = acc(id); if (!a) return; a.archived = false; a.archivedFrom = null; save(); renderSettings(); renderCoins(); toast("Счёт «" + a.name + "» снова в списке"); }
 /* Переименование категории. Операции ссылаются на неё по id, поэтому смена
@@ -2268,7 +2268,7 @@ function ww36RealtimeInit() {
 function sbStatus(msg) {
   const el = document.getElementById("sb-status"); if (!el) return;
   const live = !msg && ww36RealtimeStatus() === "live" ? " · 🟢 живая синхронизация" : "";
-  el.textContent = (msg || (S.settings.sbUrl && S.settings.sbKey ? "Настроено. Последняя синхронизация: " + (S.settings.lastSync ? new Date(S.settings.lastSync).toLocaleString("ru-RU") : "��щё не было") : "Не настроено. Схема таблицы — в supabase_schema.sql")) + live;
+  el.textContent = (msg || (S.settings.sbUrl && S.settings.sbKey ? "Настроено. Последняя синхронизация: " + (S.settings.lastSync ? new Date(S.settings.lastSync).toLocaleString("ru-RU") : "Ещё не было") : "Не настроено. Схема таблицы — в supabase_schema.sql")) + live;
 }
 async function syncNow(manual) {
   const { sbUrl, sbKey, syncId } = S.settings;
@@ -2631,7 +2631,7 @@ function ww319Label(p) {
   const now = new Date();
   if (p.type === "week") return "НЕДЕЛЯ";
   if (p.type === "quarter") return ["I", "II", "III", "IV"][Math.floor(now.getMonth() / 3)] + " КВАРТАЛ";
-  if (p.type === "half") return "ПО��ГОДА";
+  if (p.type === "half") return "ПОЛГОДА";
   if (p.type === "year") return String(now.getFullYear());
   if (p.type === "all") return "ВЕСЬ ПЕРИОД";
   if (p.type === "custom") { const r = ww26RangeFor(p); return r.from ? ww26Fmt(r.from) + " — " + ww26Fmt(r.to) : "ПРОИЗВОЛЬНЫЙ"; }
@@ -2741,7 +2741,7 @@ function openCreditModal(id) {
         <div class="fg"><label>С</label><input id="cr-gfrom" type="date" value="${c?.graceFrom || ""}"></div>
         <div class="fg"><label>По</label><input id="cr-gto" type="date" value="${c?.graceTo || ""}"></div>
       </div>
-      <div class="fg"><label>Льготный п��атёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
+      <div class="fg"><label>Льготный платёж, ₽</label><input id="cr-gpay" type="number" value="${c?.gracePayment ?? ""}"></div>
     </details>
     <details class="cr-sect"${c && c.end ? " open" : ""}><summary>Сроки кредита</summary>
       <div class="fg-row">
@@ -2783,7 +2783,9 @@ function accVisibleFor(a, ym) {
    выбранного месяца, а не текущий остаток вместе с ещё не наступившими месяцами. */
 function accBalanceAsOf(id, asOfDate) {
   const a = acc(id); if (!a) return 0;
-  let b = +a.balance0 || 0;
+  /* v3.59: стартовая сумма кошелька действует только с даты, когда её задали:
+     в прошлых месяцах счёт ещё не был заведён, и остаток там нулевой. */
+  let b = (a.balance0From && asOfDate < a.balance0From) ? 0 : (+a.balance0 || 0);
   for (const t of S.transactions) { if (t.accountId !== id || t.date > asOfDate) continue; b += t.type === "income" ? +t.amount : -(+t.amount); }
   return b;
 }
@@ -2962,7 +2964,7 @@ async function addToGoal(id) {
   const v = await wwPrompt(`Накоплено ${money(g.saved)} из ${money(g.target)}. Отрицательная сумма — снять с цели.`, {
     title: `Пополнить «${g.name}»`, type: "number", okText: "Пополнить", placeholder: "0",
     quick: left > 0 ? [{ label: "До цели " + money(left), value: left }] : [],
-    validate: (x) => parseFloat(String(x).replace(",", ".")) ? "" : "Введите с��мму",
+    validate: (x) => parseFloat(String(x).replace(",", ".")) ? "" : "Введите сумму",
   });
   if (v === null) return;
   const n = parseFloat((v || "").replace(",", ".").replace(/\s/g, ""));
@@ -3795,7 +3797,7 @@ function ww316CrPay(c, ym) {
 /* Оплачено ли — с допуском меньше рубля. Из-за округления при частичной
    оплате (пользователь вводит «1222» вместо «1222.28») может копиться
    разница в копейки, из-за которой строка вечно висит «частично оплачено»,
-   хотя обе суммы визуально п��казывают одно и то же округлённое число. */
+   хотя обе суммы визуально показывают одно и то же округлённое число. */
 function ww30IsPaid(posted, full) { return full > 0 ? (full - posted) < 1 : true; }
 function ww30Data() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
@@ -4195,7 +4197,7 @@ function renderSchedule(id) {
       <div><div class="sub">Закроете</div><b>${payoff}</b><div class="sub">${plan.rows.length} платежей</div></div>
       <div><div class="sub">Переплата (проценты)</div><b style="color:var(--red)">${money(plan.totalInt)}</b><div class="sub">всего выплатите ${money(plan.totalPaid)}</div></div>
     </div>` + cmp +
-    `<div style="max-height:300px;overflow:auto"><table class="cs-table"><tr><th>Дата</th><th>Платёж</th><th>Проценты</th><th>Долг</th><th>Остато��</th></tr>` +
+    `<div style="max-height:300px;overflow:auto"><table class="cs-table"><tr><th>Дата</th><th>Платёж</th><th>Проценты</th><th>Долг</th><th>Остаток</th></tr>` +
     plan.rows.slice(0, 120).map((r) => `<tr><td>${r.d.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" })}</td><td>${money(r.pay)}</td><td>${money(r.interest)}</td><td>${money(r.principal)}</td><td>${money(r.bal)}</td></tr>`).join("") +
     (plan.rows.length > 120 ? `<tr><td colspan="5" class="sub">… ещё ${plan.rows.length - 120} платежей</td></tr>` : "") + `</table></div>`;
 }
@@ -4493,7 +4495,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.58";
+const WW_VERSION = "3.59";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4725,7 +4727,7 @@ function ww22DemoState() {
     ],
     links: [
       { id: uid(), title: "Курсы валют ЦБ", category: "Финансы", url: "https://cbr.ru", created: Date.now() },
-      { id: uid(), title: "Гос��слуги", category: "Документы", url: "https://gosuslugi.ru", created: Date.now() },
+      { id: uid(), title: "Госуслуги", category: "Документы", url: "https://gosuslugi.ru", created: Date.now() },
     ],
     passwords: [
       { id: uid(), title: "Демо-сервис", category: "Пример", login: "demo@example.com", password: "demo1234", url: "https://example.com", note: "Пример записи", created: Date.now() },
@@ -5165,7 +5167,7 @@ renderCredits = function () {
   } catch (e) {}
 };
 
-/* ---------- 4. Аналитика: тренды, сравнение месяцев, отчёт по те��ам ---------- */
+/* ---------- 4. Аналитика: тренды, сравнение месяцев, отчёт по тегам ---------- */
 let ww23AnCat = null, ww23TagPeriod = "3m";
 function ww23Ym(y, m) { const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
 const _renderAnalytics23 = renderAnalytics;
@@ -5720,7 +5722,7 @@ function ww29Save(kind) {
   if (!n) { toast("Введите название"); return; }
   if (kind === "acc") {
     const b = +(document.getElementById("ww29-bal").value || 0);
-    S.accounts.push({ id: uid(), name: n, type: "card", balance0: b, archived: false });
+    S.accounts.push({ id: uid(), name: n, type: "card", balance0: b, balance0From: todayStr(), archived: false });
   } else {
     const icon = (document.getElementById("ww29-icon").value || "").trim() || (kind === "income" ? "💵" : "📌");
     S.categories.push({ id: uid(), name: n, type: kind, icon });
@@ -5837,7 +5839,7 @@ document.addEventListener("click", (e) => {
 });
 let _ww26Drag = null;
 /* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
-   Короткое нажатие — преж��ий режим «источник → цель», скролл не б��окируется. */
+   Короткое нажатие — прежний режим «источник → цель», скролл не блокируется. */
 function ww26StartGhost(st) {
   const r = st.el.getBoundingClientRect();
   const g = st.el.cloneNode(true);
@@ -5850,7 +5852,7 @@ function ww26StartGhost(st) {
 }
 /* Снимок исходной раскладки ряда: позиции всех «слотов» и порядок соседей.
    Дальше во время движения мы только пересчитываем, в какой слот попадёт
-   перетаскиваемый ярлык, и раздвигаем остальны�� смещением по этим слотам. */
+   перетаскиваемый ярлык, и раздвигаем остальные смещением по этим слотам. */
 function ww26LayoutInit(st) {
   const row = st.el.parentElement;
   if (!row) return;
@@ -6302,7 +6304,7 @@ try {
     "Тема": "🎨", "Счета": "💳", "Категории": "🏷️", "Напоминания о платежах": "🔔",
     "Синхронизация Supabase": "🔄", "Данные": "💾", "Безопасность": "🔒",
     "Аккаунт Supabase": "👤", "Резервные копии": "🗄️", "Приложение": "📱",
-    "Фоновые push": "📡", "Порядок разделов": "↕️", "Фин��нсовый отчёт (PDF)": "📄",
+    "Фоновые push": "📡", "Порядок разделов": "↕️", "Финансовый отчёт (PDF)": "📄",
     "Журнал, уведомления и календарь": "🧰"
   };
   function ww52PlainTitle(text) {
@@ -6469,7 +6471,7 @@ function wwExportNudge() {
   }
   el.innerHTML = `<div style="margin-top:14px;padding:12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:var(--radius-s)">
     <div style="font-weight:700;font-size:13.5px;color:var(--amber);margin-bottom:4px">Скачайте копию себе на диск</div>
-    <div class="sub" style="margin-bottom:10px">${last ? "Прошло больше ��есяца с последнего экспорта." : "Вы ещё ни разу не сохраняли данные в файл."} Копии в облаке лежат в том же проекте Supabase, что и данные — файл на своём диске от этого не зависит.</div>
+    <div class="sub" style="margin-bottom:10px">${last ? "Прошло больше месяца с последнего экспорта." : "Вы ещё ни разу не сохраняли данные в файл."} Копии в облаке лежат в том же проекте Supabase, что и данные — файл на своём диске от этого не зависит.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="exportJson();wwExportDone()">Скачать JSON</button>
       <button class="btn btn-ghost btn-sm" onclick="exportXlsx();wwExportDone()">Скачать XLSX</button>
@@ -6484,9 +6486,9 @@ function wwExportNudge() {
    Как устроено:
    - Вы задаёте код в Настройках → «Учётные записи». Хранится ХЕШ кода в
      синхронизируемых данных (S.viewerPin), сам код нигде не лежит открытым.
-   - С��ылка вида ?viewer=<syncId> открывает упрощённый экран входа вместо
+   - Ссылка вида ?viewer=<syncId> открывает упрощённый экран входа вместо
      обычной формы «URL / ключ / syncId».
-   - ПОСТОЯННАЯ ПРОВЕРКА: устройств�� запоминает хеш кода, которым вошли, и
+   - ПОСТОЯННАЯ ПРОВЕРКА: устройство запоминает хеш кода, которым вошли, и
      сверяет его при каждом запуске и при каждой синхронизации. Сменили код —
      все уже вошедшие выкидываются на экран входа при ближайшем запуске.
 
@@ -6613,7 +6615,7 @@ async function wwViewerSetPin() {
 }
 async function wwViewerClearPin() {
   if (isObserver()) return;
-  if (!await wwConfirm("Все, кто заходил по коду, потеряют доступ при следующем запуске приложения.", { title: "Отключить вход по коду?", okText: "Отклю��ить", danger: true })) return;
+  if (!await wwConfirm("Все, кто заходил по коду, потеряют доступ при следующем запуске приложения.", { title: "Отключить вход по коду?", okText: "Отключить", danger: true })) return;
   delete S.viewerPin;
   save(); renderSettings();
   toast("Вход по коду отключён");
@@ -6700,7 +6702,7 @@ const WW331_COLS = [
 ];
 const WW331_FIELDS = {
   amount: "сумма", date: "дата", note: "комментарий", tags: "метки", categoryId: "категория", accountId: "счёт",
-  balance: "оста��ок", balanceFull: "полный остаток", payment: "платёж", rate: "ставка", name: "название",
+  balance: "остаток", balanceFull: "полный остаток", payment: "платёж", rate: "ставка", name: "название",
   limit: "лимит", target: "цель", saved: "накоплено", day: "день", payDay: "день платежа", status: "статус",
   done: "выполнено", type: "тип", deadline: "срок", start: "начало", end: "конец", title: "название",
   gracePayment: "льготный платёж", graceTo: "конец льготного периода", lender: "кредитор", icon: "иконка",
@@ -6974,7 +6976,7 @@ function ww331SetTagScope(s) { _ww331TagScope = s; ww331RenderTagReport(); ww331
 function ww331TagReportModalMaybe() { if (document.querySelector("#modal #ww331-tagrep-modal")) ww331TagReport(); }
 function ww331TagTable(scope) {
   const rows = ww331TagStats(scope);
-  if (!rows.length) return '<div class="empty">Нет опе��аций с метками за период</div>';
+  if (!rows.length) return '<div class="empty">Нет операций с метками за период</div>';
   const max = Math.max(...rows.map((r) => r.exp + r.inc)) || 1;
   return rows.map((r) => `<div class="row"><div class="rmain">
       <div class="rt"><span class="tag">#${esc(r.tag)}</span> <span class="sub">· ${r.n} оп.</span></div>
@@ -7070,7 +7072,7 @@ async function ww331BulkDelete() {
 }
 function ww331BulkCat() {
   if (isObserver() || !_ww331Sel.size) return;
-  showModal(`<div class="mhead"><h3>Категория для ${_ww331Sel.size} опер��ций</h3><button class="x" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="mhead"><h3>Категория для ${_ww331Sel.size} операций</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="fg"><label>Новая категория</label><select id="ww331-bulkcat">${S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)} (${c.type === "income" ? "доход" : "расход"})</option>`).join("")}</select></div>
     <button class="btn btn-primary" style="width:100%" onclick="ww331BulkCatApply()">Применить</button>`);
 }
@@ -7079,7 +7081,7 @@ function ww331BulkCatApply() {
   const c = cat(cid); if (!c) return;
   let n = 0;
   S.transactions.forEach((t) => { if (_ww331Sel.has(t.id)) { t.categoryId = cid; t.type = c.type; n++; } });
-  save(); closeModal(); render(activePage()); toast(`К��тегория изменена у ${n} операций`);
+  save(); closeModal(); render(activePage()); toast(`Категория изменена у ${n} операций`);
 }
 function ww331BulkTag() {
   if (isObserver() || !_ww331Sel.size) return;
@@ -7107,7 +7109,7 @@ function ww331BulkTagApply(replace) {
     t.tags = replace ? raw.slice() : [...new Set([...(t.tags || []), ...raw])];
     n++;
   });
-  save(); closeModal(); render(activePage()); toast(`Метки обновлены у ${n} ��пераций`);
+  save(); closeModal(); render(activePage()); toast(`Метки обновлены у ${n} операций`);
 }
 function ww331BulkExport() {
   const list = S.transactions.filter((t) => _ww331Sel.has(t.id)).sort((a, b) => a.date.localeCompare(b.date));
@@ -7294,7 +7296,7 @@ function ww331VoiceTx() {
     <button class="ww331-bbtn" id="ww331-notif" title="Уведомления (B)" onclick="ww331OpenNotifs()">🔔<span class="ww331-badge" id="ww331-badge" style="display:none">0</span></button>
     <button class="ww331-bbtn" id="ww331-undo" title="Отменить (Ctrl+Z)" onclick="wwUndo()">↩</button>
     <button class="ww331-bbtn" id="ww331-redo" title="Повторить (Ctrl+Shift+Z)" onclick="wwRedo()">↪</button>
-    <button class="ww331-bbtn" title="История изменений (H)" onclick="ww331OpenLog()">����</button>
+    <button class="ww331-bbtn" title="История изменений (H)" onclick="ww331OpenLog()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.9-6.4"/><path d="M3.2 4.2v4.2h4.2"/><path d="M12 8.2V12l2.9 1.9"/></svg></button>
     <button class="ww331-bbtn" title="Горячие клавиши (?)" onclick="ww331Hotkeys()">⌨</button>`;
   document.body.appendChild(bar);
 })();
@@ -7618,7 +7620,7 @@ async function ww332AfterLogin() {
 }
 
 /* ===================== перенос со старого «ключа синхронизации» =====================
-   Выполняется один раз на устройство. Берём с��року из общей таблицы ww_state по
+   Выполняется один раз на устройство. Берём строку из общей таблицы ww_state по
    старому syncId и, если в личном хранилище ещё пусто, кладём её туда. */
 async function ww332MigrateLegacy() {
   if (localStorage.getItem(WW332_MIGK)) return;
@@ -8067,7 +8069,7 @@ function ww40HasCustomOrder() {
 }
 
 /* Исходный порядок меню запоминаем один раз, чтобы кнопка «Сбросить порядок»
-   возвращала именно исхо��ную раскладку вместе с заголовками групп, а не оставляла
+   возвращала именно исходную раскладку вместе с заголовками групп, а не оставляла
    пункты там, куда их перетащили. */
 var WW40_RAIL_DEFAULT = null;
 var WW40_BN_DEFAULT = null;
@@ -8379,7 +8381,7 @@ function ww41Date(ts) {
   var p = function (n) { return n < 10 ? "0" + n : "" + n; };
   var hm = p(d.getHours()) + ":" + p(d.getMinutes());
   if (d.toDateString() === now.toDateString()) return "Сегодня " + hm;
-  if (d.toDateString() === new Date(now.getTime() - 864e5).toDateString()) return "Вчер�� " + hm;
+  if (d.toDateString() === new Date(now.getTime() - 864e5).toDateString()) return "Вчера " + hm;
   return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear();
 }
 
@@ -8882,7 +8884,7 @@ async function ww41EditIncome(catId) {
     var accId = (txs.length ? txs[txs.length - 1].accountId : null) ||
       ((S.accounts.filter(function (a) { return !a.archived; })[0] || {}).id) ||
       ((S.accounts[0] || {}).id);
-    if (!accId) { await wwAlert("Сначала добавьте счёт, на кот��рый поступает доход.", { title: "Нет счёта" }); return; }
+    if (!accId) { await wwAlert("Сначала добавьте счёт, на который поступает доход.", { title: "Нет счёта" }); return; }
     S.transactions.push({
       id: uid(), date: ww41IncDate(), type: "income", amount: diff,
       accountId: accId, categoryId: catId, note: "Правка суммы на дашборде",
@@ -8977,7 +8979,7 @@ else ww41Boot();
 
    Причина: поле фокусируется сразу, iOS поднимает клавиатуру, но layout
    viewport при этом НЕ уменьшается — вместо этого система «поддвигает»
-   страницу вверх. Слой position:fixed;inset:0 остаётся высот��й во весь
+   страницу вверх. Слой position:fixed;inset:0 остаётся высотой во весь
    экран, его нижняя половина уезжает под клавиатуру, а лист (align-items:
    flex-end) прижимается к этому невидимому низу. Плюс max-height:88dvh
    считается от полного экрана, поэтому лист ещё и оказывается прокручен.
@@ -9297,7 +9299,7 @@ else ww41Boot();
       '<h2>Ещё предстоит оплатить</h2><table><thead><tr><th>Дата</th><th>Назначение</th><th class="r">Сумма</th></tr></thead><tbody>' + dueRows + '</tbody>' +
         '<tfoot><tr><td colspan="2">Итого к оплате</td><td class="r">' + m(d.dueTotal) + '</td></tr></tfoot></table>' +
       '<h2>Крупнейшие расходы периода</h2><table><thead><tr><th>Дата</th><th>Категория</th><th class="r">Сумма</th></tr></thead><tbody>' + bigRows + '</tbody></table>' +
-      '<h2>Остатки н�� счетах (на сегодня)</h2><table><thead><tr><th>Счёт</th><th class="r">Остаток</th></tr></thead><tbody>' + accRows + '</tbody></table>' +
+      '<h2>Остатки на счетах (на сегодня)</h2><table><thead><tr><th>Счёт</th><th class="r">Остаток</th></tr></thead><tbody>' + accRows + '</tbody></table>' +
       '<div class="ww43-foot">WiseWallet v' + (typeof WW_VERSION !== "undefined" ? WW_VERSION : "") + ' · личный учёт финансов</div>' +
     '</div>';
   }
@@ -9797,7 +9799,7 @@ else ww41Boot();
       }).join("");
   }
 
-  /* Открыв��ем «Ещё» из полного сохранённого порядка, а не из старого статичного списка. */
+  /* Открываем «Ещё» из полного сохранённого порядка, а не из старого статичного списка. */
   function installMore() {
     window.openMore = function () { showModal(moreHtml()); };
     openMore = window.openMore;
@@ -10144,7 +10146,7 @@ else ww41Boot();
 
   /* Нижняя панель динамически перестраивается настройкой порядка разделов,
      но сам nav остаётся тем же. MutationObserver страхует редкие случаи,
-     ког��а WebView пересчитывает его положение после замены кнопок. */
+     когда WebView пересчитывает его положение после замены кнопок. */
   var obs = new MutationObserver(schedule);
   function boot() {
     var nav = document.querySelector(".bottom-nav");
@@ -10161,7 +10163,7 @@ else ww41Boot();
 
 </script>
 <script>
-/* ===================== v3.49: компактная панель быстрых действи�� ===================== */
+/* ===================== v3.49: компактная панель быстрых действий ===================== */
 (function () {
   var bar, toggle, toggleBadge, notifBadge, obs;
 
@@ -12167,6 +12169,61 @@ window.ww50DataSignature = ww50DataSignature;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 0); });
   else setTimeout(boot, 0);
   setTimeout(boot, 600);
+})();
+
+</script>
+
+<script>
+/* ww59: стартовый баланс кошелька не учитывается в месяцах до его установления */
+(function () {
+  function ST() { try { if (typeof S !== 'undefined' && S) return S; } catch (e) {} return window.S || {}; }
+  function accs() { var s = ST(); return Array.isArray(s.accounts) ? s.accounts : []; }
+  function today() { try { if (typeof todayStr === 'function') return todayStr(); } catch (e) {} return new Date().toISOString().slice(0, 10); }
+  function monthStart(d) { return String(d).slice(0, 7) + '-01'; }
+
+  /* Для уже заведённых кошельков без даты: считаем, что сумма действует
+     с начала текущего месяца — прошлые месяцы не должны её видеть. */
+  function migrate() {
+    var list = accs(), changed = false, from = monthStart(today());
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (!a || a.balance0From) continue;
+      a.balance0From = (+a.balance0 || 0) === 0 ? '1970-01-01' : from;
+      changed = true;
+    }
+    if (changed) { try { if (typeof save === 'function') save(); } catch (e) {} }
+    return changed;
+  }
+
+  function stampNew() {
+    ['ww29Save', 'addAccount'].forEach(function (name) {
+      var fn = window[name];
+      if (typeof fn !== 'function' || fn.__ww59) return;
+      var wrapped = function () {
+        var before = accs().map(function (a) { return a.id; });
+        var r = fn.apply(this, arguments);
+        var stamp = function () {
+          var added = accs().filter(function (a) { return before.indexOf(a.id) === -1; });
+          if (!added.length) return;
+          added.forEach(function (a) { if (!a.balance0From) a.balance0From = (+a.balance0 || 0) === 0 ? '1970-01-01' : today(); });
+          try { if (typeof save === 'function') save(); } catch (e) {}
+        };
+        if (r && typeof r.then === 'function') return r.then(function (v) { stamp(); return v; });
+        stamp();
+        return r;
+      };
+      wrapped.__ww59 = true;
+      window[name] = wrapped;
+    });
+  }
+
+  function boot() { migrate(); stampNew(); }
+
+  window.ww59Migrate = migrate;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(boot, 0); });
+  else setTimeout(boot, 0);
+  setTimeout(boot, 900);
 })();
 
 </script>
