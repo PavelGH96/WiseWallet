@@ -1,0 +1,12 @@
+{
+  "name": "wisewallet",
+  "version": "3.58.0",
+  "private": true,
+  "description": "WiseWallet — учёт личных финансов",
+  "scripts": {
+    "test": "node test/run-all.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
