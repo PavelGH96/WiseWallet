@@ -4495,7 +4495,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.59";
+const WW_VERSION = "3.64";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -12226,6 +12226,1429 @@ window.ww50DataSignature = ww50DataSignature;
   setTimeout(boot, 900);
 })();
 
+</script>
+<script>
+/* ===== ww60: тип/время/заметка/повтор задач + календарь iPhone ===== */
+/* ============================================================
+   ww60 — планировщик как в CRM WiseBase:
+   • тип задачи: Задача / Звонок / Встреча
+   • время, а не только дата
+   • заметка с подробным описанием
+   • повторяющиеся задачи (при выполнении создаётся следующая)
+   • экспорт задач в календарь iPhone (.ics) с напоминаниями и повтором
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ---------- доступ к состоянию (S — top-level const, не на window) ---------- */
+  function ST() { try { if (typeof S !== 'undefined' && S) return S; } catch (e) {} return null; }
+  function saveS() { try { if (typeof save === 'function') save(); } catch (e) {} }
+  function today() { try { return todayStr(); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  function esc2(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function say(m) { try { if (typeof toast === 'function') toast(m); } catch (e) {} }
+  function repaint() { try { if (typeof renderPlanner === 'function') renderPlanner(); } catch (e) {} }
+  function tasks() { var s = ST(); return (s && s.tasks) || []; }
+  function find(id) { for (var i = 0, a = tasks(); i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
+
+  /* ---------- справочники ---------- */
+  var IC = {
+    task: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    call: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>',
+    meeting: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    note: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12l-4 4H4z"/><path d="M8 9h8M8 13h5"/></svg>',
+    rep: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 12V10a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 12v2a4 4 0 0 1-4 4H3"/></svg>'
+  };
+  var TYPES = [['task', 'Задача'], ['call', 'Звонок'], ['meeting', 'Встреча']];
+  var TYPE_LABEL = { task: 'Задача', call: 'Звонок', meeting: 'Встреча' };
+  var REPS = [
+    ['none', 'Без повтора'],
+    ['daily', 'Каждый день'],
+    ['weekdays', 'По будням (пн–пт)'],
+    ['weekly', 'Каждую неделю'],
+    ['biweekly', 'Каждые 2 недели'],
+    ['monthly', 'Каждый месяц'],
+    ['yearly', 'Каждый год']
+  ];
+  var REP_SHORT = { daily: 'каждый день', weekdays: 'по будням', weekly: 'каждую неделю', biweekly: 'каждые 2 недели', monthly: 'каждый месяц', yearly: 'каждый год' };
+  var DUR = { task: 30, call: 20, meeting: 60 };
+
+  function typeOf(t) { return (t && TYPE_LABEL[t.ttype]) ? t.ttype : 'task'; }
+  function repOf(t) { return (t && REP_SHORT[t.repeat]) ? t.repeat : 'none'; }
+
+  /* ---------- следующая дата повтора ---------- */
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function nextDate(dateStr, rep) {
+    if (!dateStr || !REP_SHORT[rep]) return null;
+    var p = dateStr.split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    if (rep === 'daily') d.setDate(d.getDate() + 1);
+    else if (rep === 'weekdays') { do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6); }
+    else if (rep === 'weekly') d.setDate(d.getDate() + 7);
+    else if (rep === 'biweekly') d.setDate(d.getDate() + 14);
+    else if (rep === 'monthly') { var day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + 1); var dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); d.setDate(Math.min(day, dim)); }
+    else if (rep === 'yearly') d.setFullYear(d.getFullYear() + 1);
+    else return null;
+    return iso(d);
+  }
+
+  /* ---------- CSS ---------- */
+  function css() {
+    if (document.getElementById('ww60-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ww60-css';
+    st.textContent = [
+      '.ww60-chip{display:inline-flex;align-items:center;gap:4px}',
+      '.ww60-chip svg{flex:0 0 auto}',
+      '.ww60-note-box{width:100%;min-height:78px;resize:vertical;font:inherit;color:inherit;background:var(--field,#f6f7f9);border:1px solid var(--line,#e3e6ea);border-radius:10px;padding:10px 12px;box-sizing:border-box}',
+      '.ww60-note-box:focus{outline:2px solid var(--accent,#0f766e);outline-offset:1px}',
+      '.ww60-hint{font-size:11.5px;opacity:.62;margin-top:4px}',
+      '.ww60-ics{margin-top:10px;width:100%}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  /* ---------- окно задачи ---------- */
+  function modalHtml(t, preDate) {
+    var ty = typeOf(t), rep = repOf(t);
+    var who = t ? t.who : 'me';
+    var prio = t ? t.prio : 'mid';
+    var whoOpts = [['me', '👤 Я'], ['wife', '👩 Жена'], ['both', '👥 Вместе']];
+    var h = [];
+    h.push('<div class="mhead"><h3>' + (t ? 'Задача' : 'Новая задача') + '</h3><button class="x" onclick="closeModal()">✕</button></div>');
+    h.push('<div class="fg-row">');
+    h.push('<div class="fg"><label for="ww60-type">Тип</label><select id="ww60-type">' + TYPES.map(function (p) {
+      return '<option value="' + p[0] + '"' + (ty === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
+    }).join('') + '</select></div>');
+    h.push('<div class="fg"><label for="tk-who">Кто</label><select id="tk-who">' + whoOpts.map(function (p) {
+      return '<option value="' + p[0] + '"' + (who === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
+    }).join('') + '</select></div>');
+    h.push('</div>');
+    h.push('<div class="fg"><label for="tk-text">Что нужно сделать</label><input id="tk-text" value="' + esc2(t ? t.text : '') + '" placeholder="напр.: Оплатить коммуналку"></div>');
+    h.push('<div class="fg-row">');
+    h.push('<div class="fg"><label for="tk-date">Дата</label><input type="date" id="tk-date" value="' + esc2(preDate || '') + '"></div>');
+    h.push('<div class="fg"><label for="ww60-time">Время</label><input type="time" id="ww60-time" value="' + esc2(t && t.time ? t.time : '') + '"><div class="ww60-hint">можно оставить пустым — задача на весь день</div></div>');
+    h.push('</div>');
+    h.push('<div class="fg"><label for="ww60-rep">Повтор</label><select id="ww60-rep">' + REPS.map(function (p) {
+      return '<option value="' + p[0] + '"' + (rep === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
+    }).join('') + '</select><div class="ww60-hint">когда отметите задачу выполненной, следующая создастся автоматически</div></div>');
+    h.push('<div class="fg"><label>Приоритет</label><div class="seg" id="tk-prio">' + [['high', 'Высокий'], ['mid', 'Средний'], ['low', 'Низкий']].map(function (p) {
+      return '<button class="' + (prio === p[0] ? 'active' : '') + '" data-p="' + p[0] + '" onclick="segPick(this)">' + p[1] + '</button>';
+    }).join('') + '</div></div>');
+    h.push('<div class="fg"><label for="ww60-note">Заметка</label><textarea id="ww60-note" class="ww60-note-box" placeholder="Подробное описание, детали, ссылки…">' + esc2(t && t.note ? t.note : '') + '</textarea></div>');
+    h.push('<div style="display:flex;gap:10px"><button class="btn btn-primary" style="flex:1" onclick="saveTask(\'' + (t ? t.id : '') + '\')">Сохранить</button>' + (t ? '<button class="btn btn-danger" onclick="delTask(\'' + t.id + '\')">Удалить</button>' : '') + '</div>');
+    if (t) h.push('<button class="btn btn-ghost ww60-ics" onclick="ww60TaskIcs(\'' + t.id + '\')">📅 Добавить в календарь iPhone (.ics)</button>');
+    return h.join('\n');
+  }
+
+  function hookModal() {
+    if (typeof window.openTaskModal !== 'function' || window.openTaskModal.__ww60) return;
+    var orig = window.openTaskModal;
+    window.openTaskModal = function (id, col) {
+      try {
+        if (typeof isObserver === 'function' && isObserver()) return;
+        css();
+        var t = id ? find(id) : null;
+        var pre = t ? (t.date || '') : (col === 'tomorrow' ? dayOff(1) : col === 'week' ? dayOff(3) : col === 'nodate' ? '' : today());
+        showModal(modalHtml(t, pre));
+        if (typeof wwFocus === 'function') wwFocus('tk-text');
+        return;
+      } catch (e) {}
+      return orig.apply(this, arguments);
+    };
+    window.openTaskModal.__ww60 = true;
+  }
+
+  /* ---------- сохранение ---------- */
+  function readExtra() {
+    var ty = document.getElementById('ww60-type');
+    var tm = document.getElementById('ww60-time');
+    var rp = document.getElementById('ww60-rep');
+    var nt = document.getElementById('ww60-note');
+    if (!ty && !tm && !rp && !nt) return null;
+    return {
+      ttype: ty && TYPE_LABEL[ty.value] ? ty.value : 'task',
+      time: tm && tm.value ? tm.value : '',
+      repeat: rp && REP_SHORT[rp.value] ? rp.value : 'none',
+      note: nt ? nt.value.trim() : ''
+    };
+  }
+
+  function hookSave() {
+    if (typeof window.saveTask !== 'function' || window.saveTask.__ww60) return;
+    var orig = window.saveTask;
+    window.saveTask = function (id) {
+      var extra = readExtra();
+      var before = null;
+      if (!id) { before = {}; tasks().forEach(function (t) { before[t.id] = 1; }); }
+      var r = orig.apply(this, arguments);
+      try {
+        if (extra) {
+          var t = null;
+          if (id) t = find(id);
+          else { var a = tasks(); for (var i = a.length - 1; i >= 0; i--) if (!before[a[i].id]) { t = a[i]; break; } }
+          if (t) {
+            t.ttype = extra.ttype;
+            t.time = extra.time;
+            t.repeat = extra.repeat;
+            t.note = extra.note;
+            saveS();
+            repaint();
+          }
+        }
+      } catch (e) {}
+      return r;
+    };
+    window.saveTask.__ww60 = true;
+  }
+
+  /* ---------- карточка задачи ---------- */
+  function chip(inner, cls, title) {
+    return '<span class="tchip ww60-chip' + (cls ? ' ' + cls : '') + '"' + (title ? ' title="' + esc2(title) + '"' : '') + '>' + inner + '</span>';
+  }
+  function decorate(html, t) {
+    var ty = typeOf(t), rep = repOf(t);
+    var typeChip = chip(IC[ty] + '<span>' + TYPE_LABEL[ty] + '</span>', 'ww60-t-' + ty, 'Тип: ' + TYPE_LABEL[ty]);
+    var old = '<span class="tchip">Задача</span>';
+    html = html.indexOf(old) !== -1 ? html.replace(old, typeChip) : html;
+    var add = '';
+    if (t.time) add += chip(IC.clock + '<span>' + esc2(t.time) + '</span>', 'ww60-time-chip', 'Время: ' + t.time);
+    if (rep !== 'none') add += chip(IC.rep + '<span>' + REP_SHORT[rep] + '</span>', 'ww60-rep-chip', 'Повтор: ' + REP_SHORT[rep]);
+    if (t.note) add += chip(IC.note, 'ww60-note-chip', 'Заметка: ' + t.note);
+    if (add) html = html.replace('</div>\n      ', add + '</div>\n      ').replace(/(<div class="task-meta">[\s\S]*?)(<\/div>)/, function (m, a, b) { return m.indexOf('ww60-time-chip') !== -1 || m.indexOf('ww60-rep-chip') !== -1 || m.indexOf('ww60-note-chip') !== -1 ? m : a + add + b; });
+    return html;
+  }
+  function hookCard() {
+    if (typeof window.taskCard !== 'function' || window.taskCard.__ww60) return;
+    var orig = window.taskCard;
+    window.taskCard = function (t) {
+      var html = orig.apply(this, arguments);
+      try { return decorate(html, t || {}); } catch (e) { return html; }
+    };
+    window.taskCard.__ww60 = true;
+  }
+
+  /* ---------- повтор при выполнении ---------- */
+  function hookToggle() {
+    if (typeof window.toggleTask !== 'function' || window.toggleTask.__ww60) return;
+    var orig = window.toggleTask;
+    window.toggleTask = function (id) {
+      var was = find(id);
+      var wasDone = was ? !!was.done : false;
+      var r = orig.apply(this, arguments);
+      try { spawnNext(id, wasDone); } catch (e) {}
+      return r;
+    };
+    window.toggleTask.__ww60 = true;
+  }
+  function spawnNext(id, wasDone) {
+    var t = find(id);
+    if (!t || wasDone || !t.done) return;
+    var rep = repOf(t);
+    if (rep === 'none') return;
+    if (t.ww60Spawned) return;
+    var nd = nextDate(t.date || today(), rep);
+    if (!nd) return;
+    var s = ST(); if (!s) return;
+    t.ww60Spawned = 1;
+    var copy = {
+      id: (typeof uid === 'function' ? uid() : 'ww60_' + Date.now()),
+      text: t.text, who: t.who, prio: t.prio, date: nd,
+      ttype: typeOf(t), time: t.time || '', repeat: rep, note: t.note || '',
+      done: false, created: Date.now(), ww60From: t.id
+    };
+    s.tasks.push(copy);
+    saveS();
+    repaint();
+    var p = nd.split('-');
+    say('Повтор: следующая задача на ' + p[2] + '.' + p[1] + '.' + p[0] + (copy.time ? ' в ' + copy.time : ''));
+  }
+
+  /* ---------- экспорт в календарь iPhone ---------- */
+  function icsEsc(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n'); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function stampNow() {
+    var d = new Date();
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+  }
+  function plusMin(dateStr, timeStr, min) {
+    var p = dateStr.split('-').map(Number), q = timeStr.split(':').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2], q[0], q[1] + min, 0);
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+  }
+  function dayAfter(dateStr) {
+    var p = dateStr.split('-').map(Number);
+    var d = new Date(p[0], p[1] - 1, p[2] + 1);
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+  }
+  function rrule(rep) {
+    return { daily: 'RRULE:FREQ=DAILY', weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'RRULE:FREQ=WEEKLY', biweekly: 'RRULE:FREQ=WEEKLY;INTERVAL=2', monthly: 'RRULE:FREQ=MONTHLY', yearly: 'RRULE:FREQ=YEARLY' }[rep] || null;
+  }
+  function vevent(t) {
+    if (!t || !t.date) return [];
+    var ty = typeOf(t), rep = repOf(t);
+    var L = ['BEGIN:VEVENT', 'UID:ww60-' + t.id + '@wisewallet', 'DTSTAMP:' + stampNow()];
+    if (t.time) {
+      L.push('DTSTART:' + plusMin(t.date, t.time, 0));
+      L.push('DTEND:' + plusMin(t.date, t.time, DUR[ty] || 30));
+    } else {
+      L.push('DTSTART;VALUE=DATE:' + t.date.replace(/-/g, ''));
+      L.push('DTEND;VALUE=DATE:' + dayAfter(t.date));
+    }
+    var r = rrule(rep); if (r) L.push(r);
+    L.push('SUMMARY:' + icsEsc(TYPE_LABEL[ty] + ': ' + t.text));
+    var desc = [];
+    if (t.note) desc.push(t.note);
+    desc.push('WiseWallet · планировщик');
+    L.push('DESCRIPTION:' + icsEsc(desc.join('\n')));
+    L.push('CATEGORIES:' + icsEsc(TYPE_LABEL[ty]));
+    L.push('BEGIN:VALARM', 'TRIGGER:' + (t.time ? '-PT30M' : '-P0DT9H'), 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(t.text), 'END:VALARM');
+    L.push('END:VEVENT');
+    return L;
+  }
+  function buildIcs(list) {
+    var L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//WiseWallet//Планировщик//RU', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:WiseWallet — задачи'];
+    list.forEach(function (t) { vevent(t).forEach(function (l) { L.push(l); }); });
+    L.push('END:VCALENDAR');
+    return L.join('\r\n');
+  }
+  function download(text, name) {
+    try {
+      if (typeof window.ww331Download === 'function') return window.ww331Download(text, name, 'text/calendar;charset=utf-8');
+    } catch (e) {}
+    var blob = new Blob([text], { type: 'text/calendar;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function exportTasks() {
+    var list = tasks().filter(function (t) { return !t.done && t.date; });
+    if (!list.length) { say('Нет задач с датой для экспорта'); return 0; }
+    download(buildIcs(list), 'wisewallet-задачи-' + today() + '.ics');
+    say('Готово: ' + list.length + ' задач(и) в файле .ics — откройте его на iPhone');
+    return list.length;
+  }
+  function exportOne(id) {
+    var t = find(id);
+    if (!t) { say('Задача не найдена'); return 0; }
+    if (!t.date) { say('Сначала укажите дату задачи'); return 0; }
+    download(buildIcs([t]), 'wisewallet-задача-' + t.date + '.ics');
+    say('Файл календаря создан — откройте его на iPhone');
+    return 1;
+  }
+
+  /* кнопка экспорта задач рядом с экспортом платежей в настройках */
+  function hookSettingsBtn() {
+    var host = document.querySelector('#page-settings');
+    if (!host) return;
+    var pay = Array.prototype.slice.call(host.querySelectorAll('button')).filter(function (b) {
+      return /ww331ExportIcs/.test(b.getAttribute('onclick') || '');
+    })[0];
+    if (!pay || pay.parentElement.querySelector('.ww60-exp')) return;
+    var b = document.createElement('button');
+    b.className = 'btn btn-ghost ww60-exp';
+    b.textContent = '📅 Экспорт задач планировщика (.ics)';
+    b.onclick = function () { exportTasks(); };
+    pay.parentElement.insertBefore(b, pay.nextSibling);
+  }
+  function hookSettings() {
+    if (typeof window.renderSettings !== 'function' || window.renderSettings.__ww60) return;
+    var orig = window.renderSettings;
+    window.renderSettings = function () {
+      var r = orig.apply(this, arguments);
+      try { hookSettingsBtn(); } catch (e) {}
+      return r;
+    };
+    window.renderSettings.__ww60 = true;
+  }
+
+  /* ---------- миграция старых задач ---------- */
+  function migrate() {
+    var s = ST(); if (!s || !s.tasks) return;
+    var n = 0;
+    s.tasks.forEach(function (t) {
+      if (!TYPE_LABEL[t.ttype]) { t.ttype = 'task'; n++; }
+      if (typeof t.time !== 'string') { t.time = ''; n++; }
+      if (!REP_SHORT[t.repeat] && t.repeat !== 'none') { t.repeat = 'none'; n++; }
+      if (typeof t.note !== 'string') { t.note = ''; n++; }
+    });
+    if (n) saveS();
+  }
+
+  function boot() {
+    css();
+    migrate();
+    hookModal();
+    hookSave();
+    hookCard();
+    hookToggle();
+    hookSettings();
+    try { hookSettingsBtn(); } catch (e) {}
+    repaint();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  setTimeout(boot, 900);
+
+  window.ww60ExportTasksIcs = exportTasks;
+  window.ww60TaskIcs = exportOne;
+  window.ww60NextDate = nextDate;
+  window.ww60BuildIcs = function (list) { return buildIcs(list || tasks().filter(function (t) { return !t.done && t.date; })); };
+  window.ww60Migrate = migrate;
+})();
+
+</script>
+<script>
+/* ===== ww61: голосовой набор во всех полях ===== */
+/* ============================================================
+   ww61 — голосовой набор везде, где это возможно.
+   К каждому текстовому полю / полю суммы / заметке автоматически
+   добавляется кнопка 🎤. Для многострочных полей — диктовка с дописыванием,
+   для обычных — одной фразой, для сумм — только число.
+   Пароли, даты, время и служебные поля намеренно пропускаются.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var SKIP_TYPES = { password: 1, hidden: 1, checkbox: 1, radio: 1, date: 1, time: 1, 'datetime-local': 1, month: 1, week: 1, color: 1, file: 1, range: 1, submit: 1, button: 1, image: 1, reset: 1 };
+  var OLD_MICS = { 'ops-q': 1, 'tx-quick': 1, 'tx-note': 1 };
+  var SEQ = 0;
+  var REC = null;
+  var REC_EL = null;
+
+  function say(m) { try { if (typeof toast === 'function') toast(m); } catch (e) {} }
+  function speechOk() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+  function norm(s) {
+    try { if (typeof window.ww331NormalizeSpeech === 'function') return window.ww331NormalizeSpeech(s); } catch (e) {}
+    return String(s == null ? '' : s);
+  }
+
+  /* ---------- стили ---------- */
+  function css() {
+    if (document.getElementById('ww61-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ww61-css';
+    st.textContent = [
+      '.ww61-wrap{position:relative;display:block;width:100%}',
+      '.ww61-mic{position:absolute;right:6px;top:6px;width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;',
+      'border:1px solid var(--border,#e3e6ea);border-radius:9px;background:var(--card,#fff);color:var(--t2,#6b7280);cursor:pointer;z-index:3;line-height:0}',
+      '.ww61-mic:hover{color:var(--accent,#0f766e)}',
+      '.ww61-mic svg{width:15px;height:15px;display:block}',
+      '.ww61-mic.rec{background:var(--red,#dc2626);color:#fff;border-color:transparent;animation:ww61Pulse 1s infinite}',
+      '.ww61-wrap textarea+.ww61-mic{top:8px}',
+      '@keyframes ww61Pulse{0%,100%{opacity:1}50%{opacity:.55}}',
+      '.ww61-off{display:none!important}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  var MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3M8 21h8"/></svg>';
+
+  /* ---------- подбор подходящих полей ---------- */
+  function isTextarea(el) { return el.tagName === 'TEXTAREA'; }
+  function isNumberField(el) {
+    if (el.type === 'number') return true;
+    var n = (el.id || '') + ' ' + (el.getAttribute('inputmode') || '');
+    return /amount|sum|-bal|balance|price/i.test(n) && el.tagName === 'INPUT';
+  }
+  function eligible(el) {
+    if (!el || el.__ww61) return false;
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
+    if (el.tagName === 'INPUT' && SKIP_TYPES[(el.type || 'text').toLowerCase()]) return false;
+    if (el.disabled || el.readOnly) return false;
+    if (el.dataset && el.dataset.ww61 === 'off') return false;
+    if (el.closest && el.closest('[data-ww61="off"]')) return false;
+    if (el.id && OLD_MICS[el.id]) return false;               // там уже есть свой микрофон
+    if (el.autocomplete && /current-password|new-password/.test(el.autocomplete)) return false;
+    var r = el.getBoundingClientRect();
+    if (el.offsetParent === null && r.width === 0 && r.height === 0) return false; // скрытое поле
+    if (r.width && r.width < 70) return false;
+    return true;
+  }
+
+  /* ---------- вставка кнопки ---------- */
+  function attach(el) {
+    if (!eligible(el)) return false;
+    el.__ww61 = 1;
+    if (!el.id) el.id = 'ww61-f-' + (++SEQ);
+    var wrap = el.parentElement;
+    if (!wrap || !wrap.classList.contains('ww61-wrap')) {
+      /* перемещение узла сбрасывает фокус — возвращаем его и каретку на место */
+      var wasFocused = document.activeElement === el;
+      var selA = null, selB = null;
+      if (wasFocused) { try { selA = el.selectionStart; selB = el.selectionEnd; } catch (e) {} }
+      wrap = document.createElement('span');
+      wrap.className = 'ww61-wrap';
+      el.parentElement.insertBefore(wrap, el);
+      wrap.appendChild(el);
+      if (wasFocused) {
+        try { el.focus({ preventScroll: true }); } catch (e) { try { el.focus(); } catch (e2) {} }
+        if (selA !== null) { try { el.setSelectionRange(selA, selB); } catch (e) {} }
+      }
+    }
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ww61-mic';
+    b.innerHTML = MIC_SVG;
+    b.title = isTextarea(el) ? 'Диктовка (текст дописывается)' : isNumberField(el) ? 'Назовите сумму' : 'Голосовой ввод';
+    b.setAttribute('aria-label', b.title);
+    b.dataset.ww61For = el.id;
+    b.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      dictate(el, b);
+    });
+    wrap.appendChild(b);
+    try {
+      var pad = parseInt(getComputedStyle(el).paddingRight, 10) || 0;
+      if (pad < 38) el.style.paddingRight = '38px';
+    } catch (e) {}
+    if (!speechOk()) b.classList.add('ww61-off');
+    return true;
+  }
+
+  function scan(root) {
+    css();
+    var host = root && root.querySelectorAll ? root : document;
+    var n = 0;
+    var list = host.querySelectorAll('input, textarea');
+    for (var i = 0; i < list.length; i++) { if (attach(list[i])) n++; }
+    return n;
+  }
+
+  /* ---------- распознавание ---------- */
+  function setValue(el, text, append) {
+    var v;
+    if (isNumberField(el)) {
+      var num = String(text).replace(/\s/g, '').replace(/,/g, '.').replace(/[^0-9.\-]/g, '');
+      var m = num.match(/-?\d+(\.\d+)?/);
+      if (!m) { say('Не услышал число'); return false; }
+      v = m[0];
+    } else if (append && el.value) {
+      v = el.value.replace(/\s+$/, '') + ' ' + text;
+    } else {
+      v = text;
+    }
+    el.value = v;
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+    return true;
+  }
+
+  function stop() {
+    if (REC) { try { REC.stop(); } catch (e) {} }
+    REC = null;
+  }
+
+  function dictate(el, btn) {
+    if (!speechOk()) { say('Голосовой ввод не поддерживается этим браузером'); return; }
+    if (REC) { var same = REC_EL === el; stop(); if (same) return; }
+    var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    var rec = new Rec();
+    var multi = isTextarea(el);
+    rec.lang = 'ru-RU';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    if (multi) { try { rec.continuous = true; } catch (e) {} }
+    REC = rec;
+    REC_EL = el;
+    if (btn) btn.classList.add('rec');
+    try { el.focus(); } catch (e) {}
+    say(multi ? 'Слушаю… нажмите микрофон снова, чтобы остановить' : 'Слушаю…');
+    rec.onresult = function (ev) {
+      var raw = '';
+      try {
+        for (var i = ev.resultIndex != null ? ev.resultIndex : 0; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal === false) continue;
+          raw += (raw ? ' ' : '') + (ev.results[i][0].transcript || '');
+        }
+        if (!raw) raw = ev.results[ev.results.length - 1][0].transcript || '';
+      } catch (e) {}
+      var text = norm(raw).trim();
+      if (!text) return;
+      if (setValue(el, text, multi)) say('Распознано: ' + text);
+    };
+    rec.onerror = function (ev) {
+      say(ev && ev.error === 'not-allowed' ? 'Нет доступа к микрофону' : 'Не удалось распознать');
+    };
+    rec.onend = function () {
+      REC = null; REC_EL = null;
+      if (btn) btn.classList.remove('rec');
+    };
+    try { rec.start(); } catch (e) {
+      say('Микрофон занят');
+      REC = null; REC_EL = null;
+      if (btn) btn.classList.remove('rec');
+    }
+  }
+
+  /* диктовка в активное поле — для горячей клавиши */
+  function dictateFocused() {
+    var el = document.activeElement;
+    if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) { say('Сначала выберите поле для ввода'); return false; }
+    var btn = el.parentElement ? el.parentElement.querySelector('.ww61-mic') : null;
+    dictate(el, btn);
+    return true;
+  }
+
+  /* ---------- автоподхват новых полей ---------- */
+  var pending = null;
+  function later() {
+    if (pending) return;
+    pending = setTimeout(function () { pending = null; try { scan(document); } catch (e) {} }, 120);
+  }
+  function observe() {
+    if (window.__ww61Obs) return;
+    var obs = new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        if (recs[i].addedNodes && recs[i].addedNodes.length) { later(); return; }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    window.__ww61Obs = obs;
+  }
+  function hook(name) {
+    var f = window[name];
+    if (typeof f !== 'function' || f.__ww61) return;
+    window[name] = function () {
+      var r = f.apply(this, arguments);
+      later();
+      return r;
+    };
+    window[name].__ww61 = true;
+  }
+  function hotkey() {
+    if (window.__ww61Key) return;
+    window.__ww61Key = 1;
+    document.addEventListener('keydown', function (e) {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      var k = (e.key || '').toLowerCase();
+      if (k !== 'v' && k !== 'м') return;
+      e.preventDefault();
+      dictateFocused();
+    });
+  }
+
+  function boot() {
+    css();
+    scan(document);
+    ['showModal', 'render', 'nav', 'openTaskModal', 'openTxModal', 'ww57Search', 'wwPrompt', 'renderSettings'].forEach(hook);
+    observe();
+    hotkey();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  setTimeout(boot, 900);
+
+  window.ww61Scan = function () { return scan(document); };
+  window.ww61Count = function () { return document.querySelectorAll('.ww61-mic').length; };
+  window.ww61Dictate = function (id) {
+    var el = document.getElementById(id);
+    if (!el) { say('Поле не найдено'); return false; }
+    var btn = el.parentElement ? el.parentElement.querySelector('.ww61-mic') : null;
+    dictate(el, btn);
+    return true;
+  };
+  window.ww61DictateFocused = dictateFocused;
+  window.ww61SpeechOk = speechOk;
+  window.ww61Stop = stop;
+})();
+
+</script>
+<script>
+/* ===== ww62: компактное поле заметки + фиксация нижней панели ===== */
+/* ============================================================
+   ww62 — две правки:
+   1) Заметки: поле ввода больше не занимает полэкрана — оно компактное
+      и само растёт по тексту до разумного предела.
+   2) Нижняя панель разделов жёстко прибита к низу на всех страницах:
+      больше не смещается вверх при прокрутке (убрана компенсация transform),
+      а при открытой экранной клавиатуре прячется, чтобы не висеть посередине.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  /* ---------- общие стили ---------- */
+  function css() {
+    if (document.getElementById('ww62-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ww62-css';
+    st.textContent = [
+      /* 1. компактное поле заметки */
+      '#ww41-body{min-height:104px!important;max-height:40vh;overflow-y:auto;resize:vertical;transition:height .12s ease}',
+      '@media(max-width:720px){#ww41-body{min-height:96px!important;max-height:34vh}}',
+      /* 2. нижняя панель всегда внизу */
+      '@media(max-width:820px){',
+      '.bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;',
+      'margin:0!important;transform:none!important;translate:none!important;will-change:auto!important}',
+      'body.ww62-kb .bottom-nav{display:none!important}',
+      '}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
+
+  /* =========================================================
+     1) Авторастяжение поля заметки
+     ========================================================= */
+  function maxPx() {
+    var vh = window.innerHeight || 800;
+    return Math.round(vh * (window.innerWidth <= 720 ? 0.34 : 0.4));
+  }
+  function minPx() { return window.innerWidth <= 720 ? 96 : 104; }
+
+  function autosize(el) {
+    var ta = el || document.getElementById('ww41-body');
+    if (!ta) return null;
+    var lo = minPx(), hi = Math.max(lo + 40, maxPx());
+    ta.style.height = 'auto';
+    var need = ta.scrollHeight + 2;
+    var h = Math.min(Math.max(need, lo), hi);
+    ta.style.height = h + 'px';
+    ta.style.overflowY = need > hi ? 'auto' : 'hidden';
+    ta.dataset.ww62 = '1';
+    return h;
+  }
+
+  function hookNote(name) {
+    var f = window[name];
+    if (typeof f !== 'function' || f.__ww62) return;
+    window[name] = function () {
+      var r = f.apply(this, arguments);
+      setTimeout(function () { autosize(); }, 0);
+      setTimeout(function () { autosize(); }, 120);
+      return r;
+    };
+    window[name].__ww62 = true;
+  }
+
+  function bindNoteInput() {
+    if (window.__ww62NoteBound) return;
+    window.__ww62NoteBound = 1;
+    document.addEventListener('input', function (e) {
+      if (e.target && e.target.id === 'ww41-body') autosize(e.target);
+    }, true);
+    window.addEventListener('resize', function () {
+      if (document.getElementById('ww41-body')) autosize();
+    }, { passive: true });
+  }
+
+  /* =========================================================
+     2) Нижняя панель разделов
+     ========================================================= */
+  var vv = window.visualViewport;
+
+  function nav() { return document.querySelector('.bottom-nav'); }
+
+  /* Старая компенсация сдвигала панель при прокрутке — обнуляем её. */
+  function clearShift() {
+    try { document.documentElement.style.setProperty('--ww48-shift', '0px'); } catch (e) {}
+    var n = nav();
+    if (!n) return;
+    if (n.style.transform && n.style.transform !== 'none') n.style.setProperty('transform', 'none', 'important');
+    n.style.setProperty('position', 'fixed', 'important');
+    n.style.setProperty('left', '0', 'important');
+    n.style.setProperty('right', '0', 'important');
+    n.style.setProperty('bottom', '0', 'important');
+    n.style.setProperty('top', 'auto', 'important');
+    n.dataset.ww62Pinned = '1';
+  }
+
+  function keyboardOpen() {
+    if (!vv) return false;
+    var hidden = (window.innerHeight || 0) - (vv.height + vv.offsetTop);
+    return hidden > 140;
+  }
+
+  var raf = 0;
+  function apply() {
+    raf = 0;
+    clearShift();
+    var kb = keyboardOpen();
+    document.body.classList.toggle('ww62-kb', !!kb);
+  }
+  function schedule() {
+    if (raf) return;
+    raf = requestAnimationFrame(apply);
+  }
+
+  function disableOldPin() {
+    var prev = window.ww48PinBottomNav;
+    if (prev && prev.__ww62) return;
+    var stub = function () { clearShift(); return 0; };
+    stub.__ww62 = true;
+    stub.__ww48Original = prev;
+    window.ww48PinBottomNav = stub;
+  }
+
+  function hookNav(name) {
+    var f = window[name];
+    if (typeof f !== 'function' || f.__ww62) return;
+    window[name] = function () {
+      var r = f.apply(this, arguments);
+      schedule();
+      return r;
+    };
+    window[name].__ww62 = true;
+  }
+
+  function watchNav() {
+    if (window.__ww62Obs) return;
+    var n = nav();
+    if (!n) return;
+    var obs = new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        if (recs[i].type === 'attributes' && recs[i].attributeName === 'style') { clearShift(); return; }
+      }
+      schedule();
+    });
+    obs.observe(n, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    window.__ww62Obs = obs;
+  }
+
+  /* =========================================================
+     Запуск
+     ========================================================= */
+  function boot() {
+    css();
+    bindNoteInput();
+    ['ww41Open', 'ww41New', 'ww41Fmt', 'ww41RenderChecks'].forEach(hookNote);
+    if (document.getElementById('ww41-body')) autosize();
+
+    disableOldPin();
+    ['nav', 'render', 'showModal', 'closeModal', 'ww40Tab', 'renderPlanner'].forEach(hookNav);
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    window.addEventListener('orientationchange', function () { setTimeout(apply, 140); });
+    if (vv) {
+      vv.addEventListener('scroll', schedule, { passive: true });
+      vv.addEventListener('resize', schedule, { passive: true });
+    }
+    document.addEventListener('focusin', schedule, true);
+    document.addEventListener('focusout', function () { setTimeout(apply, 180); }, true);
+    watchNav();
+    apply();
+    setTimeout(function () { disableOldPin(); watchNav(); apply(); }, 300);
+    setTimeout(function () { disableOldPin(); apply(); }, 1200);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  window.ww62NoteAutosize = function () { return autosize(); };
+  window.ww62PinNav = apply;
+  window.ww62NavState = function () {
+    var n = nav();
+    if (!n) return null;
+    var r = n.getBoundingClientRect();
+    var cs = getComputedStyle(n);
+    return {
+      position: cs.position,
+      transform: cs.transform,
+      bottomGap: Math.round((window.innerHeight || 0) - r.bottom),
+      shift: getComputedStyle(document.documentElement).getPropertyValue('--ww48-shift').trim(),
+      hidden: cs.display === 'none'
+    };
+  };
+})();
+
+</script>
+<script>
+"use strict";
+/* ============================================================
+   v3.63 (ww63): раздел «Кредиты и платежи» -> две вкладки
+   1) «Расходы и кредиты» — прежнее содержимое без изменений
+   2) «Доходы» — аналогичный интерфейс для доходов
+   Все цифры берутся из тех же источников, что и дашборд:
+   S.transactions + ww26Period()/ww26RangeFor() + planIncomeMonth(),
+   поэтому они всегда совпадают с дашбордом, «Операциями» и отчётом.
+   ============================================================ */
+(function () {
+  var KEY = "ww63_credits_tab_v1";
+  var TABS = [
+    { key: "exp", title: "Расходы и кредиты" },
+    { key: "inc", title: "Доходы" }
+  ];
+
+  function css() {
+    if (document.getElementById("ww63-css")) return;
+    var s = document.createElement("style");
+    s.id = "ww63-css";
+    s.textContent =
+      "#ww63-tabs{margin:0 0 14px}" +
+      "#ww63-pane-inc .ww63-per{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}" +
+      ".ww63-catrow{display:flex;align-items:center;gap:10px;padding:9px 0}" +
+      ".ww63-catrow + .ww63-catrow{border-top:1px solid var(--border)}" +
+      ".ww63-catrow .ic{width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex:none}" +
+      ".ww63-catrow .nm{flex:1 1 auto;min-width:0;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+      ".ww63-catrow .amt{font-weight:800;font-size:14px;color:var(--green);white-space:nowrap}" +
+      ".ww63-catrow .shr{font-size:12px;color:var(--t2);min-width:42px;text-align:right}" +
+      ".ww63-bar{height:6px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:6px}" +
+      ".ww63-bar i{display:block;height:100%;background:var(--green);border-radius:999px}" +
+      ".ww63-catwrap{padding:2px 0}" +
+      "@media(max-width:720px){.ww63-catrow .shr{min-width:38px}}";
+    document.head.appendChild(s);
+  }
+
+  function curTab() {
+    var v = null;
+    try { v = localStorage.getItem(KEY); } catch (e) {}
+    return (v === "inc" || v === "exp") ? v : "exp";
+  }
+  function num(v) { return +v || 0; }
+  function m(v) { return (typeof money === "function") ? money(v) : String(Math.round(num(v))); }
+  function e(v) { return (typeof esc === "function") ? esc(String(v == null ? "" : v)) : String(v == null ? "" : v); }
+  function icon(ic, nm) {
+    try { if (typeof ww28Icon === "function") return ww28Icon(ic, nm); } catch (err) {}
+    return e(ic || "💵");
+  }
+
+  /* ---------- данные: ровно те же источники, что у дашборда ---------- */
+  function periodInfo() {
+    var ready = typeof ww26Period === "function";
+    var p = ready ? ww26Period() : { type: "month" };
+    var r = ready ? ww26RangeFor(p) : { from: "", to: "" };
+    var label = "Месяц";
+    try { if (typeof ww26Label === "function") label = ww26Label(); } catch (err) {}
+    var phrase = "";
+    try { if (typeof periodPhrase === "function") phrase = periodPhrase(p); } catch (err) {}
+    return { period: p, range: r, label: label, phrase: phrase, isMonth: !p.type || p.type === "month" };
+  }
+  function incomeTx(info) {
+    var list = (S && S.transactions) ? S.transactions : [];
+    var r = info.range;
+    return list.filter(function (t) {
+      if (t.type !== "income") return false;
+      if (r.from && t.date < r.from) return false;
+      if (r.to && t.date > r.to) return false;
+      return true;
+    });
+  }
+  function monthsInRange(info) {
+    var r = info.range;
+    if (!r.from || !r.to) {
+      var tx = incomeTx(info).map(function (t) { return t.date.slice(0, 7); });
+      return Math.max(1, new Set(tx).size);
+    }
+    var a = new Date(r.from + "T00:00:00"), b = new Date(r.to + "T00:00:00");
+    return Math.max(1, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1);
+  }
+  function planInc() {
+    try { if (typeof planIncomeMonth === "function") return planIncomeMonth(); } catch (err) {}
+    return 0;
+  }
+  /* публичная сводка — используется вкладкой и тестами */
+  function data() {
+    var info = periodInfo();
+    var tx = incomeTx(info);
+    var fact = tx.reduce(function (s, t) { return s + num(t.amount); }, 0);
+    var months = monthsInRange(info);
+    var plan = planInc();
+    var byCat = {};
+    tx.forEach(function (t) {
+      var c = (typeof cat === "function" ? cat(t.categoryId) : null) || { name: "Без категории", icon: "💵" };
+      var k = c.name;
+      if (!byCat[k]) byCat[k] = { name: c.name, icon: c.icon, sum: 0, count: 0 };
+      byCat[k].sum += num(t.amount);
+      byCat[k].count++;
+    });
+    var cats = Object.keys(byCat).map(function (k) { return byCat[k]; }).sort(function (a, b) { return b.sum - a.sum; });
+    return {
+      period: info.period, range: info.range, label: info.label, phrase: info.phrase, isMonth: info.isMonth,
+      tx: tx, fact: fact, count: tx.length, months: months,
+      planMonth: plan, planPeriod: plan * months,
+      avgMonth: fact / months, cats: cats
+    };
+  }
+
+  /* ---------- разметка вкладки «Доходы» ---------- */
+  function statsHtml(d) {
+    var pct = d.planPeriod ? Math.round((d.fact / d.planPeriod) * 100) : 0;
+    var planHint = d.planPeriod
+      ? (d.fact >= d.planPeriod ? "план выполнен" : "осталось " + m(d.planPeriod - d.fact))
+      : "регулярные доходы не заданы";
+    return '<div class="card stat"><div class="lbl">Доход' + (d.isMonth ? "" : " " + e(d.phrase)) + '</div>' +
+      '<div class="val pos" id="ww63-fact">+' + m(d.fact) + '</div>' +
+      '<div class="hint">факт · операций: ' + d.count + '</div></div>' +
+      '<div class="card stat"><div class="lbl">План доходов/мес</div>' +
+      '<div class="val" id="ww63-plan">' + m(d.planMonth) + '</div>' +
+      '<div class="hint">из регулярных доходов</div></div>' +
+      '<div class="card stat"><div class="lbl">Выполнение плана</div>' +
+      '<div class="val ' + (d.planPeriod && d.fact >= d.planPeriod ? "pos" : "") + '" id="ww63-pct">' + pct + '%</div>' +
+      '<div class="hint">' + planHint + '</div></div>' +
+      '<div class="card stat"><div class="lbl">Средний доход/мес</div>' +
+      '<div class="val" id="ww63-avg">' + m(d.avgMonth) + '</div>' +
+      '<div class="hint">месяцев в периоде: ' + d.months + '</div></div>';
+  }
+
+  function catsHtml(d) {
+    if (!d.cats.length) return '<div class="empty"><div class="big">💵</div>Доходов за этот период нет</div>';
+    return '<div class="ww63-catwrap">' + d.cats.map(function (c) {
+      var share = d.fact ? Math.round((c.sum / d.fact) * 100) : 0;
+      return '<div class="ww63-catrow" data-cat="' + e(c.name) + '">' +
+        '<div class="ic">' + icon(c.icon, c.name) + '</div>' +
+        '<div style="flex:1 1 auto;min-width:0">' +
+        '<div style="display:flex;align-items:baseline;gap:8px">' +
+        '<div class="nm">' + e(c.name) + '</div>' +
+        '<div class="amt">+' + m(c.sum) + '</div>' +
+        '<div class="shr">' + share + '%</div></div>' +
+        '<div class="ww63-bar"><i style="width:' + share + '%"></i></div></div></div>';
+    }).join("") + '</div>';
+  }
+
+  function recurHtml() {
+    var list = ((S && S.recurring) ? S.recurring : []).filter(function (r) { return r.type === "income"; });
+    if (!list.length) return '<div class="sub">Регулярных доходов пока нет.</div>';
+    var total = list.reduce(function (s, r) { return s + num(r.amount); }, 0);
+    return list.slice().sort(function (a, b) { return num(a.day) - num(b.day); }).map(function (r) {
+      var c = (typeof cat === "function" ? cat(r.categoryId) : null) || { name: "", icon: "💵" };
+      return '<div class="row"><div class="ic">' + icon(c.icon, c.name) + '</div>' +
+        '<div class="rmain"><div class="rt">' + e(r.name) + '</div>' +
+        '<div class="rs">' + e(c.name) + (r.day ? ' · ' + num(r.day) + ' числа' : "") + '</div></div>' +
+        '<div class="ramt pos">+' + m(r.amount) + '</div></div>';
+    }).join("") + '<div class="row" style="font-weight:800"><div class="ic">Σ</div>' +
+      '<div class="rmain"><div class="rt">Итого в месяц</div></div>' +
+      '<div class="ramt pos" id="ww63-recur-total">+' + m(total) + '</div></div>';
+  }
+
+  function txHtml(d) {
+    if (!d.tx.length) return '<div class="empty"><div class="big">👋</div>Доходов в этом периоде нет</div>';
+    var rows = d.tx.slice().sort(function (a, b) {
+      return b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0);
+    });
+    var cap = 200, shown = rows.slice(0, cap);
+    var html = shown.map(function (t) {
+      try { if (typeof txRow === "function") return txRow(t); } catch (err) {}
+      return '<div class="row" data-sid="' + e(t.id) + '"><div class="rmain"><div class="rt">' + e(t.note || "") + '</div></div>' +
+        '<div class="ramt pos">+' + m(t.amount) + '</div></div>';
+    }).join("");
+    if (rows.length > cap) html += '<div class="sub" style="padding:8px 2px 0">Показаны первые ' + cap + ' из ' + rows.length + '. Остальные — в разделе «Операции».</div>';
+    return html;
+  }
+
+  function paneHtml() {
+    var d = data();
+    return '<div class="ww63-per">' +
+      '<span class="ww319-per">' +
+      '<button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий период">◀</button>' +
+      '<button id="ww63-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период — общий с дашбордом">' + e(d.label) + ' ▾</button>' +
+      '<button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий период">▶</button></span>' +
+      '<button class="btn btn-primary btn-sm" id="ww63-add" onclick="ww63AddIncome()">+ Доход</button>' +
+      '</div>' +
+      '<div class="grid grid-4" id="ww63-stats">' + statsHtml(d) + '</div>' +
+      '<div class="sub" style="margin:10px 0 12px">Период общий с дашбордом, поэтому суммы совпадают с карточкой «Доход» на дашборде, разделом «Операции» и финансовым отчётом.</div>' +
+      '<div class="section card"><h2>Доходы по категориям</h2><div id="ww63-cats">' + catsHtml(d) + '</div></div>' +
+      '<div class="section card"><h2>Регулярные доходы</h2>' +
+      '<div class="sub" style="margin:-4px 0 12px">Повторяются каждый месяц. Те же записи, что в «Регулярных платежах» и в плане на месяц.</div>' +
+      '<div id="ww63-recur">' + recurHtml() + '</div>' +
+      '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="ww63AddRecurIncome()">+ Регулярный доход</button></div>' +
+      '<div class="section card"><h2 id="ww63-tx-h2">Операции — доходы' + (d.isMonth ? "" : " " + e(d.phrase)) + '</h2><div id="ww63-tx">' + txHtml(d) + '</div></div>';
+  }
+
+  /* ---------- каркас: оборачиваем прежнее содержимое и строим вкладки ---------- */
+  function build() {
+    var sec = document.getElementById("page-credits");
+    if (!sec) return null;
+    css();
+    var pane = document.getElementById("ww63-pane-exp");
+    if (!pane) {
+      var head = sec.querySelector(".page-head");
+      pane = document.createElement("div");
+      pane.id = "ww63-pane-exp";
+      var kids = Array.prototype.slice.call(sec.children).filter(function (n) { return n !== head; });
+      kids.forEach(function (n) { pane.appendChild(n); });
+      var bar = document.createElement("div");
+      bar.className = "ww40-tabs";
+      bar.id = "ww63-tabs";
+      sec.appendChild(bar);
+      sec.appendChild(pane);
+      var inc = document.createElement("div");
+      inc.id = "ww63-pane-inc";
+      sec.appendChild(inc);
+    }
+    return sec;
+  }
+
+  function paintTabs() {
+    var bar = document.getElementById("ww63-tabs");
+    if (!bar) return;
+    var cur = curTab();
+    bar.innerHTML = TABS.map(function (t) {
+      return '<button class="ww40-tab' + (t.key === cur ? " active" : "") + '" data-tab="' + t.key + '" onclick="ww63Tab(\'' + t.key + '\')">' + t.title + '</button>';
+    }).join("");
+  }
+
+  function renderInc() {
+    var el = document.getElementById("ww63-pane-inc");
+    if (!el) return;
+    if (curTab() !== "inc") { el.innerHTML = ""; return; }
+    el.innerHTML = paneHtml();
+  }
+
+  function apply() {
+    if (!build()) return;
+    paintTabs();
+    var cur = curTab();
+    var pe = document.getElementById("ww63-pane-exp");
+    var pi = document.getElementById("ww63-pane-inc");
+    if (pe) pe.style.display = cur === "exp" ? "" : "none";
+    if (pi) pi.style.display = cur === "inc" ? "" : "none";
+    renderInc();
+    var h1 = document.querySelector("#page-credits .page-head h1");
+    if (h1) h1.textContent = cur === "inc" ? "Доходы" : "Кредиты и платежи";
+    var addCr = document.querySelector('#page-credits .page-head button[onclick^="openCreditModal"]');
+    if (addCr) addCr.style.display = cur === "inc" ? "none" : "";
+  }
+
+  function setTab(key) {
+    if (key !== "inc" && key !== "exp") key = "exp";
+    try { localStorage.setItem(KEY, key); } catch (e) {}
+    apply();
+    var sec = document.getElementById("page-credits");
+    if (sec && sec.classList.contains("active")) {
+      try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); }
+    }
+    try { if (typeof ww62PinNav === "function") ww62PinNav(); } catch (e) {}
+  }
+
+  /* ---------- кнопки добавления ---------- */
+  window.ww63AddIncome = function () {
+    try { if (typeof isObserver === "function" && isObserver()) return; } catch (e) {}
+    try { openTxModal({ type: "income" }); return; } catch (err) {}
+    try { openTxModal(); } catch (err) {}
+  };
+  window.ww63AddRecurIncome = function () {
+    try { if (typeof isObserver === "function" && isObserver()) return; } catch (e) {}
+    try { openRecurModal(null); } catch (err) {}
+    setTimeout(function () {
+      var t = document.getElementById("rc-type");
+      if (t && t.value !== "income") {
+        t.value = "income";
+        try { t.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) { if (typeof recurCatOptions === "function") recurCatOptions(); }
+      }
+    }, 60);
+  };
+
+  /* ---------- синхронизация с остальным приложением ---------- */
+  function hook(name) {
+    var fn = window[name];
+    if (typeof fn !== "function" || fn.__ww63) return;
+    var wrapped = function () {
+      var r = fn.apply(this, arguments);
+      try { apply(); } catch (e) {}
+      return r;
+    };
+    wrapped.__ww63 = true;
+    wrapped.__ww63Original = fn;
+    window[name] = wrapped;
+  }
+  function hookAll() {
+    ["renderCredits", "renderDash", "renderOps", "renderRecurList", "ww26SetPeriod", "crSetPeriod", "render", "nav"].forEach(hook);
+  }
+
+  window.ww63Tab = setTab;
+  window.ww63CurTab = curTab;
+  window.ww63Data = data;
+  window.ww63Render = apply;
+
+  function boot() {
+    try { apply(); } catch (e) {}
+    hookAll();
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+  setTimeout(boot, 400);
+  setTimeout(boot, 1400);
+})();
+</script>
+<script>
+"use strict";
+/* ============================================================
+   v3.64 (ww64): в окне задачи — выбор сферы («чего касается»):
+   Личное, Семья, Работа, Авто, Дом, Здоровье, Финансы, Учёба,
+   Покупки, Питомцы, Отдых, Другое.
+   Поле встраивается в окно ww60, метка показывается на карточке задачи,
+   в планировщике появляется фильтр по сферам.
+   ============================================================ */
+(function () {
+  var LAST = "ww64_last_sphere_v1";
+  var FILT = "ww64_filter_v1";
+
+  var SPHERES = [
+    ["personal", "Личное", "🙋"],
+    ["family", "Семья", "👪"],
+    ["work", "Работа", "💼"],
+    ["car", "Авто", "🚗"],
+    ["home", "Дом", "🏠"],
+    ["health", "Здоровье", "🩺"],
+    ["money", "Финансы", "💰"],
+    ["study", "Учёба", "🎓"],
+    ["shop", "Покупки", "🛒"],
+    ["pets", "Питомцы", "🐶"],
+    ["rest", "Отдых", "✈️"],
+    ["other", "Другое", "📌"]
+  ];
+  var LABEL = {}, ICON = {};
+  SPHERES.forEach(function (s) { LABEL[s[0]] = s[1]; ICON[s[0]] = s[2]; });
+
+  function esc2(v) {
+    return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function tasks() { return (typeof S !== "undefined" && S && S.tasks) ? S.tasks : []; }
+  function find(id) { var a = tasks(); for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return null; }
+  function saveS() { try { if (typeof save === "function") save(); } catch (e) {} }
+  function repaint() { try { if (typeof renderPlanner === "function") renderPlanner(); } catch (e) {} }
+
+  function sphereOf(t) {
+    if (!t) return "";
+    var v = t.sphere;
+    return LABEL[v] ? v : "";
+  }
+  function lastSphere() {
+    var v = null;
+    try { v = localStorage.getItem(LAST); } catch (e) {}
+    return LABEL[v] ? v : "personal";
+  }
+  function setLast(v) { try { if (LABEL[v]) localStorage.setItem(LAST, v); } catch (e) {} }
+  function curFilter() {
+    var v = null;
+    try { v = localStorage.getItem(FILT); } catch (e) {}
+    return LABEL[v] ? v : "all";
+  }
+
+  function css() {
+    if (document.getElementById("ww64-css")) return;
+    var st = document.createElement("style");
+    st.id = "ww64-css";
+    st.textContent = [
+      ".ww64-sph-chip{display:inline-flex;align-items:center;gap:4px}",
+      "#ww64-filter{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 0 10px;padding-bottom:2px}",
+      "#ww64-filter::-webkit-scrollbar{display:none}",
+      "#ww64-filter .chip{flex:0 0 auto;white-space:nowrap}",
+      ".ww64-hint{font-size:11.5px;opacity:.62;margin-top:4px}"
+    ].join("");
+    document.head.appendChild(st);
+  }
+
+  /* ---------- поле в окне задачи ---------- */
+  function fieldHtml(cur) {
+    return '<div class="fg" id="ww64-fg"><label for="ww64-sphere">Чего касается</label>' +
+      '<select id="ww64-sphere">' + SPHERES.map(function (s) {
+        return '<option value="' + s[0] + '"' + (cur === s[0] ? ' selected' : '') + '>' + s[2] + ' ' + s[1] + '</option>';
+      }).join("") + '</select>' +
+      '<div class="ww64-hint">сфера задачи — по ней можно фильтровать список</div></div>';
+  }
+
+  function injectField(t) {
+    if (document.getElementById("ww64-sphere")) return true;
+    var text = document.getElementById("tk-text");
+    var prio = document.getElementById("tk-prio");
+    var anchor = null, mode = "after";
+    if (prio && prio.closest) anchor = prio.closest(".fg");
+    if (!anchor && text && text.closest) { anchor = text.closest(".fg"); }
+    if (!anchor) {
+      var ty = document.getElementById("ww60-type");
+      if (ty && ty.closest) anchor = ty.closest(".fg-row") || ty.closest(".fg");
+    }
+    if (!anchor || !anchor.parentNode) return false;
+    css();
+    var cur = sphereOf(t) || (t ? "other" : lastSphere());
+    var box = document.createElement("div");
+    box.innerHTML = fieldHtml(cur);
+    var node = box.firstChild;
+    if (mode === "after" && anchor.nextSibling) anchor.parentNode.insertBefore(node, anchor.nextSibling);
+    else anchor.parentNode.appendChild(node);
+    return true;
+  }
+
+  function hookModal() {
+    if (typeof window.openTaskModal !== "function" || window.openTaskModal.__ww64) return;
+    var orig = window.openTaskModal;
+    var wrapped = function (id, col) {
+      var r = orig.apply(this, arguments);
+      try {
+        var t = id ? find(id) : null;
+        if (!injectField(t)) setTimeout(function () { injectField(t); }, 40);
+        setTimeout(function () { injectField(t); }, 160);
+      } catch (e) {}
+      return r;
+    };
+    wrapped.__ww64 = true;
+    wrapped.__ww64Original = orig;
+    window.openTaskModal = wrapped;
+  }
+
+  /* ---------- сохранение ---------- */
+  function hookSave() {
+    if (typeof window.saveTask !== "function" || window.saveTask.__ww64) return;
+    var orig = window.saveTask;
+    var wrapped = function (id) {
+      var sel = document.getElementById("ww64-sphere");
+      var val = sel && LABEL[sel.value] ? sel.value : null;
+      var before = null;
+      if (!id) { before = {}; tasks().forEach(function (t) { before[t.id] = 1; }); }
+      var r = orig.apply(this, arguments);
+      try {
+        if (val) {
+          var t = null;
+          if (id) t = find(id);
+          else { var a = tasks(); for (var i = a.length - 1; i >= 0; i--) if (!before[a[i].id]) { t = a[i]; break; } }
+          if (t) {
+            t.sphere = val;
+            setLast(val);
+            saveS();
+            repaint();
+          }
+        }
+      } catch (e) {}
+      return r;
+    };
+    wrapped.__ww64 = true;
+    wrapped.__ww64Original = orig;
+    window.saveTask = wrapped;
+  }
+
+  /* повторяющиеся задачи (ww60) — переносим сферу на следующую копию */
+  function hookToggle() {
+    if (typeof window.toggleTask !== "function" || window.toggleTask.__ww64) return;
+    var orig = window.toggleTask;
+    var wrapped = function (id) {
+      var src = find(id);
+      var sph = src ? sphereOf(src) : "";
+      var r = orig.apply(this, arguments);
+      try {
+        if (sph) {
+          var changed = false;
+          tasks().forEach(function (t) {
+            if (t.ww60From === id && !sphereOf(t)) { t.sphere = sph; changed = true; }
+          });
+          if (changed) { saveS(); repaint(); }
+        }
+      } catch (e) {}
+      return r;
+    };
+    wrapped.__ww64 = true;
+    window.toggleTask = wrapped;
+  }
+
+  /* ---------- метка на карточке ---------- */
+  function hookCard() {
+    if (typeof window.taskCard !== "function" || window.taskCard.__ww64) return;
+    var orig = window.taskCard;
+    var wrapped = function (t) {
+      var html = orig.apply(this, arguments);
+      try {
+        var sph = sphereOf(t);
+        if (!sph || html.indexOf("ww64-sph-chip") !== -1) return html;
+        var chip = '<span class="tchip ww64-sph-chip" title="Касается: ' + esc2(LABEL[sph]) + '">' +
+          ICON[sph] + '<span>' + esc2(LABEL[sph]) + '</span></span>';
+        return html.replace(/(<div class="task-meta">)/, '$1' + chip);
+      } catch (e) {}
+      return html;
+    };
+    wrapped.__ww64 = true;
+    wrapped.__ww64Original = orig;
+    window.taskCard = wrapped;
+  }
+
+  /* ---------- фильтр в планировщике ---------- */
+  function counts() {
+    var c = {};
+    tasks().forEach(function (t) {
+      if (t.done) return;
+      var s = sphereOf(t);
+      if (!s) return;
+      c[s] = (c[s] || 0) + 1;
+    });
+    return c;
+  }
+  function paintFilter() {
+    var host = document.getElementById("task-who");
+    if (!host || !host.parentNode) return;
+    css();
+    var bar = document.getElementById("ww64-filter");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "ww64-filter";
+      host.parentNode.insertBefore(bar, host.nextSibling);
+    }
+    var cur = curFilter(), c = counts();
+    var items = [["all", "Все сферы", ""]].concat(SPHERES.filter(function (s) { return c[s[0]]; }));
+    bar.innerHTML = items.map(function (s) {
+      var n = s[0] === "all" ? "" : ' <span style="opacity:.65">' + c[s[0]] + '</span>';
+      return '<button class="chip' + (cur === s[0] ? " active" : "") + '" data-sph="' + s[0] + '" onclick="ww64Filter(\'' + s[0] + '\')">' +
+        (s[2] ? s[2] + " " : "") + s[1] + n + '</button>';
+    }).join("");
+    bar.style.display = items.length > 1 ? "flex" : "none";
+  }
+  function applyFilter() {
+    var cur = curFilter();
+    var cards = document.querySelectorAll("#kanban .task-card, #planner-list .task-card");
+    Array.prototype.forEach.call(cards, function (el) {
+      var id = null;
+      var m = (el.getAttribute("onclick") || "").match(/openTaskModal\('([^']+)'\)/);
+      if (m) id = m[1];
+      var t = id ? find(id) : null;
+      var ok = cur === "all" || (t && sphereOf(t) === cur);
+      el.style.display = ok ? "" : "none";
+    });
+  }
+  window.ww64Filter = function (key) {
+    if (key !== "all" && !LABEL[key]) key = "all";
+    try { localStorage.setItem(FILT, key); } catch (e) {}
+    paintFilter();
+    applyFilter();
+    try { if (typeof ww62PinNav === "function") ww62PinNav(); } catch (e) {}
+  };
+
+  function hookPlanner() {
+    if (typeof window.renderPlanner !== "function" || window.renderPlanner.__ww64) return;
+    var orig = window.renderPlanner;
+    var wrapped = function () {
+      var r = orig.apply(this, arguments);
+      try { paintFilter(); applyFilter(); } catch (e) {}
+      return r;
+    };
+    wrapped.__ww64 = true;
+    wrapped.__ww64Original = orig;
+    window.renderPlanner = wrapped;
+  }
+
+  /* ---------- перенос старых задач ---------- */
+  function migrate() {
+    var changed = 0;
+    tasks().forEach(function (t) {
+      if (t.sphere === undefined) { t.sphere = ""; changed++; }
+    });
+    if (changed) saveS();
+    return changed;
+  }
+
+  window.ww64Spheres = function () { return SPHERES.map(function (s) { return { key: s[0], label: s[1], icon: s[2] }; }); };
+  window.ww64SphereOf = function (id) { return sphereOf(find(id)); };
+  window.ww64CurFilter = curFilter;
+  window.ww64Repaint = function () { paintFilter(); applyFilter(); };
+
+  function boot() {
+    css();
+    try { migrate(); } catch (e) {}
+    hookModal();
+    hookSave();
+    hookToggle();
+    hookCard();
+    hookPlanner();
+    try { paintFilter(); applyFilter(); } catch (e) {}
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+  setTimeout(boot, 500);
+  setTimeout(boot, 1500);
+})();
 </script>
 </body>
 </html>
