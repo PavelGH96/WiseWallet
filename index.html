@@ -1897,6 +1897,28 @@ const THEMES = [
   { id: "t4", name: "Лес", colors: ["#4caf7d", "#1a2420"] },
   { id: "t5", name: "Роза", colors: ["#c0505f", "#fdf4f5"] },
 ];
+/* ===================== v3.65: реестр дополнений к странице настроек =====================
+   Раньше каждый модуль оборачивал renderSettings своей функцией — к v3.64 таких
+   слоёв накопилось 13, и понять порядок выполнения по коду было почти нельзя.
+   Именно расхождение слоёв в прошлом рождало баги (две реализации одного
+   действия, одна из которых тихо отставала).
+
+   Теперь дополнения регистрируются в общем списке с явным приоритетом:
+   меньше число — раньше выполняется. Аккордеон (999) всегда последний, ему
+   нужен готовый DOM со всеми досыпанными карточками. Ошибка в одном
+   дополнении больше не роняет остальные. */
+var WW_SETTINGS_EXT = [];
+function wwOnSettings(name, priority, fn) {
+  WW_SETTINGS_EXT.push({ name: name, priority: priority, fn: fn });
+  WW_SETTINGS_EXT.sort(function (a, b) { return a.priority - b.priority; });
+}
+function wwRunSettingsExt() {
+  for (var i = 0; i < WW_SETTINGS_EXT.length; i++) {
+    var e = WW_SETTINGS_EXT[i];
+    try { e.fn(); }
+    catch (err) { if (window.console && console.warn) console.warn("Настройки: дополнение «" + e.name + "» не отработало", err); }
+  }
+}
 function renderSettings() {
   document.getElementById("theme-grid").innerHTML = THEMES.map((t) => `<button class="theme-sw${(S.settings.theme || "t9") === t.id ? " active" : ""}" onclick="setTheme('${t.id}')" aria-label="Тема ${t.name}"><i style="background:linear-gradient(135deg,${t.colors[0]} 50%,${t.colors[1]} 50%)"></i><span>${t.name}</span></button>`).join("");
   document.getElementById("acc-list").innerHTML = S.accounts.map((a) => `<div class="row"><div class="ic">${typeof WW28_ICONS !== "undefined" ? (a.type === "cash" ? WW28_ICONS.banknote : WW28_ICONS.card) : "💳"}</div><div class="rmain"><div class="rt">${esc(a.name)}${a.archived ? ' <span class="sub">(архив)</span>' : ""}</div></div>${a.archived ? `<button class="btn btn-ghost btn-sm" onclick="restoreAccount('${a.id}')" title="Вернуть в список">↩ Вернуть</button>` : ""}<button class="btn btn-ghost btn-sm" onclick="renameAccount('${a.id}')">✎</button></div>`).join("");
@@ -1918,6 +1940,7 @@ function renderSettings() {
   document.getElementById("rem-days").value = S.settings.reminderDays ?? 3;
   renderRecurList();
   sbStatus();
+  wwRunSettingsExt();   // дополнения — из общего реестра, по приоритету
 }
 function setReminderDays(v) {
   S.settings.reminderDays = Math.max(0, Math.min(14, Math.round(+v) || 0));
@@ -4476,8 +4499,7 @@ function fillV2Settings() {
   const st = document.getElementById("ww-app-status");
   if (st) st.textContent = (("Notification" in window) ? ("Уведомления: " + (Notification.permission === "granted" ? "включены ✓" : Notification.permission === "denied" ? "заблокированы в браузере" : "не включены")) : "Уведомления не поддерживаются") + " · " + (navigator.onLine ? "онлайн ✓" : "офлайн");
 }
-const _renderSettings2 = renderSettings;
-renderSettings = function () { _renderSettings2(); renderV2Settings(); };
+wwOnSettings("v2: безопасность, копии, аккаунт", 10, function () { renderV2Settings(); });
 
 /* ===================== init v2 ===================== */
 if (pinSet()) ww2Lock();
@@ -4495,7 +4517,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.64";
+const WW_VERSION = "3.65";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -4827,15 +4849,13 @@ function ww22FillProf() {
       </div>
     </div>` : ""}`;
 }
-const _renderSettings22 = renderSettings;
-renderSettings = function () {
-  _renderSettings22();
+wwOnSettings("v2.2: учётные записи", 20, function () {
   ww22Cards(); ww22FillProf();
   if (ww22Profile() === "demo") {
     const sb = document.getElementById("sb-url"); if (sb && sb.closest(".card")) sb.closest(".card").style.display = "none";
     const auth = document.getElementById("ww-auth-card"); if (auth) auth.style.display = "none";
   }
-};
+});
 
 /* ---- разделы, доступные учётной записи «Просмотр» (задел на будущее) ---- */
 /* Сейчас все разделы видимы. Чтобы скрыть раздел от «Просмотра», поставьте false. */
@@ -5259,9 +5279,7 @@ function ww23Tags() {
 
 /* ---------- 5. Импорт выписок CSV с автокатегориями ---------- */
 let ww23Csv = null;
-const _renderSettings23 = renderSettings;
-renderSettings = function () {
-  _renderSettings23();
+wwOnSettings("v2.3: кнопка импорта CSV", 30, function () {
   if (!document.getElementById("ww23-csv-btn")) {
     const inp = document.getElementById("import-xlsx-file");
     if (inp) {
@@ -5272,7 +5290,7 @@ renderSettings = function () {
       if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,text/csv" style="display:none" onchange="ww23CsvPick(this)">');
     }
   }
-};
+});
 function ww23CsvPick(inp) {
   const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
   const rd = new FileReader();
@@ -6184,10 +6202,7 @@ try {
     row.appendChild(b);
   }
 
-  if (typeof renderSettings === "function") {
-    var _rs38 = renderSettings;
-    window.renderSettings = function () { _rs38(); try { ww38RenderAccents(); addTestBtn(); } catch (e) {} };
-  }
+    wwOnSettings("v3.8: акцентные цвета", 40, function () { ww38RenderAccents(); addTestBtn(); });
 
   /* --- повторная проверка напоминаний: каждые 30 минут и при возвращении в приложение --- */
   setInterval(function () { try { ww2Notify(); } catch (e) {} }, 30 * 60 * 1000);
@@ -6289,10 +6304,7 @@ try {
     ww39Render();
   }
 
-  if (typeof renderSettings === "function") {
-    var _rs39 = renderSettings;
-    window.renderSettings = function () { _rs39(); try { addCard(); } catch (e) {} };
-  }
+    wwOnSettings("v3.9: карточка фоновых push", 50, function () { addCard(); });
 })();
 
 /* ===================== сворачиваемые разделы настроек =====================
@@ -6362,11 +6374,11 @@ try {
   }
   // Несколько проходов: часть карточек создаётся позже другими модулями.
   if (typeof renderSettings === "function") {
-    var _rsAcc = renderSettings;
-    window.renderSettings = function () {
-      _rsAcc();
+    // 999 — намеренно последним: аккордеону нужен готовый DOM со всеми
+    // карточками, которые досыпают дополнения выше.
+    wwOnSettings("аккордеон настроек", 999, function () {
       [0, 60, 250, 800].forEach(function (d) { setTimeout(function () { try { accordion(); } catch (e) {} }, d); });
-    };
+    });
   }
 })();
 
@@ -7338,10 +7350,7 @@ openTxModal = function () {
 };
 
 /* настройки: карточка нового блока */
-const _ww331RenderSettings = renderSettings;
-renderSettings = function () {
-  _ww331RenderSettings.apply(this, arguments);
-  try {
+wwOnSettings("v3.31: журнал, уведомления и календарь", 60, function () {
     const page = document.getElementById("page-settings"); if (!page) return;
     let card = document.getElementById("ww331-card");
     if (!card) { card = document.createElement("div"); card.className = "card"; card.id = "ww331-card"; card.style.marginTop = "14px"; page.appendChild(card); }
@@ -7357,8 +7366,7 @@ renderSettings = function () {
         <button class="btn btn-ghost" onclick="ww331VoiceTx()">🎤 Голосом добавить операцию</button>
       </div>
       <div class="sub" style="margin-top:10px">Голосовой ввод: ${ww331SpeechOk() ? "поддерживается этим браузером" : "не поддерживается — нужен Safari или Chrome"}.</div>`;
-  } catch (e) {}
-};
+});
 
 /* дашборд: строка напоминаний ведёт в центр уведомлений */
 const _ww331RenderReminders = renderReminders;
@@ -7761,8 +7769,7 @@ fillV2Settings = function () {
   }
 };
 
-var _ww332RS = renderSettings;
-renderSettings = function () { _ww332RS(); try { ww332FixSyncCard(); } catch (e) {} };
+wwOnSettings("v3.32: карточка синхронизации", 70, function () { ww332FixSyncCard(); });
 
 /* ===================== старт ===================== */
 /* Показываем экран входа сразу, чтобы чужие данные не мелькнули на экране. */
@@ -8250,10 +8257,7 @@ if (typeof openMore === "function") {
   openMore = function () { ww40More.apply(null, arguments); ww40PatchMore(); };
 }
 
-if (typeof renderSettings === "function") {
-  var ww40RS = renderSettings;
-  renderSettings = function () { ww40RS.apply(null, arguments); ww40RenderOrderCard(); };
-}
+  wwOnSettings("v4.0: карточка порядка разделов", 80, function () { ww40RenderOrderCard(); });
 
 /* Старый applyNavOrder умел только меню слева и не знал про новый раздел. */
 if (typeof applyNavOrder === "function") applyNavOrder = ww40ApplyOrder;
@@ -9454,13 +9458,7 @@ else ww41Boot();
   window.ww43Card = card;
 
   function boot() {
-    if (typeof renderSettings === "function") {
-      var prev = renderSettings;
-      window.renderSettings = function () {
-        prev.apply(this, arguments);
-        try { card(); } catch (e) {}
-      };
-    }
+    wwOnSettings("карточка отчёта PDF", 90, function () { card(); });
     /* старая кнопка «PDF-отчёт» в блоке «Данные» теперь открывает выбор периода */
     if (typeof window.exportPdf === "function") {
       window.ww43LegacyPdf = window.exportPdf;
@@ -9866,15 +9864,9 @@ else ww41Boot();
     }
 
     /* При открытии настроек также синхронизируем меню после загрузки/синхронизации состояния. */
-    if (typeof renderSettings === "function") {
-      var prevSettings = renderSettings;
-      renderSettings = function () {
-        var out = prevSettings.apply(this, arguments);
-        try { if (typeof ww40ApplyOrder === "function") ww40ApplyOrder(); else apply(); } catch (e) {}
-        return out;
-      };
-      window.renderSettings = renderSettings;
-    }
+    wwOnSettings("применение порядка разделов", 100, function () {
+      if (typeof ww40ApplyOrder === "function") ww40ApplyOrder(); else apply();
+    });
 
     try { if (typeof ww40ApplyOrder === "function") ww40ApplyOrder(); else apply(); } catch (e) {}
   }
@@ -9994,15 +9986,7 @@ else ww41Boot();
       if (typeof applyNavOrder === "function") { applyNavOrder = ww40ApplyOrder; window.applyNavOrder = applyNavOrder; }
     }
 
-    if (typeof renderSettings === "function") {
-      var prevSettings = renderSettings;
-      renderSettings = function () {
-        var out = prevSettings.apply(this, arguments);
-        try { forceSingleUser(false); cleanUi(); } catch (e) {}
-        return out;
-      };
-      window.renderSettings = renderSettings;
-    }
+    wwOnSettings("режим одного пользователя", 110, function () { forceSingleUser(false); cleanUi(); });
 
     try {
       if (typeof ww40ApplyOrder === "function") ww40ApplyOrder();
@@ -12555,14 +12539,9 @@ window.ww50DataSignature = ww50DataSignature;
     pay.parentElement.insertBefore(b, pay.nextSibling);
   }
   function hookSettings() {
-    if (typeof window.renderSettings !== 'function' || window.renderSettings.__ww60) return;
-    var orig = window.renderSettings;
-    window.renderSettings = function () {
-      var r = orig.apply(this, arguments);
-      try { hookSettingsBtn(); } catch (e) {}
-      return r;
-    };
-    window.renderSettings.__ww60 = true;
+    if (window.__ww60SettingsHooked) return;   // не регистрируем дважды
+    window.__ww60SettingsHooked = true;
+    wwOnSettings("v6.0: кнопка экспорта задач", 120, function () { hookSettingsBtn(); });
   }
 
   /* ---------- миграция старых задач ---------- */
