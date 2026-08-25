@@ -5,7 +5,7 @@
 <!-- v3.37: masштабирование пальцами снова разрешено. Горизонтальный "резиновый"
      сдвиг убирают overflow-x:clip и touch-action ниже, запрет зума для этого не нужен
      и мешает людям со слабым зрением. -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>WiseWallet — учёт доходов и расходов</title>
 <meta name="theme-color" content="#f8fafc">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -667,6 +667,28 @@ body.observer .task-card,.observer .credit-card{cursor:default}
    (защита от масштабирования двойным тапом) — оно перекрывало разрешение
    выше, и жест по самой кнопке не доходил. Разрешаем явно. */
 .bottom-nav .bn-item{touch-action:pan-x pan-y}
+
+/* ===================== v3.67: цели нажатия по нормам iOS =====================
+   Apple рекомендует минимум 44pt. Эти элементы задают свой размер ниже по
+   таблице стилей, поэтому общее правило @media (pointer: coarse) их не
+   перекрывало — задаём здесь, в конце первого блока. */
+@media (pointer: coarse){
+  /* Переключатель «Оплатить/Оплачено»: было 30px. На странице Кредитов их
+     пять подряд вплотную — промах отмечает оплаченным не тот кредит. */
+  .ww30-sw{height:44px}
+  /* Ползунок ездит через left (как в базовом правиле), не transform. */
+  .ww30-sw .knob{width:36px;height:36px;top:3px;left:3px}
+  .ww30-sw.on .knob{left:calc(100% - 39px)}
+
+  /* Кнопка «⋮» у кошелька — была 20px, меньше половины нормы, а через неё
+     удаляют счёт. Кружок оставляем компактным, расширяем зону нажатия. */
+  .coin-menu-btn{width:28px;height:28px}
+  .coin-menu-btn::after{content:"";position:absolute;inset:-12px}
+
+  /* Переключатель периода: стрелки 34px, таблетка 30px. */
+  .ww31-navm{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+  .ww319-pill,#ww26-period-btn{min-height:44px}
+}
 </style>
 </head>
 <body>
@@ -4528,7 +4550,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.66";
+const WW_VERSION = "3.67";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
