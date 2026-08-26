@@ -469,9 +469,13 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 /* На сенсорных экранах наведения нет — показываем точки постоянно, слабо */
 @media (pointer: coarse){.coin-drag-dots{opacity:.42}}
 @media(prefers-reduced-motion:reduce){.coin-drag-dots{transition:none}}
-.coin-menu-btn{position:absolute;top:-4px;right:0;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);line-height:1;box-shadow:var(--sh-s);z-index:2}
+.coin-menu-btn{position:absolute;top:-6px;right:-2px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);line-height:1;box-shadow:var(--sh-s);z-index:2}
 .coin-menu-btn:active{background:var(--fill)}
-@media (pointer: coarse){.coin-menu-btn::after{content:"";position:absolute;inset:-12px}}
+/* Зону нажатия кнопки «⋮» расширяем только ВВЕРХ и ВПРАВО — от иконки.
+   Симметричное расширение (inset:-12px) наползало на диск ярлыка и
+   перехватывало почти треть его площади: попасть по самой иконке
+   становилось трудно. */
+@media (pointer: coarse){.coin-menu-btn::after{content:"";position:absolute;top:-14px;right:-10px;bottom:-2px;left:-2px}}
 /* Подсказка «сюда можно» на противоположной колонке — покачивание, как у
    иконок iOS при удержании пальца, обводка и свечение цветом темы (--accent). */
 .coin.drop-target .disc{animation:coinJiggle .26s ease-in-out infinite}
@@ -683,11 +687,54 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   /* Кнопка «⋮» у кошелька — была 20px, меньше половины нормы, а через неё
      удаляют счёт. Кружок оставляем компактным, расширяем зону нажатия. */
   .coin-menu-btn{width:28px;height:28px}
-  .coin-menu-btn::after{content:"";position:absolute;inset:-12px}
+  .coin-menu-btn::after{content:"";position:absolute;top:-14px;right:-10px;bottom:-2px;left:-2px}
 
   /* Переключатель периода: стрелки 34px, таблетка 30px. */
   .ww31-navm{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
   .ww319-pill,#ww26-period-btn{min-height:44px}
+}
+
+/* ===================== v3.68: аккуратная анимация =====================
+   Только там, где движение что-то объясняет: показывает связь причины и
+   следствия, подтверждает действие или смягчает резкую подмену содержимого.
+   В приложении, куда заходят на 20 секунд записать трату, лишнее движение
+   быстро начинает раздражать, поэтому украшательства не добавляем. */
+
+/* Полоски прогресса (бюджеты, цели, выполнение кредита) плавно дотягиваются
+   до новой длины — видно, что показатель изменился именно сейчас. */
+.progress i{transition:width .45s cubic-bezier(.2,.8,.25,1),background-color .3s ease}
+
+/* Наведение — только для мыши. На тач-экранах наведения нет, лишняя работа. */
+@media (hover:hover) and (pointer:fine){
+  .card{transition:box-shadow .22s ease,transform .22s ease}
+  .card:hover{box-shadow:var(--sh);transform:translateY(-1px)}
+  .row{transition:background-color .15s ease}
+  .row:hover{background:var(--fill)}
+}
+
+/* Нажатие слегка «продавливается» — телесная обратная связь вместо
+   мгновенной смены цвета. */
+.btn,.bn-item{transition:background .12s,color .12s,transform .1s ease}
+.btn:active,.coin:active,.bn-item:active{transform:scale(.97)}
+
+/* Активный раздел меню: иконка чуть приподнимается. */
+.bn-item svg,.rail-item svg{transition:transform .18s ease,color .15s ease}
+.bn-item.active svg,.rail-item.active svg{transform:translateY(-1px) scale(1.06)}
+
+/* Цифры на дашборде появляются с лёгким подъёмом — при смене периода видно,
+   что данные пересчитались, а не «моргнули». */
+@keyframes wwStatIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.stat .val{animation:wwStatIn .28s cubic-bezier(.2,.8,.25,1)}
+
+/* Тумблер оплаты: ползунок доезжает с лёгким отскоком — подтверждение. */
+.ww30-sw .knob{transition:left .25s cubic-bezier(.34,1.4,.5,1),background-color .2s ease}
+
+/* Системная настройка «Уменьшить движение» выключает всё перечисленное
+   полностью, а не просто ускоряет. */
+@media (prefers-reduced-motion:reduce){
+  .progress i,.card,.row,.btn,.bn-item,.bn-item svg,.rail-item svg,.ww30-sw .knob{transition:none!important}
+  .stat .val{animation:none!important}
+  .btn:active,.coin:active,.bn-item:active,.card:hover,.bn-item.active svg,.rail-item.active svg{transform:none}
 }
 </style>
 </head>
@@ -4550,7 +4597,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.67";
+const WW_VERSION = "3.69";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
