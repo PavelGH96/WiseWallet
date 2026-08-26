@@ -4597,7 +4597,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.69";
+const WW_VERSION = "3.70";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9355,6 +9355,63 @@ else ww41Boot();
       return '<tr><td>' + esc2(catName(cid)) + '</td><td class="r">' + m(obj[cid]) + '</td><td class="r">' + (tot ? Math.round(obj[cid] / tot * 100) : 0) + '%</td></tr>';
     }).join("");
   }
+  /* Текстовое резюме к отчёту: коротко проговаривает то, что видно в таблицах.
+     Пишем осторожно — только выводы, которые прямо следуют из чисел, без
+     советов и оценок вроде «вы много тратите». */
+  function summary(d, p) {
+    var s = [];
+    var m2 = function (v) { return m(Math.abs(v)); };
+
+    /* 1. Итог периода */
+    if (d.txCount === 0) {
+      s.push('За выбранный период операций не записано, поэтому доходы и расходы показаны нулевыми.');
+    } else if (d.net > 0) {
+      s.push('За период доходы превысили расходы на <b>' + m2(d.net) + '</b>: поступило ' + m(d.inc) + ', потрачено ' + m(d.exp) + '.');
+    } else if (d.net < 0) {
+      s.push('За период расходы превысили доходы на <b>' + m2(d.net) + '</b>: потрачено ' + m(d.exp) + ' при доходах ' + m(d.inc) + '.');
+    } else {
+      s.push('За период доходы и расходы сошлись в ноль: ' + m(d.inc) + '.');
+    }
+
+    /* 2. Куда ушли деньги — самая крупная категория */
+    var expList = Object.keys(d.expBy || {}).map(function (k) { return { k: k, v: d.expBy[k] }; })
+                        .sort(function (a, b) { return b.v - a.v; });
+    if (expList.length && d.exp > 0) {
+      var top = expList[0];
+      var share = Math.round(top.v / d.exp * 100);
+      var nm = (typeof cat === "function" && cat(top.k) && cat(top.k).name) ? cat(top.k).name : (top.k === "c_credit" ? "Платежи по кредитам" : "Без категории");
+      s.push('Крупнейшая статья расходов — <b>' + esc2(nm) + '</b>: ' + m(top.v) + ' (' + share + '% всех трат).');
+      if (expList.length >= 3) {
+        var three = expList.slice(0, 3).reduce(function (a, x) { return a + x.v; }, 0);
+        s.push('На три главные категории пришлось ' + Math.round(three / d.exp * 100) + '% расходов.');
+      }
+    }
+
+    /* 3. Что ещё предстоит заплатить */
+    if (d.dueTotal > 0) {
+      s.push('До конца периода предстоит оплатить <b>' + m(d.dueTotal) + '</b> (' + d.due.length + ' ' + plural(d.due.length, 'платёж', 'платежа', 'платежей') + ').');
+      if (d.left < 0) {
+        s.push('С учётом этих платежей результат периода уходит в минус на <b>' + m2(d.left) + '</b>' +
+               (d.waitInc > 0 ? ', при этом ещё ожидается поступлений на ' + m(d.waitInc) + '.' : '.'));
+      } else {
+        s.push('После всех платежей остаётся <b>' + m2(d.left) + '</b>.');
+      }
+    } else if (d.txCount > 0) {
+      s.push('Незакрытых платежей на оставшуюся часть периода нет.');
+    }
+
+    return s.length
+      ? '<div class="ww43-summary"><h2>Коротко о периоде</h2>' + s.map(function (x) { return '<p>' + x + '</p>'; }).join('') + '</div>'
+      : '';
+  }
+  function plural(n, one, few, many) {
+    var a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  }
+
   function reportHtml(p) {
     var d = collect(p);
     var per = d.from ? human(d.from) + " — " + human(d.to) : "за всё время";
@@ -9385,6 +9442,7 @@ else ww41Boot();
         '<div class="c"><span>Останется после платежей</span><b class="' + (d.left >= 0 ? "pos" : "neg") + '">' + (d.left >= 0 ? "+" : "−") + m(Math.abs(d.left)) + '</b></div>' +
         '<div class="c"><span>Ожидаемые доходы</span><b>' + m(d.waitInc) + '</b></div>' +
       '</div>' +
+      summary(d, p) +
       '<div class="mut sm">Учтено операций: ' + d.txCount + '. «Предстоит оплатить» — платежи по кредитам и регулярные расходы с датой от ' + fmtD(today()) + ' до конца периода.</div>' +
       '<h2>Доходы по категориям</h2><table><thead><tr><th>Категория</th><th class="r">Сумма</th><th class="r">Доля</th></tr></thead><tbody>' + rows(d.incBy, d.inc) + '</tbody>' +
         '<tfoot><tr><td>Итого</td><td class="r">' + m(d.inc) + '</td><td class="r">100%</td></tr></tfoot></table>' +
@@ -9418,6 +9476,10 @@ else ww41Boot();
     '#ww43-print tfoot td{font-weight:700;border-top:1px solid #000;border-bottom:none}' +
     '#ww43-print td.r,#ww43-print th.r{text-align:right;white-space:nowrap}' +
     '#ww43-print .mut{color:#777}#ww43-print .sm{font-size:10.5px}' +
+    '#ww43-print .ww43-summary{margin:14px 0 4px;padding:10px 12px;border:1px solid #bbb;border-left:3px solid #444;border-radius:6px;background:#fafafa;page-break-inside:avoid}' +
+    '#ww43-print .ww43-summary h2{margin:0 0 6px;border:none;padding:0;font-size:14px}' +
+    '#ww43-print .ww43-summary p{margin:0 0 5px;font-size:12.5px;line-height:1.5}' +
+    '#ww43-print .ww43-summary p:last-child{margin-bottom:0}' +
     '#ww43-print .ww43-foot{margin-top:18px;color:#888;font-size:11px;text-align:center}' +
     '#ww43-print .ww43-doc{overflow:visible;page-break-after:avoid}' +
     '#ww43-print .ww43-doc>*:last-child{page-break-after:avoid;margin-bottom:0}}';
