@@ -4665,7 +4665,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.72";
+const WW_VERSION = "3.73";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9253,6 +9253,59 @@ else ww41Boot();
    можно выбрать неделю/прошлый месяц/квартал/полгода/год/всё время/свои даты.
    В отчёте: доходы за период, сколько потрачено и сколько ещё предстоит оплатить.
    ========================================================================= */
+/* ===================== v3.73: общее резюме для обоих генераторов отчёта =====================
+   Текстовое резюме (v3.70) добавлялось только в html-путь построения отчёта
+   (кнопки «Печать» и «Файл HTML»). Кнопка «Скачать PDF» — совсем другой
+   механизм: рисует страницы на canvas и собирает PDF-файл вручную, минуя
+   reportHtml() целиком, поэтому резюме там просто не было. Теперь обе ветки
+   берут одни и те же готовые фразы из этой функции — расхождений не будет. */
+function wwReportSummaryLines(d) {
+  var s = [];
+  var mv = function (v) { return (typeof money === "function") ? money(v) : String(Math.round(v || 0)); };
+  var m2 = function (v) { return mv(Math.abs(v)); };
+  var plural = function (n, one, few, many) {
+    var a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  };
+
+  if (d.txCount === 0) {
+    s.push("За выбранный период операций не записано, поэтому доходы и расходы показаны нулевыми.");
+  } else if (d.net > 0) {
+    s.push("За период доходы превысили расходы на " + m2(d.net) + ": поступило " + mv(d.inc) + ", потрачено " + mv(d.exp) + ".");
+  } else if (d.net < 0) {
+    s.push("За период расходы превысили доходы на " + m2(d.net) + ": потрачено " + mv(d.exp) + " при доходах " + mv(d.inc) + ".");
+  } else {
+    s.push("За период доходы и расходы сошлись в ноль: " + mv(d.inc) + ".");
+  }
+
+  var expList = Object.keys(d.expBy || {}).map(function (k) { return { k: k, v: d.expBy[k] }; })
+                      .sort(function (a, b) { return b.v - a.v; });
+  if (expList.length && d.exp > 0) {
+    var top = expList[0];
+    var share = Math.round(top.v / d.exp * 100);
+    var nm = (typeof cat === "function" && cat(top.k) && cat(top.k).name) ? cat(top.k).name : (top.k === "c_credit" ? "Платежи по кредитам" : "Без категории");
+    s.push("Крупнейшая статья расходов — " + nm + ": " + mv(top.v) + " (" + share + "% всех трат).");
+    if (expList.length >= 3) {
+      var three = expList.slice(0, 3).reduce(function (a, x) { return a + x.v; }, 0);
+      s.push("На три главные категории пришлось " + Math.round(three / d.exp * 100) + "% расходов.");
+    }
+  }
+
+  if (d.dueTotal > 0) {
+    s.push("До конца периода предстоит оплатить " + mv(d.dueTotal) + " (" + d.due.length + " " + plural(d.due.length, "платёж", "платежа", "платежей") + ").");
+    if (d.left < 0) {
+      s.push("С учётом этих платежей результат периода уходит в минус на " + m2(d.left) + (d.waitInc > 0 ? ", при этом ещё ожидается поступлений на " + mv(d.waitInc) + "." : "."));
+    } else {
+      s.push("После всех платежей остаётся " + m2(d.left) + ".");
+    }
+  } else if (d.txCount > 0) {
+    s.push("Незакрытых платежей на оставшуюся часть периода нет.");
+  }
+  return s;
+}
 (function () {
   "use strict";
 
@@ -9448,57 +9501,12 @@ else ww41Boot();
      Пишем осторожно — только выводы, которые прямо следуют из чисел, без
      советов и оценок вроде «вы много тратите». */
   function summary(d, p) {
-    var s = [];
-    var m2 = function (v) { return m(Math.abs(v)); };
-
-    /* 1. Итог периода */
-    if (d.txCount === 0) {
-      s.push('За выбранный период операций не записано, поэтому доходы и расходы показаны нулевыми.');
-    } else if (d.net > 0) {
-      s.push('За период доходы превысили расходы на <b>' + m2(d.net) + '</b>: поступило ' + m(d.inc) + ', потрачено ' + m(d.exp) + '.');
-    } else if (d.net < 0) {
-      s.push('За период расходы превысили доходы на <b>' + m2(d.net) + '</b>: потрачено ' + m(d.exp) + ' при доходах ' + m(d.inc) + '.');
-    } else {
-      s.push('За период доходы и расходы сошлись в ноль: ' + m(d.inc) + '.');
-    }
-
-    /* 2. Куда ушли деньги — самая крупная категория */
-    var expList = Object.keys(d.expBy || {}).map(function (k) { return { k: k, v: d.expBy[k] }; })
-                        .sort(function (a, b) { return b.v - a.v; });
-    if (expList.length && d.exp > 0) {
-      var top = expList[0];
-      var share = Math.round(top.v / d.exp * 100);
-      var nm = (typeof cat === "function" && cat(top.k) && cat(top.k).name) ? cat(top.k).name : (top.k === "c_credit" ? "Платежи по кредитам" : "Без категории");
-      s.push('Крупнейшая статья расходов — <b>' + esc2(nm) + '</b>: ' + m(top.v) + ' (' + share + '% всех трат).');
-      if (expList.length >= 3) {
-        var three = expList.slice(0, 3).reduce(function (a, x) { return a + x.v; }, 0);
-        s.push('На три главные категории пришлось ' + Math.round(three / d.exp * 100) + '% расходов.');
-      }
-    }
-
-    /* 3. Что ещё предстоит заплатить */
-    if (d.dueTotal > 0) {
-      s.push('До конца периода предстоит оплатить <b>' + m(d.dueTotal) + '</b> (' + d.due.length + ' ' + plural(d.due.length, 'платёж', 'платежа', 'платежей') + ').');
-      if (d.left < 0) {
-        s.push('С учётом этих платежей результат периода уходит в минус на <b>' + m2(d.left) + '</b>' +
-               (d.waitInc > 0 ? ', при этом ещё ожидается поступлений на ' + m(d.waitInc) + '.' : '.'));
-      } else {
-        s.push('После всех платежей остаётся <b>' + m2(d.left) + '</b>.');
-      }
-    } else if (d.txCount > 0) {
-      s.push('Незакрытых платежей на оставшуюся часть периода нет.');
-    }
-
-    return s.length
-      ? '<div class="ww43-summary"><h2>Коротко о периоде</h2>' + s.map(function (x) { return '<p>' + x + '</p>'; }).join('') + '</div>'
+    // Фразы общие с «Скачать PDF» (см. wwReportSummaryLines) — тексты и
+    // цифры в обоих файлах теперь совпадают дословно.
+    var lines = (typeof wwReportSummaryLines === "function") ? wwReportSummaryLines(d) : [];
+    return lines.length
+      ? '<div class="ww43-summary"><h2>Коротко о периоде</h2>' + lines.map(function (x) { return '<p>' + esc2(x) + '</p>'; }).join('') + '</div>'
       : '';
-  }
-  function plural(n, one, few, many) {
-    var a = Math.abs(n) % 100, b = a % 10;
-    if (a > 10 && a < 20) return many;
-    if (b > 1 && b < 5) return few;
-    if (b === 1) return one;
-    return many;
   }
 
   function reportHtml(p) {
@@ -10592,6 +10600,30 @@ window.ww50DataSignature = ww50DataSignature;
       font(27, true); c.fillStyle = cards[i][2]; c.fillText(fit(cards[i][1], 480), x + 18, yy + 43);
     }
     y += 335; font(17, false); c.fillStyle = "#687482"; c.fillText("Учтено операций: " + d.txCount, M, y); y += 24;
+
+    /* v3.73: то же текстовое резюме, что и в html-версии отчёта (см.
+       wwReportSummaryLines) — раньше «Скачать PDF» строился в обход и
+       резюме сюда не попадало. Высоту считаем заранее через wrap(), чтобы
+       рисовать один раз и корректно уйти на новую страницу, если не влезает. */
+    var summaryLines = (typeof wwReportSummaryLines === "function") ? wwReportSummaryLines(d) : [];
+    if (summaryLines.length) {
+      title("Коротко о периоде");
+      font(18, false);
+      var boxPad = 16, lineW = PW - M * 2 - boxPad * 2, rowH = 26, gap = 6;
+      var wrapped = [];
+      summaryLines.forEach(function (ln) { wrap(ln, lineW).forEach(function (w) { wrapped.push(w); }); wrapped.push(null); });
+      wrapped.pop();
+      var boxH = wrapped.length * rowH + (summaryLines.length - 1) * gap + boxPad * 2;
+      ensure(boxH + 20);
+      var boxTop = y;
+      c.fillStyle = "#fafafa"; c.fillRect(M, boxTop, PW - M * 2, boxH);
+      c.strokeStyle = "#444"; c.lineWidth = 3; c.beginPath(); c.moveTo(M, boxTop); c.lineTo(M, boxTop + boxH); c.stroke();
+      c.strokeStyle = "#bbb"; c.lineWidth = 1; c.strokeRect(M, boxTop, PW - M * 2, boxH);
+      font(18, false); c.fillStyle = "#33393f";
+      var ty = boxTop + boxPad;
+      wrapped.forEach(function (ln) { if (ln === null) { ty += gap; return; } c.fillText(ln, M + boxPad, ty); ty += rowH; });
+      y = boxTop + boxH + 14;
+    }
 
     categorySection("Доходы по категориям", d.incBy, d.inc);
     categorySection("Расходы по категориям", d.expBy, d.exp);
