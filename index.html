@@ -88,7 +88,7 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .rail.collapsed:hover .rail-item span,.rail.collapsed:hover .rail-grp,.rail.collapsed:hover .logo span,.rail.collapsed:hover #observer-badge span{max-width:160px;opacity:1}
 .rail-item span,.rail-grp,.logo span,#observer-badge span{transition:max-width .16s ease,opacity .12s ease}
 @media(prefers-reduced-motion:reduce){.rail,.rail-item span,.rail-grp,.logo span,#observer-badge span,.main{transition:none}}
-.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#0055d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(0,113,227,.35);flex-shrink:0}
+.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#16b98a,#0b7d5e);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(15,157,118,.35);flex-shrink:0}
 .rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s;overflow:hidden}
 .rail-item svg{width:20px;height:20px;flex-shrink:0}
 .rail-item span{font-size:13.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -4665,7 +4665,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.73";
+const WW_VERSION = "3.74";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
