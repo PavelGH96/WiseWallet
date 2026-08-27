@@ -1607,8 +1607,7 @@ function creditCardHtml(c) {
     const ym = ww30PageYm(crPeriod());
     const pay = ww316CrPay(c, ym);
     const full = +pay.amount || 0;
-    const rec = S.ww30Cr && S.ww30Cr[c.id + ":" + ym];
-    const posted = rec ? +rec.paid || 0 : 0;
+    const posted = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : ((S.ww30Cr && S.ww30Cr[c.id + ":" + ym]) ? +S.ww30Cr[c.id + ":" + ym].paid || 0 : 0);
     const isPaid = full > 0 ? ww30IsPaid(posted, full) : false;
     paySwitchHtml = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="ww30Toggle('credit','${c.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить " + money(full)}</span></button>`;
   }
@@ -1656,8 +1655,7 @@ function creditRow(c) {
     const ym = ww30PageYm(crPeriod());
     const pay = ww316CrPay(c, ym);
     const full = +pay.amount || 0;
-    const rec = S.ww30Cr && S.ww30Cr[c.id + ":" + ym];
-    const posted = rec ? +rec.paid || 0 : 0;
+    const posted = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : ((S.ww30Cr && S.ww30Cr[c.id + ":" + ym]) ? +S.ww30Cr[c.id + ":" + ym].paid || 0 : 0);
     const isPaid = full > 0 ? ww30IsPaid(posted, full) : false;
     paySwitch = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="event.stopPropagation();ww30Toggle('credit','${c.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить"}</span></button>`;
   }
@@ -1806,15 +1804,14 @@ function renderCal() {
       const pd = Math.min(c.payDay || 0, dim);
       if (pd !== d) continue;
       const p = currentPayment(c);
-      const rec = crMap[c.id + ":" + ym];
-      const posted = rec ? +rec.paid || 0 : 0;
+      const posted = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : ((crMap[c.id + ":" + ym] || {}).paid || 0);
       const isPaid = ww30IsPaid(posted, +p.amount || 0);
       evs.push(`<div class="cal-ev pay${isPaid ? " paid" : ""}" style="cursor:pointer" onclick="event.stopPropagation();ww24OpenCreditFromCal('${c.id}')" title="${esc(c.name)}${isPaid ? " — оплачено" : ""} — открыть в разделе «Кредиты»">${c.who ? WHO_ICON[c.who] + " " : ""}${esc(c.name.split(" ")[0])} ${fmtM.format(Math.round(p.amount))}</div>`);
     }
     for (const r of S.recurring) {
       if (Math.min(r.day, dim) !== d) continue;
       const isExp = r.type !== "income";
-      const isPaid = isExp && ww30IsPaid(+postedMap[r.id + ":" + ym] || 0, +r.amount);
+      const isPaid = isExp && ww30IsPaid((typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(r, ym) : (+postedMap[r.id + ":" + ym] || 0), +r.amount);
       evs.push(`<div class="cal-ev ${isExp ? "exp" : "inc"}${isPaid ? " paid" : ""}" title="${esc(r.name)}${isPaid ? " — оплачено" : ""}">${r.who ? WHO_ICON[r.who] + " " : ""}${esc(r.name.split(" ")[0])} ${fmtM.format(r.amount)}</div>`);
     }
     cells.push(`<div class="cal-cell${ds === tStr ? " today" : ""}"><div class="cal-d">${d}</div>${evs.join("")}</div>`);
@@ -2064,7 +2061,7 @@ function rcPeriodSheet() {
 }
 function rcCustom() { const f = document.getElementById("rcp-from").value, t = document.getElementById("rcp-to").value; if (!f || !t || f > t) { toast("Укажите корректный диапазон дат"); return; } rcSetPeriod({ type: "custom", from: f, to: t }); }
 function rcMonths(from, to) { const out = []; let d = new Date(from + "T00:00:00"); d = new Date(d.getFullYear(), d.getMonth(), 1); const end = new Date(to + "T00:00:00"); let g = 0; while (d <= end && g < 400) { g++; out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); d = new Date(d.getFullYear(), d.getMonth() + 1, 1); } return out; }
-function rcPaidInPeriod(r) { const f = window._rcFilter; if (!f || !f.from || !f.to) return false; if (r.type !== "expense") return false; if (!(+r.amount > 0)) return false; const ms = rcMonths(f.from, f.to); for (const ym of ms) { if ((+((S.posted || {})[r.id + ":" + ym]) || 0) >= +r.amount) return true; } return false; }
+function rcPaidInPeriod(r) { const f = window._rcFilter; if (!f || !f.from || !f.to) return false; if (r.type !== "expense") return false; if (!(+r.amount > 0)) return false; const ms = rcMonths(f.from, f.to); /* Учитываем не только явную отметку толчком, но и покрытие обычными операциями той же категории (см. wwRecurEffectivePosted, v3.71). */ for (const ym of ms) { const posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(r, ym) : (+((S.posted || {})[r.id + ":" + ym]) || 0); if (posted >= +r.amount) return true; } return false; }
 function rcScheduledInPeriod(r) { const f = window._rcFilter; if (!f || !f.from || !f.to) return false; const ms = rcMonths(f.from, f.to); for (const ym of ms) { const y = +ym.slice(0, 4), m = +ym.slice(5, 7); const dim = new Date(y, m, 0).getDate(); const day = Math.min(+r.day || 1, dim); const iso = ym + "-" + String(day).padStart(2, "0"); if (iso >= f.from && iso <= f.to) return true; } return false; }
 function rcInPeriod(r) { const f = window._rcFilter; if (!f || f.isAll) return true; return rcScheduledInPeriod(r) || rcPaidInPeriod(r); }
 function rcPeriodTag(r) { const f = window._rcFilter; if (!f || f.isAll) return ""; if (r.type !== "expense") return ""; if (rcPaidInPeriod(r)) return ' <span class="badge green">оплачено</span>'; if (rcScheduledInPeriod(r)) return ' <span class="badge amber">не оплачено</span>'; return ""; }
@@ -2117,7 +2114,7 @@ function renderRecurList() {
     let paySwitch = "";
     if (r.type === "expense") {
       const ym = ww30PageYm(per);
-      const posted = +(S.posted && S.posted[r.id + ":" + ym]) || 0;
+      const posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(r, ym) : (+(S.posted && S.posted[r.id + ":" + ym]) || 0);
       const isPaid = ww30IsPaid(posted, +r.amount);
       paySwitch = `<button class="ww30-sw${isPaid ? " on" : ""}" role="switch" aria-checked="${isPaid}" onclick="event.stopPropagation();ww30Toggle('recur','${r.id}','${ym}')" title="${isPaid ? "Вернуть в «К оплате»" : "Отметить оплаченным за " + ym}"><span class="knob"></span><span class="swlbl">${isPaid ? "Оплачено" : "Оплатить"}</span></button>`;
     }
@@ -3124,8 +3121,9 @@ function monthRemaining(ym) {
     duePostings().forEach((d) => { const r = Math.max(0, +d.r.amount - d.posted); if (d.r.type === "income") income += r; else expense += r; });
   }
   for (const c of S.credits.filter((c) => c.status === "active")) {
-    const paid = S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym);
-    if (!paid) expense += currentPayment(c).amount;
+    const full = currentPayment(c).amount;
+    const posted = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : 0;
+    expense += Math.max(0, full - posted);
   }
   return { income, expense };
 }
@@ -3865,6 +3863,40 @@ async function _syncNowInner(manual) {
 }
 
 /* ===================== 4. Автопроведение регулярных платежей ===================== */
+/* ===================== v3.71: учёт оплаты обычной операцией =====================
+   Раньше «оплачено» для регулярного платежа или кредита определялось ТОЛЬКО
+   переключателем «Оплатить» в панели «К оплате» (поле S.posted / S.ww30Cr).
+   Если человек вместо толчка вносил обычную операцию той же категорией —
+   например, платил за коммуналку кнопкой «+ Операция», а не толчком в «К
+   оплате» — приложение об этом не узнавало и продолжало считать регулярный
+   платёж «ещё не оплаченным», прибавляя его целиком поверх уже потраченного.
+   Отсюда задвоенные цифры в «Финансовом планировании» и в самой панели
+   «К оплате».
+
+   Теперь «оплачено» считается по большему из двух источников: явной отметке
+   толчком ИЛИ сумме обычных операций той же категории за тот же месяц. Сам
+   S.posted/S.ww30Cr при этом не переписывается — это по-прежнему история
+   именно явных отметок; здесь только ЧТЕНИЕ для отображения и расчётов. */
+function wwCategorySpend(type, categoryId, ym) {
+  return S.transactions
+    .filter((t) => t.type === type && t.categoryId === categoryId && t.date.slice(0, 7) === ym)
+    .reduce((s, t) => s + +t.amount, 0);
+}
+function wwRecurEffectivePosted(r, ym) {
+  const explicit = +S.posted[r.id + ":" + ym] || 0;
+  const bySpend = wwCategorySpend(r.type, r.categoryId, ym);
+  return Math.max(explicit, bySpend);
+}
+/* Для кредита нет отдельной категории у каждого — все идут через c_credit,
+   поэтому сверяем не по категории, а по названию в заметке операции (тот же
+   приём, что уже использовался для «Финансового планирования»). */
+function wwCreditEffectivePosted(c, ym) {
+  const explicit = (S.ww30Cr && S.ww30Cr[c.id + ":" + ym]) ? +S.ww30Cr[c.id + ":" + ym].paid || 0 : 0;
+  const byNote = S.transactions
+    .filter((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym)
+    .reduce((s, t) => s + +t.amount, 0);
+  return Math.max(explicit, byNote);
+}
 function duePostings() {
   if (!S.posted || typeof S.posted !== "object") S.posted = {};
   if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
@@ -3872,7 +3904,7 @@ function duePostings() {
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return S.recurring
     .filter((r) => now.getDate() >= Math.min(r.day, dim) && !S.skipped[r.id + ":" + ym])
-    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: +S.posted[r.id + ":" + ym] || 0 }))
+    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: wwRecurEffectivePosted(r, ym) }))
     .filter((d) => d.posted < +d.r.amount);
 }
 /* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
@@ -3918,7 +3950,7 @@ function ww30Data() {
     .filter((r) => r.type === "expense" && !S.skipped[r.id + ":" + ym])
     .map((r) => {
       const date = ym + "-" + String(Math.min(+r.day || 1, dim)).padStart(2, "0");
-      const posted = +S.posted[r.id + ":" + ym] || 0;
+      const posted = wwRecurEffectivePosted(r, ym);
       const paid = ww30IsPaid(posted, +r.amount);
       return { kind: "recur", id: r.id, name: r.name, icon: (cat(r.categoryId) || { icon: "📌" }).icon, date, amount: paid ? +r.amount : Math.max(0, +r.amount - posted), full: +r.amount, posted, paid, overdue: !paid && date < today, grace: false };
     });
@@ -3929,7 +3961,7 @@ function ww30Data() {
       const p = ww316CrPay(c, ym);
       const full = +p.amount || 0;
       const rec = S.ww30Cr[c.id + ":" + ym];
-      const postedC = rec ? +rec.paid || 0 : 0;
+      const postedC = wwCreditEffectivePosted(c, ym);
       const date = ym + "-" + String(Math.min(+c.payDay || 1, dim)).padStart(2, "0");
       const paid = full > 0 ? ww30IsPaid(postedC, full) : !!rec;
       return { kind: "credit", id: c.id, name: c.name, icon: "🏦", date, amount: paid ? postedC : Math.max(0, full - postedC), full, posted: postedC, paid, overdue: !paid && date < today, grace: !!p.grace };
@@ -3991,8 +4023,23 @@ function ww30Toggle(kind, id, ymOverride) {
       toast("Возвращено в «К оплате»: " + r.name);
       save(); render(activePage()); return;
     }
-    const remaining = Math.max(0, full - posted);
-    ww32AskAmount(r.name, remaining, full, posted, (amount) => ww32DoPay("recur", id, amount, ym));
+    // Переключатель уже показывает «Оплачено» (см. wwRecurEffectivePosted) —
+    // значит нашлись обычные операции той же категории на нужную сумму.
+    // Не спрашиваем сумму заново, а честно записываем эти операции как
+    // основание отметки, чтобы дальше «Возвращено в «К оплате»» тоже работало.
+    const bySpend = wwCategorySpend(r.type, r.categoryId, ym);
+    if (bySpend > posted && ww30IsPaid(bySpend, full)) {
+      const ids = S.transactions.filter((t) => t.type === r.type && t.categoryId === r.categoryId && t.date.slice(0, 7) === ym).map((t) => t.id);
+      S.posted[key] = bySpend; S.ww30Tx[key] = ids;
+      toast("Учтено по уже внесённым операциям: " + r.name);
+      save(); render(activePage()); return;
+    }
+    // Даже при ЧАСТИЧНОМ покрытии обычными операциями остаток считаем с их
+    // учётом — иначе окно предложило бы заплатить полную сумму заново поверх
+    // уже потраченного (v3.72).
+    const effPosted = Math.max(posted, bySpend);
+    const remaining = Math.max(0, full - effPosted);
+    ww32AskAmount(r.name, remaining, full, effPosted, (amount) => ww32DoPay("recur", id, amount, ym));
   } else {
     const c = S.credits.find((x) => x.id === id); if (!c) return;
     const key = c.id + ":" + ym;
@@ -4011,8 +4058,20 @@ function ww30Toggle(kind, id, ymOverride) {
       save(); render(activePage()); return;
     }
     if (!full) { toast("У кредита не указан платёж/мес"); return; }
-    const remaining = Math.max(0, full - postedC);
-    ww32AskAmount(c.name, remaining, full, postedC, (amount) => ww32DoPay("credit", id, amount, ym));
+    // Тот же приём для кредита: если операция с совпадающей заметкой уже
+    // покрывает платёж, а явной отметки ещё нет — фиксируем её как основание.
+    const byNoteTx = S.transactions.filter((t) => t.categoryId === "c_credit" && t.note === c.name && t.date.slice(0, 7) === ym);
+    const byNote = byNoteTx.reduce((s, t) => s + +t.amount, 0);
+    if (byNote > postedC && ww30IsPaid(byNote, full)) {
+      S.ww30Cr[key] = { payments: byNoteTx.map((t) => ({ txId: t.id, amount: +t.amount, principal: +t.amount })), paid: byNote, prevBalance: c.balance, prevBalanceFull: c.balanceFull, prevStatus: c.status };
+      toast("Учтено по уже внесённой операции: " + c.name);
+      save(); render(activePage()); return;
+    }
+    // То же самое: при частичном покрытии заметкой учитываем её в остатке,
+    // а не только явную отметку S.ww30Cr (v3.72).
+    const effPostedC = Math.max(postedC, byNote);
+    const remaining = Math.max(0, full - effPostedC);
+    ww32AskAmount(c.name, remaining, full, effPostedC, (amount) => ww32DoPay("credit", id, amount, ym));
   }
 }
 function ww32DoPay(kind, id, amount, ymOverride) {
@@ -4025,7 +4084,9 @@ function ww32DoPay(kind, id, amount, ymOverride) {
   if (kind === "recur") {
     const r = S.recurring.find((x) => x.id === id); if (!r) return;
     const key = r.id + ":" + ym;
-    const posted = +S.posted[key] || 0;
+    // Последняя граница защиты от переплаты: считаем «оплачено» с учётом
+    // обычных операций той же категории, а не только явной отметки (v3.72).
+    const posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(r, ym) : (+S.posted[key] || 0);
     const full = +r.amount;
     const remaining = Math.max(0, full - posted);
     const pay = Math.min(amount, remaining);
@@ -4045,16 +4106,19 @@ function ww32DoPay(kind, id, amount, ymOverride) {
     const p = ww316CrPay(c, ym);
     const full = +p.amount || 0;
     if (!full) { toast("У кредита не указан платёж/мес"); return; }
-    const postedC = rec ? +rec.paid || 0 : 0;
+    const postedC = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : (rec ? +rec.paid || 0 : 0);
     const remaining = Math.max(0, full - postedC);
     const pay = Math.min(amount, remaining);
     const base = rec || { payments: [], paid: 0, prevBalance: c.balance, prevBalanceFull: c.balanceFull ?? null, prevStatus: c.status };
     const interestTotal = c.rate ? (base.prevBalance * (c.rate / 100)) / 12 : 0;
     const principal = Math.max(0, pay - interestTotal * (full ? pay / full : 0));
     const txId = uid();
-    const fullNow = ww30IsPaid(base.paid + pay, full);
+    const fullNow = ww30IsPaid(postedC + pay, full);
     base.payments = (base.payments || []).concat({ txId, amount: pay, principal });
-    base.paid = (+base.paid || 0) + pay;
+    // Пишем итог от эффективного «оплачено» (учитывает операции с совпадающей
+    // заметкой), а не от старого явного base.paid — иначе при частичном
+    // покрытии обычной операцией счётчик после доплаты занижался бы (v3.72).
+    base.paid = postedC + pay;
     S.ww30Cr[key] = base;
     S.transactions.push({ id: txId, date: (ym !== todayStr().slice(0, 7) ? ym + "-" + String(Math.min(+c.payDay || 1, ww316DimOf(ym))).padStart(2, "0") : todayStr()), type: "expense", amount: pay, accountId: (S.accounts.find((a) => !a.archived) || {}).id, categoryId: "c_credit", note: c.name + (fullNow ? "" : " (частично)"), createdAt: Date.now() });
     c.balance = Math.max(0, Math.round(c.balance - principal));
@@ -4193,9 +4257,13 @@ async function postRecur(id, amountOverride) {
   const ym = todayStr().slice(0, 7);
   const r = S.recurring.find((x) => x.id === id); if (!r) return;
   const key = r.id + ":" + ym;
-  const postedSoFar = +S.posted[key] || 0;
+  // Учитываем и явную отметку, и покрытие обычными операциями той же
+  // категории (см. wwRecurEffectivePosted, v3.71) — иначе при прямом вызове
+  // (без amountOverride) эта функция предложила бы заплатить ещё раз то, что
+  // уже оплачено обычной операцией.
+  const postedSoFar = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(r, ym) : (+S.posted[key] || 0);
   const remaining = Math.max(0, +r.amount - postedSoFar);
-  if (remaining <= 0) return;
+  if (remaining <= 0 && amountOverride == null) return;
   let amount = amountOverride;
   if (amount == null) {
     const quick = [{ label: "Весь остаток " + money(remaining), value: remaining }];
@@ -4597,7 +4665,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.70";
+const WW_VERSION = "3.72";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9294,17 +9362,32 @@ else ww41Boot();
       var sch = [];
       try { sch = buildSchedule(c) || []; } catch (e) { sch = []; }
       sch.forEach(function (x) {
-        if (inR(x.date) && x.date >= tdy) due.push({ kind: "credit", name: c.name, date: x.date, amount: +x.payment || 0, note: x.grace ? "льготный платёж" : "платёж по кредиту" });
+        if (!inR(x.date) || x.date < tdy) return;
+        // Если платёж уже покрыт обычной операцией (заплатили досрочно, минуя
+        // толчок «Оплатить») — не показываем его как ещё предстоящий (v3.72).
+        var ym0 = x.date.slice(0, 7), full0 = +x.payment || 0;
+        var posted0 = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym0) : 0;
+        if (full0 > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted0, full0) : posted0 >= full0)) return;
+        due.push({ kind: "credit", name: c.name, date: x.date, amount: +x.payment || 0, note: x.grace ? "льготный платёж" : "платёж по кредиту" });
       });
       if (!sch.length && c.payDay && +c.payment) {
         var d0 = monthDay(tdy.slice(0, 7), c.payDay);
-        if (inR(d0) && d0 >= tdy) due.push({ kind: "credit", name: c.name, date: d0, amount: +c.payment || 0, note: "платёж по кредиту" });
+        if (inR(d0) && d0 >= tdy) {
+          var ym1 = d0.slice(0, 7), full1 = +c.payment || 0;
+          var posted1 = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym1) : 0;
+          var covered1 = full1 > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted1, full1) : posted1 >= full1);
+          if (!covered1) due.push({ kind: "credit", name: c.name, date: d0, amount: +c.payment || 0, note: "платёж по кредиту" });
+        }
       }
     });
     ((S && S.recurring) || []).filter(function (x) { return x.type === "expense"; }).forEach(function (x) {
       months(from, to, tdy).forEach(function (ym) {
         var d = monthDay(ym, +x.day || 1);
-        if (inR(d) && d >= tdy) due.push({ kind: "recur", name: x.name, date: d, amount: +x.amount || 0, note: "регулярный платёж · " + ((typeof cat === "function" && cat(x.categoryId) || {}).name || "без категории") });
+        if (!inR(d) || d < tdy) return;
+        var full = +x.amount || 0;
+        var posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(x, ym) : 0;
+        if (full > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted, full) : posted >= full)) return;
+        due.push({ kind: "recur", name: x.name, date: d, amount: +x.amount || 0, note: "регулярный платёж · " + ((typeof cat === "function" && cat(x.categoryId) || {}).name || "без категории") });
       });
     });
     due.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
@@ -9315,7 +9398,13 @@ else ww41Boot();
     ((S && S.recurring) || []).filter(function (x) { return x.type === "income"; }).forEach(function (x) {
       months(from, to, tdy).forEach(function (ym) {
         var d = monthDay(ym, +x.day || 1);
-        if (inR(d) && d >= tdy) waitInc += +x.amount || 0;
+        if (!inR(d) || d < tdy) return;
+        var full = +x.amount || 0;
+        var posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(x, ym) : 0;
+        // Если доход уже пришёл обычной операцией (например, зарплату внесли
+        // вручную раньше срока) — не прибавляем шаблон повторно (v3.72).
+        if (full > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted, full) : posted >= full)) return;
+        waitInc += Math.max(0, full - posted);
       });
     });
 
