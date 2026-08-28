@@ -88,7 +88,10 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .rail.collapsed:hover .rail-item span,.rail.collapsed:hover .rail-grp,.rail.collapsed:hover .logo span,.rail.collapsed:hover #observer-badge span{max-width:160px;opacity:1}
 .rail-item span,.rail-grp,.logo span,#observer-badge span{transition:max-width .16s ease,opacity .12s ease}
 @media(prefers-reduced-motion:reduce){.rail,.rail-item span,.rail-grp,.logo span,#observer-badge span,.main{transition:none}}
-.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#0055d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(0,113,227,.35);flex-shrink:0}
+/* Фирменный градиент — те же два цвета, что и в самой иконке приложения
+   (icon-512.png), чтобы значок в меню совпадал с иконкой на рабочем столе
+   независимо от выбранной акцентной темы интерфейса. */
+.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#02858f,#01313d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(1,78,88,.35);flex-shrink:0}
 .rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s;overflow:hidden}
 .rail-item svg{width:20px;height:20px;flex-shrink:0}
 .rail-item span{font-size:13.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -751,7 +754,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <button class="rail-item" data-nav="budgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 8.5 6H12z"/></svg><span>Бюджеты</span></button>
   <button class="rail-item" data-nav="goals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Цели</span></button>
   <div class="rail-grp">Планы</div>
-  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Кредиты и платежи</span></button>
+  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Расходы и доходы</span></button>
   <button class="rail-item" data-nav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg><span>Календарь</span></button>
   <button class="rail-item" data-nav="planner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg><span>Планировщик</span></button>
   <div class="rail-grp">Хранилище</div>
@@ -822,7 +825,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 
   <!-- ================= CREDITS ================= -->
   <section class="page" id="page-credits">
-    <div class="page-head"><h1>Кредиты и платежи</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" onclick="openCreditModal()">+ Кредит</button></div></div>
+    <div class="page-head"><h1>Расходы и доходы</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" id="ww63-add-head" style="display:none" onclick="ww63AddIncome()">+ Доход</button><button class="btn btn-primary" id="credits-add-cr" onclick="openCreditModal()">+ Кредит</button></div></div>
     <div class="grid grid-4" id="credit-stats"></div>
     <h2 style="margin:6px 0 2px">Кредиты</h2><div class="sub" style="margin:0 0 12px">Кредиты и график платежей. Статусы оплаты берутся из дашборда.</div>
     <div class="section card" id="credit-month-progress" style="display:none"></div>
@@ -4673,7 +4676,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.74";
+const WW_VERSION = "3.76";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5020,7 +5023,7 @@ wwOnSettings("v2.2: учётные записи", 20, function () {
    По умолчанию скрываем «Пароли»: человек с кодом доступа не должен видеть
    чужие учётные записи. «Настройки» оставляем — через них он выходит обратно. */
 const WW24_SECTION_NAMES = {
-  dashboard: "Дашборд", ops: "Операции", credits: "Кредиты и платежи", budgets: "Бюджеты",
+  dashboard: "Дашборд", ops: "Операции", credits: "Расходы и доходы", budgets: "Бюджеты",
   goals: "Цели", calendar: "Календарь", planner: "Планировщик", links: "Ссылки",
   passwords: "Пароли", analytics: "Аналитика", settings: "Настройки",
 };
@@ -8127,7 +8130,7 @@ var WW40_TABS = ["goals", "notes", "links", "passwords"];
 var WW40_TAB_LABEL = { goals: "Цели и накопления", notes: "Заметки", links: "Ссылки", passwords: "Пароли" };
 var WW40_SECTIONS = [
   ["dashboard", "Дашборд"], ["ops", "Операции"],
-  ["credits", "Кредиты и платежи"], ["calendar", "Календарь"], ["planner", "Планировщик"],
+  ["credits", "Расходы и доходы"], ["calendar", "Календарь"], ["planner", "Планировщик"],
   ["vault", "Хранилище"], ["analytics", "Аналитика"], ["settings", "Настройки"],
 ];
 var WW40_VAULT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 8.6V6.2M12 17.8v-2.4M8.6 12H6.2M17.8 12h-2.4"/></svg>';
@@ -11801,7 +11804,7 @@ window.ww50DataSignature = ww50DataSignature;
      6. ГЛОБАЛЬНЫЙ ПОИСК Ctrl+K / ⌘K
      ================================================================= */
   var SECTIONS = [
-    ['dashboard', 'Дашборд'], ['ops', 'Операции'], ['credits', 'Кредиты и платежи'],
+    ['dashboard', 'Дашборд'], ['ops', 'Операции'], ['credits', 'Расходы и доходы'],
     ['calendar', 'Календарь'], ['analytics', 'Аналитика'], ['planner', 'Планировщик'],
     ['vault', 'Цели, ссылки, пароли, заметки'], ['settings', 'Настройки'],
   ];
@@ -13346,7 +13349,7 @@ window.ww50DataSignature = ww50DataSignature;
     s.id = "ww63-css";
     s.textContent =
       "#ww63-tabs{margin:0 0 14px}" +
-      "#ww63-pane-inc .ww63-per{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}" +
+      "#ww63-pane-inc .ww63-per{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}" +
       ".ww63-catrow{display:flex;align-items:center;gap:10px;padding:9px 0}" +
       ".ww63-catrow + .ww63-catrow{border-top:1px solid var(--border)}" +
       ".ww63-catrow .ic{width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex:none}" +
@@ -13503,7 +13506,6 @@ window.ww50DataSignature = ww50DataSignature;
       '<button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий период">◀</button>' +
       '<button id="ww63-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период — общий с дашбордом">' + e(d.label) + ' ▾</button>' +
       '<button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий период">▶</button></span>' +
-      '<button class="btn btn-primary btn-sm" id="ww63-add" onclick="ww63AddIncome()">+ Доход</button>' +
       '</div>' +
       '<div class="grid grid-4" id="ww63-stats">' + statsHtml(d) + '</div>' +
       '<div class="sub" style="margin:10px 0 12px">Период общий с дашбордом, поэтому суммы совпадают с карточкой «Доход» на дашборде, разделом «Операции» и финансовым отчётом.</div>' +
@@ -13565,9 +13567,11 @@ window.ww50DataSignature = ww50DataSignature;
     if (pi) pi.style.display = cur === "inc" ? "" : "none";
     renderInc();
     var h1 = document.querySelector("#page-credits .page-head h1");
-    if (h1) h1.textContent = cur === "inc" ? "Доходы" : "Кредиты и платежи";
+    if (h1) h1.textContent = cur === "inc" ? "Доходы" : "Расходы и доходы";
     var addCr = document.querySelector('#page-credits .page-head button[onclick^="openCreditModal"]');
     if (addCr) addCr.style.display = cur === "inc" ? "none" : "";
+    var addInc = document.getElementById("ww63-add-head");
+    if (addInc) addInc.style.display = cur === "inc" ? "" : "none";
   }
 
   function setTab(key) {
