@@ -88,7 +88,7 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .rail.collapsed:hover .rail-item span,.rail.collapsed:hover .rail-grp,.rail.collapsed:hover .logo span,.rail.collapsed:hover #observer-badge span{max-width:160px;opacity:1}
 .rail-item span,.rail-grp,.logo span,#observer-badge span{transition:max-width .16s ease,opacity .12s ease}
 @media(prefers-reduced-motion:reduce){.rail,.rail-item span,.rail-grp,.logo span,#observer-badge span,.main{transition:none}}
-.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#16b98a,#0b7d5e);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(15,157,118,.35);flex-shrink:0}
+.rail .logo::before{content:"W";width:34px;height:34px;border-radius:10px;background:linear-gradient(145deg,#0a84ff,#0055d4);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;box-shadow:0 2px 8px rgba(0,113,227,.35);flex-shrink:0}
 .rail-item{width:100%;height:auto;border-radius:var(--radius);display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;color:var(--t2);transition:background .12s,color .12s;overflow:hidden}
 .rail-item svg{width:20px;height:20px;flex-shrink:0}
 .rail-item span{font-size:13.5px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2898,8 +2898,16 @@ function ww318AsOfDate() {
 function renderCoins() {
   const accEl = document.getElementById("coins-acc"); if (!accEl) return;
   const catEl = document.getElementById("coins-cat");
-  const accs = S.accounts.filter((a) => !a.archived);
-  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onpointerdown="coinDown(event,'${a.id}')"><div class="disc">${esc(a.name.slice(0, 1).toUpperCase())}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("");
+  // Баланс кошельков должен быть на конец ПРОСМАТРИВАЕМОГО периода, а не
+  // «прямо сейчас» — иначе при браузинге прошлого месяца сумма тут расходится
+  // с шапкой «Свободные деньги» (та уже была период-зависимой). Заодно
+  // используем accVisibleFor, чтобы архивный счёт не пропадал из истории
+  // тех месяцев, где он ещё существовал (v3.74).
+  const asOf = (typeof ww318AsOfDate === "function") ? ww318AsOfDate() : todayStr();
+  const ym = (typeof ww316Ym === "function") ? ww316Ym() : todayStr().slice(0, 7);
+  const accs = S.accounts.filter((a) => (typeof accVisibleFor === "function") ? accVisibleFor(a, ym) : !a.archived);
+  const accBal = (id) => (typeof accBalanceAsOf === "function") ? accBalanceAsOf(id, asOf) : accBalance(id);
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onpointerdown="coinDown(event,'${a.id}')"><div class="disc">${esc(a.name.slice(0, 1).toUpperCase())}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBal(a.id))}</div></div>`).join("");
   const cats = S.categories.filter((c) => c.type === "expense");
   catEl.innerHTML = cats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')"><div class="disc">${c.icon}</div><div class="cname">${esc(c.name)}</div></div>`).join("");
 }
@@ -5811,6 +5819,12 @@ renderCoins = function () {
   const accEl = document.getElementById("coins-acc"); if (!accEl) return;
   const incEl = document.getElementById("coins-inc"), catEl = document.getElementById("coins-cat");
   const btn = document.getElementById("ww26-period-btn"); if (btn) btn.textContent = ww26Label() + " ▾";
+  // Баланс кошельков — на конец ПРОСМАТРИВАЕМОГО периода, как и в шапке
+  // «Свободные деньги» (ww318Free). Раньше здесь стоял accBalance() без даты
+  // (всегда «на сегодня»), из-за чего при просмотре прошлого месяца кошельки
+  // и «Свободные деньги» показывали разные цифры (v3.74).
+  const coinsAsOf = (typeof ww318AsOfDate === "function") ? ww318AsOfDate() : todayStr();
+  const accBalPeriod = (id) => (typeof accBalanceAsOf === "function") ? accBalanceAsOf(id, coinsAsOf) : accBalance(id);
   const incBy = {}, expBy = {};
   let incTotal = 0, expTotal = 0;
   for (const t of S.transactions) {
@@ -5821,12 +5835,12 @@ renderCoins = function () {
   const incCats = S.categories.filter((c) => c.type === "income");
   if (incEl) incEl.innerHTML = incCats.map((c) => `<div class="coin inc" data-inc="${c.id}" onclick="ww26Tap('inc','${c.id}')" onpointerdown="ww26Down(event,'inc','${c.id}')"><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${incBy[c.id] ? "pos" : ""}">${incBy[c.id] ? "+" + money(incBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('income')" title="Новый источник дохода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const accs = S.accounts.filter((a) => accVisibleFor(a, (typeof periodAnchorYm === "function") ? periodAnchorYm() : todayStr().slice(0, 7)));
-  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><button class="coin-menu-btn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();ww26AccMenu(event,'${a.id}')" title="Изменить или удалить счёт">⋮</button><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalance(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
+  accEl.innerHTML = accs.map((a) => `<div class="coin acc" data-acc="${a.id}" onclick="ww26Tap('acc','${a.id}')" onpointerdown="ww26Down(event,'acc','${a.id}')"><button class="coin-menu-btn" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();ww26AccMenu(event,'${a.id}')" title="Изменить или удалить счёт">⋮</button><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28AccIcon(a)}</div><div class="cname">${esc(a.name)}</div><div class="camt">${money(accBalPeriod(a.id))}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('acc')" title="Новый счёт"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const expCats = S.categories.filter((c) => c.type === "expense");
   if (catEl) catEl.innerHTML = expCats.map((c) => `<div class="coin cat" data-cat="${c.id}" onclick="ww26Tap('cat','${c.id}')" onpointerdown="ww26Down(event,'cat','${c.id}')"><span class="coin-drag-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span><div class="disc">${ww28Icon(c.icon, c.name)}</div><div class="cname">${esc(c.name)}</div><div class="camt ${expBy[c.id] ? "neg" : ""}">${expBy[c.id] ? "\u2212" + money(expBy[c.id]) : money(0)}</div></div>`).join("") + `<div class="coin add" onclick="ww29Add('expense')" title="Новая категория расхода"><div class="disc">+</div><div class="cname">Добавить</div></div>`;
   const it = document.getElementById("ww26-inc-total"), at = document.getElementById("ww26-acc-total"), et = document.getElementById("ww26-exp-total");
   if (it) it.textContent = "+" + money(incTotal);
-  if (at) at.textContent = money(accs.reduce((s, a) => s + accBalance(a.id), 0));
+  if (at) at.textContent = money(accs.reduce((s, a) => s + accBalPeriod(a.id), 0));
   if (et) et.textContent = "\u2212" + money(expTotal);
 };
 /* ===== v2.8: минималистичные иконки в стиле Apple (SF Symbols) ===== */
