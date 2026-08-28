@@ -4676,7 +4676,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.76";
+const WW_VERSION = "3.77";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9432,32 +9432,54 @@ function wwReportSummaryLines(d) {
       var sch = [];
       try { sch = buildSchedule(c) || []; } catch (e) { sch = []; }
       sch.forEach(function (x) {
-        if (!inR(x.date) || x.date < tdy) return;
+        // v3.77: раньше стояло «x.date < tdy» — просроченные платежи молча
+        // выпадали из отчёта, хотя раздел обещает всё незакрытое. Теперь
+        // берём весь период и помечаем просрочку отдельно.
+        if (!inR(x.date)) return;
         // Если платёж уже покрыт обычной операцией (заплатили досрочно, минуя
         // толчок «Оплатить») — не показываем его как ещё предстоящий (v3.72).
         var ym0 = x.date.slice(0, 7), full0 = +x.payment || 0;
         var posted0 = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym0) : 0;
         if (full0 > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted0, full0) : posted0 >= full0)) return;
-        due.push({ kind: "credit", name: c.name, date: x.date, amount: +x.payment || 0, note: x.grace ? "льготный платёж" : "платёж по кредиту" });
+        due.push({ kind: "credit", name: c.name, date: x.date, amount: Math.max(0, full0 - posted0), note: (x.date < tdy ? "просрочен · " : "") + (x.grace ? "льготный платёж" : "платёж по кредиту") });
       });
+      /* v3.77: buildSchedule() строит график только ВПЕРЁД от сегодня, поэтому
+         уже прошедший, но неоплаченный платёж этого месяца в него не попадает.
+         Добираем такие «просроченные» платежи отдельно — иначе раздел «Ещё
+         предстоит оплатить» молча терял их, и итог расходился с дашбордом. */
+      (function () {
+        if (!c.payDay || !+c.payment) return;
+        var seen = {};
+        sch.forEach(function (x) { seen[x.date] = 1; });
+        months(from, to, tdy).forEach(function (ym) {
+          var dd = monthDay(ym, c.payDay);
+          if (!inR(dd) || dd >= tdy || seen[dd]) return;   // только прошедшие и не учтённые графиком
+          var fullX = +c.payment || 0;
+          var postedX = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym) : 0;
+          if (fullX > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(postedX, fullX) : postedX >= fullX)) return;
+          due.push({ kind: "credit", name: c.name, date: dd, amount: Math.max(0, fullX - postedX), note: "просрочен · платёж по кредиту" });
+        });
+      })();
       if (!sch.length && c.payDay && +c.payment) {
         var d0 = monthDay(tdy.slice(0, 7), c.payDay);
-        if (inR(d0) && d0 >= tdy) {
+        if (inR(d0)) {
           var ym1 = d0.slice(0, 7), full1 = +c.payment || 0;
           var posted1 = (typeof wwCreditEffectivePosted === "function") ? wwCreditEffectivePosted(c, ym1) : 0;
           var covered1 = full1 > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted1, full1) : posted1 >= full1);
-          if (!covered1) due.push({ kind: "credit", name: c.name, date: d0, amount: +c.payment || 0, note: "платёж по кредиту" });
+          if (!covered1) due.push({ kind: "credit", name: c.name, date: d0, amount: Math.max(0, full1 - posted1), note: (d0 < tdy ? "просрочен · " : "") + "платёж по кредиту" });
         }
       }
     });
     ((S && S.recurring) || []).filter(function (x) { return x.type === "expense"; }).forEach(function (x) {
       months(from, to, tdy).forEach(function (ym) {
         var d = monthDay(ym, +x.day || 1);
-        if (!inR(d) || d < tdy) return;
+        if (!inR(d)) return;   // v3.77: просроченное тоже показываем (помечено в примечании)
         var full = +x.amount || 0;
         var posted = (typeof wwRecurEffectivePosted === "function") ? wwRecurEffectivePosted(x, ym) : 0;
         if (full > 0 && (typeof ww30IsPaid === "function" ? ww30IsPaid(posted, full) : posted >= full)) return;
-        due.push({ kind: "recur", name: x.name, date: d, amount: +x.amount || 0, note: "регулярный платёж · " + ((typeof cat === "function" && cat(x.categoryId) || {}).name || "без категории") });
+        // Показываем ОСТАТОК к доплате, а не полную сумму плана: часть могла
+        // быть уже внесена обычной операцией (v3.77).
+        due.push({ kind: "recur", name: x.name, date: d, amount: Math.max(0, full - posted), note: (d < tdy ? "просрочен · " : "") + "регулярный платёж · " + ((typeof cat === "function" && cat(x.categoryId) || {}).name || "без категории") });
       });
     });
     due.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
