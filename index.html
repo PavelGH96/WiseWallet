@@ -739,6 +739,44 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   .stat .val{animation:none!important}
   .btn:active,.coin:active,.bn-item:active,.card:hover,.bn-item.active svg,.rail-item.active svg{transform:none}
 }
+
+/* ===== v3.78: экран разбора выписки перед импортом ===== */
+.ww23-rev-wrap{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-s)}
+.ww23-rev-table{width:100%;border-collapse:collapse;font-size:13px}
+.ww23-rev-table thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:7px 8px;text-align:left;font-size:12px;color:var(--t2);font-weight:600;z-index:1}
+.ww23-rev-table th.r{text-align:right}
+.ww23-rev-table td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.ww23-rev-table tr:last-child td{border-bottom:none}
+.ww23-rev-chk{width:30px}
+.ww23-rev-chk input{width:17px;height:17px}
+.ww23-rev-date{white-space:nowrap;color:var(--t2);width:52px}
+.ww23-rev-note{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ww23-rev-amt{text-align:right;white-space:nowrap;font-weight:600;font-family:var(--font-d);display:flex;align-items:center;justify-content:flex-end;gap:2px}
+.ww23-rev-amt .ww23-sign{cursor:pointer;font-size:15px;user-select:none;padding:0 2px}
+.ww23-rev-amt input{width:88px;text-align:right;font:inherit;font-size:12.5px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--bg);color:var(--text)}
+/* Синяя рамка = сумма отличается от той, что была в выписке */
+.ww23-rev-amt input.edited{border-color:var(--blue);background:var(--blue-bg)}
+.ww23-rev-whose select{width:100%;min-width:104px;font-size:12.5px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--bg);color:var(--text)}
+.ww23-rev-whose select.need{border-color:var(--amber);background:var(--amber-bg)}
+.ww23-rev-bulk{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--t2);flex-wrap:wrap}
+.ww23-rev-cat select{width:100%;min-width:150px;font-size:12.5px;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--bg);color:var(--text)}
+/* Незаполненная категория подсвечена: такие строки не импортируются */
+.ww23-rev-cat select.need{border-color:var(--amber);background:var(--amber-bg)}
+.ww23-rev-row.skipped{opacity:.4}
+.ww23-rev-row.skipped .ww23-rev-cat select{pointer-events:none}
+@media(max-width:700px){
+  .ww23-rev-note{max-width:110px}
+  .ww23-rev-table{font-size:12px}
+  .ww23-rev-cat select{min-width:110px}
+  .ww23-rev-whose select{min-width:88px}
+}
+
+/* ===== v3.80: обязательное поле «чей расход» ===== */
+.ww80-whose{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.ww80-whose button{padding:9px 4px;font-size:13.5px;white-space:nowrap}
+/* Незаполненное обязательное поле подсвечивается только после попытки сохранить */
+.ww80-whose.need{border-color:var(--red);box-shadow:0 0 0 2px var(--red-bg)}
+@media(max-width:700px){.ww80-whose button{font-size:12.5px;padding:9px 2px}}
 </style>
 </head>
 <body>
@@ -2567,6 +2605,34 @@ function wwDefaultTxDate() {
   const guess = ym + "-" + String(day).padStart(2, "0");
   return guess >= r.from && guess <= r.to ? guess : r.to;
 }
+/* ===================== v3.80: обязательное поле «чей расход» =====================
+   Порядок пунктов задан владельцем и менять его нельзя. Поле показывается
+   только для расходов (у доходов смысла нет) и обязательно к заполнению —
+   сохранить операцию без выбора невозможно.
+   Хранится в поле whose самой операции; на уже существующие операции,
+   заведённые до этой версии, требование не распространяется. */
+var WW80_WHOSE = [
+  { id: "pasha", name: "Паша" },
+  { id: "katya", name: "Катя" },
+  { id: "sonya", name: "Соня" },
+  { id: "other", name: "Другое" },
+];
+function ww80WhoseName(id) {
+  var w = WW80_WHOSE.filter(function (x) { return x.id === id; })[0];
+  return w ? w.name : "";
+}
+function ww80PickWhose(id, btn) {
+  var box = document.getElementById("tx-whose"); if (!box) return;
+  [].forEach.call(box.querySelectorAll("button"), function (b) { b.classList.remove("active"); });
+  if (btn) btn.classList.add("active");
+  box.classList.remove("need");
+  var err = document.getElementById("tx-whose-err"); if (err) err.remove();
+}
+function ww80GetWhose() {
+  var box = document.getElementById("tx-whose"); if (!box) return null;
+  var b = box.querySelector("button.active");
+  return b ? b.dataset.whose : "";
+}
 function openTxModal(pre) {
   if (isObserver()) return;
   pre = pre || {};
@@ -2581,6 +2647,8 @@ function openTxModal(pre) {
       <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>`}
     <div class="fg"><input class="amount-in" id="tx-amount" type="number" inputmode="decimal" placeholder="0 ₽" value="${pre.amount || ""}" autofocus></div>
     ${lockedCat ? "" : `<div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>`}
+    ${(pre.type || txType) === "expense" || txType === "expense" ? `<div class="fg" id="tx-whose-fg"><label>Чей расход <span style="color:var(--red)">*</span></label>
+      <div class="seg ww80-whose" id="tx-whose">${WW80_WHOSE.map((w) => `<button type="button" data-whose="${w.id}" class="${pre.whose === w.id ? "active" : ""}" onclick="ww80PickWhose('${w.id}',this)">${w.name}</button>`).join("")}</div></div>` : ""}
     <div class="fg-row">
       <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${wwDefaultTxDate()}">${wwDefaultTxDate() !== todayStr() ? `<div class="sub" style="margin-top:4px;color:var(--amber)">Дата подставлена по выбранному периоду — вы смотрите не текущий месяц</div>` : ""}</div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
@@ -2614,6 +2682,22 @@ function setTxType(t, btn) {
   document.querySelectorAll("#tx-seg button").forEach((b) => b.classList.remove("active", "exp", "inc"));
   btn.classList.add("active", t === "expense" ? "exp" : "inc");
   renderTxCats();
+  ww80SyncWhose();
+}
+/* Поле «чей расход» нужно только для расходов. Форма строится один раз, поэтому
+   при переключении типа показываем/прячем его вручную, а если человек пришёл
+   к расходу впервые за сеанс формы — создаём блок на лету (v3.80). */
+function ww80SyncWhose() {
+  var fg = document.getElementById("tx-whose-fg");
+  if (txType !== "expense") { if (fg) fg.style.display = "none"; return; }
+  if (fg) { fg.style.display = ""; return; }
+  var anchor = document.querySelector("#modal .fg-row");
+  if (!anchor) return;
+  var html = '<div class="fg" id="tx-whose-fg"><label>Чей расход <span style="color:var(--red)">*</span></label>' +
+    '<div class="seg ww80-whose" id="tx-whose">' +
+    WW80_WHOSE.map(function (w) { return '<button type="button" data-whose="' + w.id + '" onclick="ww80PickWhose(\'' + w.id + '\',this)">' + w.name + "</button>"; }).join("") +
+    "</div></div>";
+  anchor.insertAdjacentHTML("beforebegin", html);
 }
 function renderTxCats() {
   const box = document.getElementById("tx-cats"); if (!box) return;
@@ -2816,8 +2900,29 @@ function ww318CatFreq() {
 function saveTx() {
   const amount = parseFloat(document.getElementById("tx-amount").value);
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
+  /* v3.80: для расхода обязательно указать, чей он. Без выбора не сохраняем
+     и подсвечиваем поле, а не просто показываем тост — иначе на длинной форме
+     непонятно, что именно не заполнено. */
+  const whoseBox = document.getElementById("tx-whose");
+  const whose = ww80GetWhose();
+  /* Требуем поле только у НОВЫХ операций. Операции, заведённые до v3.80, не
+     имеют этой пометки — заставлять проставлять её при любой мелкой правке
+     (например, поправить сумму) значило бы блокировать работу с историей. */
+  const _editingLegacy = !!window._txEditId && (function () {
+    const ex = S.transactions.find((x) => x.id === window._txEditId);
+    return ex && !ex.whose;
+  })();
+  if (txType === "expense" && whoseBox && !whose && !_editingLegacy) {
+    whoseBox.classList.add("need");
+    if (!document.getElementById("tx-whose-err")) {
+      whoseBox.insertAdjacentHTML("afterend", '<div id="tx-whose-err" class="sub" style="color:var(--red);margin-top:4px">Укажите, чей это расход</div>');
+    }
+    try { whoseBox.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+    toast("Укажите, чей это расход");
+    return;
+  }
   const tags = (document.getElementById("tx-tags").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
-  const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, note: document.getElementById("tx-note").value.trim(), tags };
+  const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
   let _undoFn = null;
   if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) { const _old = { ..._ex }; Object.assign(_ex, _txData); _undoFn = () => { const _c = S.transactions.find((x) => x.id === _old.id); if (_c) Object.assign(_c, _old); }; } window._txEditId = null; }
   else { const _newId = uid(); S.transactions.push({ id: _newId, ..._txData, createdAt: Date.now() }); _undoFn = () => { S.transactions = S.transactions.filter((x) => x.id !== _newId); }; }
@@ -4676,7 +4781,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.77";
+const WW_VERSION = "3.83";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5444,21 +5549,220 @@ wwOnSettings("v2.3: кнопка импорта CSV", 30, function () {
     if (inp) {
       const card = inp.closest(".card") || inp.parentElement;
       const nearBtn = card.querySelector('button[onclick*="import-xlsx-file"]');
-      const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">' + WWI.bank + ' Импорт CSV</button>';
+      const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">' + WWI.bank + ' Импорт выписки (CSV, Excel, PDF)</button>';
       if (nearBtn) nearBtn.insertAdjacentHTML("afterend", " " + html); else card.insertAdjacentHTML("beforeend", html);
-      if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,text/csv" style="display:none" onchange="ww23CsvPick(this)">');
+      if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,application/pdf" style="display:none" onchange="ww23CsvPick(this)">');
     }
   }
 });
+/* ===================== v3.82: импорт выписки из PDF =====================
+   Тинькофф выгружает выписку только в PDF, поэтому читаем и его. PDF — формат
+   вёрстки, а не данных: текст в нём лежит кусками с координатами, таблиц как
+   таковых нет. Поэтому собираем строки по вертикальной координате, а затем
+   разбираем каждую регулярным выражением под формат выписки:
+
+     15.07.26  15.07.26  Пополнение. Сбербанк Онлайн  + 90 000.00 ₽  + 90 000.00 ₽
+     ^дата     ^обработки ^описание                    ^сумма         ^в валюте счёта
+
+   Тонкости, которые пришлось учесть:
+   - длинное описание переносится на следующую строку без даты и суммы —
+     дописываем его к предыдущей операции;
+   - у части строк есть время (10.08.26 22:29) — пропускаем его;
+   - знак «+» = поступление, без знака = расход;
+   - суммы дублируются в двух колонках, берём первую;
+   - строки-заголовки («Расходы: 112 001.21 ₽», «Операции по карте …»)
+     не должны попасть в операции.
+   Разобранное отдаём в тот же экран проверки, что и CSV/Excel — категории и
+   «чей расход» человек проставляет вручную. */
+function ensurePdfLib(cb) {
+  if (window.pdfjsLib) { cb(); return; }
+  var s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+  s.onload = function () {
+    try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
+    cb();
+  };
+  s.onerror = function () { toast("Не удалось загрузить модуль чтения PDF — нужен интернет"); };
+  document.head.appendChild(s);
+}
+
+/* Собираем текст страницы в строки: элементы с близкой вертикальной
+   координатой считаем одной строкой и сортируем слева направо. */
+function ww23PdfLines(content) {
+  var buckets = {};
+  content.items.forEach(function (it) {
+    var s = String(it.str || "");
+    if (!s.trim()) return;
+    var y = Math.round((it.transform && it.transform[5]) || 0);
+    var key = String(Math.round(y / 3));      // допуск на «дрожание» базовой линии
+    (buckets[key] = buckets[key] || []).push({ x: (it.transform && it.transform[4]) || 0, s: s });
+  });
+  return Object.keys(buckets)
+    .sort(function (a, b) { return Number(b) - Number(a); })   // сверху вниз
+    .map(function (k) {
+      return buckets[k].sort(function (a, b) { return a.x - b.x; })
+        .map(function (p) { return p.s; }).join(" ")
+        .replace(/\s+/g, " ").trim();
+    })
+    .filter(Boolean);
+}
+
+/* Внимание: \b в JavaScript опирается на латиницу, между кириллическими
+   буквами и пробелом границы слова НЕ будет — поэтому здесь его нет,
+   иначе заголовок секции прилипал бы к описанию предыдущей операции. */
+var WW82_SKIP = /^(Расходы|Поступления|Кэшбэк|Баланс|Операции по карте|Выписка по договору|Дата и время|Дата|Сумма|Описание|Итого|Кэшбэк за)/i;
+
+function ww23PdfRowsTinkoff(lines) {
+  var out = [];
+  /* Одно выражение вместо склейки из строк: так видно структуру целиком и
+     нет путаницы с экранированием.
+       дата  [время]  [дата обработки]  описание  сумма ₽  [та же сумма ₽] */
+  var re = /^(\d{2}\.\d{2}\.\d{2})(?:\s+\d{1,2}:\d{2})?\s+(?:\d{2}\.\d{2}\.\d{2})?\s*(.+?)\s+([+\-\u2212]?\s?[\d\s\u00a0]+[.,]\d{2})\s*(?:\u20bd|RUB|RUR)(?:\s+[+\-\u2212]?\s?[\d\s\u00a0]+[.,]\d{2}\s*(?:\u20bd|RUB|RUR))?\s*$/;
+  lines.forEach(function (ln) {
+    var m = ln.match(re);
+    if (m) {
+      var raw = String(m[3]).replace(/[\s\u00a0]/g, "").replace("\u2212", "-").replace(",", ".");
+      var income = /^\+/.test(raw);
+      var num = Math.abs(parseFloat(raw.replace(/^[+\-]/, "")));
+      if (!isFinite(num) || !num) return;
+      out.push([m[1], String(m[2] || "").trim(), (income ? "+" : "-") + num.toFixed(2)]);
+      return;
+    }
+    // Продолжение описания предыдущей операции: без даты, без суммы, не заголовок
+    if (out.length && !WW82_SKIP.test(ln) && !/[₽]/.test(ln) && !/^\d{2}[.]\d{2}[.]\d{2}/.test(ln) && ln.length < 80) {
+      out[out.length - 1][1] = (out[out.length - 1][1] + " " + ln).trim();
+    }
+  });
+  return out;
+}
+
+/* --- Разбор выписки Сбербанка (v3.83) ---
+   Формат принципиально иной, чем у Тинькофф: одна операция занимает ДВЕ
+   строки, суммы без знака ₽ и с запятой, а в первой строке стоят сразу две
+   цифры — сумма операции и остаток на счёте:
+
+     29.08.2026  08:34  Супермаркеты          1 094,88   148 113,73
+     29.08.2026  513314 MAGNIT MM KAZIKHA EKATERINBURG RUS. Операция по карте
+     ^обработка  ^код   ^описание (может переноситься)
+
+   Берём ПЕРВУЮ сумму (вторая — остаток, он нам не нужен). Собственную
+   категорию банка («Супермаркеты», «Рестораны и кафе») дописываем к описанию:
+   она заметно помогает угадать категорию на экране разбора. */
+var WW83_L1 = /^(\d{2}\.\d{2}\.\d{4})\s+(\d{1,2}:\d{2})\s+(.+?)\s+([+\-\u2212]?\s?[\d\s\u00a0]+,\d{2})\s+([\d\s\u00a0]+,\d{2})\s*$/;
+var WW83_L2 = /^(\d{2}\.\d{2}\.\d{4})\s+(\d{4,8})\s+(.*)$/;
+var WW83_NOISE = /\.?\s*Операци[яи] по карте\s*\*+\s*\d*\s*$/i;
+
+function ww23PdfRowsSber(lines) {
+  var out = [], cur = null;
+  var flush = function () {
+    if (!cur) return;
+    var note = (cur.desc || "").replace(WW83_NOISE, "").trim();
+    if (cur.cat && cur.cat !== note) note = note ? note + " · " + cur.cat : cur.cat;
+    out.push([cur.date, note, cur.amount]);
+    cur = null;
+  };
+  lines.forEach(function (ln) {
+    var m1 = ln.match(WW83_L1);
+    if (m1) {
+      flush();
+      var raw = String(m1[4]).replace(/[\s\u00a0]/g, "").replace("\u2212", "-").replace(",", ".");
+      var income = /^\+/.test(raw);
+      var num = Math.abs(parseFloat(raw.replace(/^[+\-]/, "")));
+      if (!isFinite(num) || !num) return;
+      cur = { date: m1[1], cat: String(m1[3] || "").trim(), desc: "", amount: (income ? "+" : "-") + num.toFixed(2) };
+      return;
+    }
+    if (!cur) return;
+    var m2 = ln.match(WW83_L2);
+    if (m2) { cur.desc = (cur.desc + " " + String(m2[3] || "")).trim(); return; }
+    // перенос описания: без даты в начале и не служебная строка
+    if (!/^\d{2}\.\d{2}\.\d{4}/.test(ln) && !WW82_SKIP.test(ln) && !/^(Выписка|Страница|Продолжение|ДАТА|КАТЕГОРИЯ|СУММА|ОСТАТОК|Дата)/i.test(ln) && ln.length < 90) {
+      cur.desc = (cur.desc + " " + ln).trim();
+    }
+  });
+  flush();
+  return out;
+}
+
+/* Банк определяем по результату: пробуем оба разборщика и берём тот, который
+   нашёл больше операций. Надёжнее, чем угадывать по логотипу или тексту
+   шапки — вёрстка у банков меняется, а структура строк нет. */
+function ww23PdfRowsFromLines(lines) {
+  var t = [], s = [];
+  try { t = ww23PdfRowsTinkoff(lines); } catch (e) {}
+  try { s = ww23PdfRowsSber(lines); } catch (e) {}
+  return s.length > t.length ? s : t;
+}
+
+function ww23PdfPick(file) {
+  ensurePdfLib(function () {
+    var rd = new FileReader();
+    rd.onload = function () {
+      toast("Читаю PDF…");
+      window.pdfjsLib.getDocument({ data: new Uint8Array(rd.result) }).promise.then(function (pdf) {
+        var jobs = [];
+        for (var i = 1; i <= pdf.numPages; i++) jobs.push(pdf.getPage(i).then(function (pg) { return pg.getTextContent(); }));
+        return Promise.all(jobs);
+      }).then(function (pages) {
+        var lines = [];
+        pages.forEach(function (content) { lines = lines.concat(ww23PdfLines(content)); });
+        var rows = ww23PdfRowsFromLines(lines);
+        if (!rows.length) {
+          wwAlert("Не удалось распознать операции в этом PDF. Если банк умеет выгружать CSV или Excel — с ними надёжнее.", { title: "Ничего не найдено" });
+          return;
+        }
+        // Отдаём в общий разбор: заголовок добавляем сами, колонки уже в нужном порядке
+        ww23Csv = { rows: [["Дата", "Описание", "Сумма"]].concat(rows), hasHeader: true };
+        ww23CsvModal();
+      }).catch(function (e) {
+        wwAlert("Файл не читается: " + (e && e.message ? e.message : "неизвестная ошибка"), { title: "Не удалось открыть PDF" });
+      });
+    };
+    rd.readAsArrayBuffer(file);
+  });
+}
 function ww23CsvPick(inp) {
   const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
+  const name = (f.name || "").toLowerCase();
+
+  /* v3.79: выписки принимаем не только в CSV. Excel-файлы читаем библиотекой
+     XLSX и приводим к тем же строкам, что и CSV, — дальше работает общий
+     разбор с ручной простановкой категорий. */
+  if (/\.pdf$/.test(name)) { ww23PdfPick(f); return; }
+
+  if (/\.(xlsx|xls)$/.test(name)) {
+    ensureXlsxLib(function () {
+      const rd = new FileReader();
+      rd.onload = function () {
+        try {
+          const wb = XLSX.read(rd.result, { type: "array" });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const data = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+          const rows = data.filter(function (r) { return r && r.some(function (v) { return String(v).trim() !== ""; }); })
+                           .map(function (r) { return r.map(function (v) { return String(v == null ? "" : v).trim(); }); });
+          if (!rows.length) { toast("В файле нет данных"); return; }
+          ww23FromRows(rows);
+        } catch (e) { wwAlert("Проверьте, что это файл .xlsx или .xls.", { title: "Не удалось прочитать файл" }); }
+      };
+      rd.readAsArrayBuffer(f);
+    });
+    return;
+  }
+
   const rd = new FileReader();
   rd.onload = () => {
     const txt = String(rd.result);
-    if (txt.includes("\uFFFD")) { const rd2 = new FileReader(); rd2.onload = () => { try { ww23CsvParse(String(rd2.result)); } catch (e) { toast("Не удалось разобрать CSV: " + e.message); } }; rd2.readAsText(f, "windows-1251"); }
-    else { try { ww23CsvParse(txt); } catch (e) { toast("Не удалось разобрать CSV: " + e.message); } }
+    if (txt.includes("\uFFFD")) { const rd2 = new FileReader(); rd2.onload = () => { try { ww23CsvParse(String(rd2.result)); } catch (e) { toast("Не удалось разобрать файл: " + e.message); } }; rd2.readAsText(f, "windows-1251"); }
+    else { try { ww23CsvParse(txt); } catch (e) { toast("Не удалось разобрать файл: " + e.message); } }
   };
   rd.readAsText(f, "utf-8");
+}
+/* Общая точка входа: получив таблицу строк (из CSV или Excel), дальше
+   работаем одинаково — определяем заголовок и открываем сопоставление колонок. */
+function ww23FromRows(rows) {
+  const hasHeader = rows.length > 1 && rows[0].every((cell) => ww23ParseDate(cell) === null) && rows[0].some((cell) => /[а-яёa-z]{3}/i.test(cell));
+  ww23Csv = { rows, hasHeader };
+  ww23CsvModal();
 }
 function ww23CsvRows(text, delim) {
   const rows = []; let row = [], cur = "", q = false;
@@ -5490,9 +5794,7 @@ function ww23CsvParse(text) {
   const delim = [";", "\t", ","].map((d) => [d, (first.split(d).length - 1)]).sort((a, b) => b[1] - a[1])[0][0];
   const rows = ww23CsvRows(text, delim);
   if (!rows.length) { toast("В файле нет данных"); return; }
-  const hasHeader = rows.length > 1 && rows[0].every((c) => ww23ParseDate(c) === null) && rows[0].some((c) => /[а-яёa-z]{3}/i.test(c));
-  ww23Csv = { rows, hasHeader };
-  ww23CsvModal();
+  ww23FromRows(rows);
 }
 function ww23GuessCols() {
   const { rows, hasHeader } = ww23Csv;
@@ -5551,7 +5853,7 @@ function ww23CsvModal() {
     }
     return h;
   };
-  showModal(`<div class="mhead"><h3>${WWI.bank} Импорт выписки CSV</h3><button class="x" onclick="closeModal()">✕</button></div>
+  showModal(`<div class="mhead"><h3>${WWI.bank} Импорт выписки</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.</div>
     <div class="fg-row">
       <div class="fg"><label>Дата</label><select id="csv-date" onchange="ww23CsvPreview()">${opts(g.date)}</select></div>
@@ -5563,8 +5865,208 @@ function ww23CsvModal() {
       <div class="fg"><label>Тип операций</label><select id="csv-sign" onchange="ww23CsvPreview()"><option value="neg">по знаку: минус = расход</option><option value="exp">все строки — расходы</option><option value="inc">все строки — доходы</option></select></div>
     </div>
     <div id="ww23-csv-prev"></div>
-    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww23CsvImport()">Импортировать</button>`);
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="ww23CsvReview()">Далее: проставить категории →</button>`);
   ww23CsvPreview();
+}
+
+/* ===================== v3.78: разбор выписки перед импортом =====================
+   Раньше импорт сразу заливал операции с автоматически угаданными категориями.
+   Теперь между разбором файла и записью появился экран подтверждения: каждая
+   операция показывается отдельной строкой с выбором категории. Догадка
+   подставляется как подсказка, но последнее слово — за человеком, и ничего
+   не попадает в приложение, пока он не нажмёт «Импортировать».
+   Правило: строка без категории не импортируется. */
+var ww23Review = null;
+
+function ww23CsvReview() {
+  var res = ww23CsvParseAll();
+  if (res.err) { toast(res.err); return; }
+  if (!res.out.length) { toast("Нечего импортировать"); return; }
+  var acc = document.getElementById("csv-acc").value;
+  ww23Review = {
+    acc: acc,
+    skipped: res.skipped,
+    items: res.out.map(function (x, i) {
+      return {
+        i: i, date: x.date, amount: x.amount, type: x.type, note: x.note,
+        categoryId: x.categoryId || "",     // догадка как предзаполнение
+        guessed: !!x.categoryId,            // пометим, что это догадка
+        orig: x.amount,                     // исходная сумма из выписки
+        edited: false,                      // правил ли человек сумму
+        whose: "",                          // чей расход — заполняется вручную (v3.81)
+        dup: ww23IsDup(x),
+        skip: ww23IsDup(x),                 // дубли по умолчанию не импортируем
+      };
+    }),
+  };
+  ww23ReviewModal();
+}
+
+function ww23ReviewRow(it) {
+  var cats = S.categories.filter(function (c) { return c.type === it.type; });
+  var opts = '<option value="">— выберите категорию —</option>' +
+    cats.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === it.categoryId ? " selected" : "") + ">" + esc(c.icon + " " + c.name) + "</option>";
+    }).join("");
+  var d = it.date.split("-");
+  return '<tr class="ww23-rev-row' + (it.skip ? " skipped" : "") + '" data-i="' + it.i + '">' +
+    '<td class="ww23-rev-chk"><input type="checkbox"' + (it.skip ? "" : " checked") + ' onchange="ww23RevToggle(' + it.i + ',this.checked)" title="Импортировать эту строку"></td>' +
+    '<td class="ww23-rev-date">' + d[2] + "." + d[1] + "</td>" +
+    '<td class="ww23-rev-note" title="' + esc(it.note) + '">' + esc(it.note || "—") + (it.dup ? ' <span class="badge amber">дубль</span>' : "") + "</td>" +
+    '<td class="ww23-rev-amt"><span class="ww23-sign" onclick="ww23RevType(' + it.i + ')" title="Переключить доход/расход" style="color:var(--' + (it.type === "income" ? "green" : "red") + ')">' + (it.type === "income" ? "+" : "−") + '</span>' +
+      '<input type="text" inputmode="decimal" value="' + it.amount + '" onchange="ww23RevAmt(' + it.i + ',this.value)" title="Сумму можно изменить"' + (it.edited ? ' class="edited"' : '') + '></td>' +
+    '<td class="ww23-rev-cat"><select onchange="ww23RevCat(' + it.i + ',this.value)"' + (it.categoryId ? "" : ' class="need"') + ">" + opts + "</select></td>" +
+    '<td class="ww23-rev-whose">' + (it.type === "expense"
+      ? '<select onchange="ww23RevWhose(' + it.i + ',this.value)"' + (it.whose ? "" : ' class="need"') + '>' +
+        '<option value="">— чей? —</option>' +
+        WW80_WHOSE.map(function (w) { return '<option value="' + w.id + '"' + (w.id === it.whose ? " selected" : "") + ">" + esc(w.name) + "</option>"; }).join("") +
+        "</select>"
+      : '<span class="sub">—</span>') + "</td>" +
+    "</tr>";
+}
+
+function ww23ReviewModal() {
+  var r = ww23Review;
+  var need = r.items.filter(function (x) { return !x.skip && !x.categoryId; }).length;
+  var take = r.items.filter(function (x) { return !x.skip; }).length;
+  showModal('<div class="mhead"><h3>' + WWI.bank + ' Проверьте операции</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div class="sub" style="margin-bottom:8px">Ничего не попадёт в приложение, пока вы не нажмёте «Импортировать». Категории подставлены как подсказка — проверьте и поправьте. Снимите галочку, чтобы пропустить строку.</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<button class="btn btn-ghost btn-sm" onclick="ww23RevAll(true)">Отметить все</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="ww23RevAll(false)">Снять все</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="ww23RevFillGuess()">Подставить догадки</button>' +
+      /* При импорте выписки на сотню строк выбирать «чей» в каждой — мучение.
+         Эта кнопка проставляет один вариант всем незаполненным расходам,
+         дальше отдельные строки можно поправить вручную (v3.81). */
+      '<span class="ww23-rev-bulk">Всем расходам: ' +
+        WW80_WHOSE.map(function (w) { return '<button class="btn btn-ghost btn-sm" onclick="ww23RevWhoseAll(\'' + w.id + '\')">' + esc(w.name) + "</button>"; }).join("") +
+      "</span>" +
+    "</div>" +
+    '<div class="ww23-rev-wrap"><table class="ww23-rev-table"><thead><tr><th></th><th>Дата</th><th>Описание</th><th class="r">Сумма</th><th>Категория</th><th>Чей расход</th></tr></thead><tbody id="ww23-rev-body">' +
+      r.items.map(ww23ReviewRow).join("") +
+    "</tbody></table></div>" +
+    '<div id="ww23-rev-foot" class="sub" style="margin:10px 0 6px"></div>' +
+    '<button class="btn btn-primary" id="ww23-rev-go" style="width:100%" onclick="ww23ReviewImport()">Импортировать</button>');
+  ww23RevFoot();
+}
+
+function ww23RevFoot() {
+  var r = ww23Review; if (!r) return;
+  var take = r.items.filter(function (x) { return !x.skip; });
+  var need = take.filter(function (x) { return !x.categoryId; }).length;
+  // Расход без указания «чей» тоже не импортируем — правило то же, что и в
+  // ручном вводе (v3.81).
+  var needWhose = take.filter(function (x) { return x.type === "expense" && !x.whose; }).length;
+  var el = document.getElementById("ww23-rev-foot");
+  if (el) {
+    var edited = take.filter(function (x) { return x.edited; }).length;
+    el.innerHTML = "К импорту: <b>" + take.length + "</b> из " + r.items.length +
+      (edited ? ' · <span style="color:var(--blue)">сумм изменено: ' + edited + "</span>" : "") +
+      (need ? ' · <span style="color:var(--amber)">без категории: ' + need + "</span>" : "") +
+      (needWhose ? ' · <span style="color:var(--amber)">не указано «чей»: ' + needWhose + "</span>" : "") +
+      (!need && !needWhose ? ' · <span style="color:var(--green)">всё заполнено ✓</span>' : ' — такие строки не импортируем');
+  }
+  var go = document.getElementById("ww23-rev-go");
+  if (go) {
+    var ready = take.filter(function (x) { return x.categoryId && (x.type !== "expense" || x.whose); }).length;
+    go.textContent = ready > 0 ? "Импортировать (" + ready + ")" : "Нечего импортировать";
+    go.disabled = ready <= 0;
+    go.style.opacity = ready > 0 ? "" : ".5";
+  }
+}
+function ww23RevAmt(i, val) {
+  var it = ww23Review.items[i]; if (!it) return;
+  var v = parseFloat(String(val).replace(/\s/g, "").replace(",", "."));
+  if (!isFinite(v) || v <= 0) { toast("Сумма должна быть больше нуля"); ww23RevRedraw(); return; }
+  it.edited = Math.abs(v - it.orig) > 0.001;   // помечаем расхождение с выпиской
+  it.amount = Math.round(v * 100) / 100;
+  ww23RevRedraw();
+}
+function ww23RevType(i) {
+  var it = ww23Review.items[i]; if (!it) return;
+  it.type = it.type === "income" ? "expense" : "income";
+  it.categoryId = "";   // категории у доходов и расходов разные — сбрасываем выбор
+  if (it.type !== "expense") it.whose = "";   // «чей расход» имеет смысл только у расхода
+  ww23RevRedraw();
+}
+function ww23RevRedraw() {
+  var body = document.getElementById("ww23-rev-body");
+  if (body) body.innerHTML = ww23Review.items.map(ww23ReviewRow).join("");
+  ww23RevFoot();
+}
+function ww23RevWhoseAll(id) {
+  var n = 0;
+  ww23Review.items.forEach(function (it) {
+    if (it.type !== "expense" || it.whose) return;   // заполненные вручную не трогаем
+    it.whose = id; n++;
+  });
+  ww23RevRedraw();
+  toast(n ? "Проставлено строк: " + n : "Все расходы уже отмечены");
+}
+function ww23RevWhose(i, val) {
+  var it = ww23Review.items[i]; if (!it) return;
+  it.whose = val;
+  var row = document.querySelector('.ww23-rev-row[data-i="' + i + '"]');
+  var sel = row && row.querySelector(".ww23-rev-whose select");
+  if (sel) sel.classList.toggle("need", !val);
+  ww23RevFoot();
+}
+function ww23RevCat(i, val) {
+  var it = ww23Review.items[i]; if (!it) return;
+  it.categoryId = val; it.guessed = false;
+  var row = document.querySelector('.ww23-rev-row[data-i="' + i + '"]');
+  var sel = row && row.querySelector("select");
+  if (sel) sel.classList.toggle("need", !val);
+  ww23RevFoot();
+}
+function ww23RevToggle(i, on) {
+  var it = ww23Review.items[i]; if (!it) return;
+  it.skip = !on;
+  var row = document.querySelector('.ww23-rev-row[data-i="' + i + '"]');
+  if (row) row.classList.toggle("skipped", it.skip);
+  ww23RevFoot();
+}
+function ww23RevAll(on) {
+  ww23Review.items.forEach(function (it) { it.skip = !on; });
+  ww23RevRedraw();
+}
+function ww23RevFillGuess() {
+  var n = 0;
+  ww23Review.items.forEach(function (it) {
+    if (it.categoryId) return;
+    var g = ww23GuessCat(it.note, it.type);
+    if (g) { it.categoryId = g; it.guessed = true; n++; }
+  });
+  ww23RevRedraw();
+  toast(n ? "Подставлено категорий: " + n : "Все категории уже заданы");
+}
+function ww23ReviewImport() {
+  if (isObserver()) return;
+  var r = ww23Review; if (!r) return;
+  var take = r.items.filter(function (x) { return !x.skip && x.categoryId && (x.type !== "expense" || x.whose); });
+  if (!take.length) { toast("Заполните категорию и «чей расход»"); return; }
+  var noCat = r.items.filter(function (x) { return !x.skip && !x.categoryId; }).length;
+  var noWhose = r.items.filter(function (x) { return !x.skip && x.categoryId && x.type === "expense" && !x.whose; }).length;
+  /* Часть строк не готова — импорт закроет экран, и незаполненные потеряются.
+     Спрашиваем явно, чтобы это не стало неприятным сюрпризом (v3.81). */
+  if (noCat + noWhose > 0) {
+    var msg = "Не заполнено строк: " + (noCat + noWhose) + " (" +
+      (noCat ? "без категории: " + noCat : "") + (noCat && noWhose ? ", " : "") +
+      (noWhose ? "без «чей расход»: " + noWhose : "") + "). Они не будут импортированы.";
+    wwConfirm(msg, { title: "Импортировать только заполненные?", okText: "Импортировать " + take.length }).then(function (ok) {
+      if (ok) ww23ReviewCommit(r, take, noCat, noWhose);
+    });
+    return;
+  }
+  ww23ReviewCommit(r, take, noCat, noWhose);
+}
+function ww23ReviewCommit(r, take, noCat, noWhose) {
+  take.forEach(function (x) {
+    S.transactions.push({ id: uid(), date: x.date, type: x.type, amount: x.amount, accountId: r.acc, categoryId: x.categoryId, whose: (x.type === "expense" ? x.whose : ""), note: x.note, tags: ["импорт"], createdAt: Date.now() });
+  });
+  save(); closeModal(); render(activePage());
+  ww23Review = null;
+  toast("Импортировано: " + take.length + (noCat ? " · без категории: " + noCat : "") + (noWhose ? " · без «чей»: " + noWhose : ""));
 }
 function ww23IsDup(x) { return S.transactions.some((t) => t.date === x.date && t.type === x.type && Math.abs(+t.amount - x.amount) < 0.01 && (t.note || "") === (x.note || "")); }
 function ww23CsvParseAll() {
@@ -6257,6 +6759,8 @@ try {
       var g = document.getElementById("tx-tags"); if (g) g.value = (t.tags || []).join(", ");
       var nt = document.getElementById("tx-note"); if (nt) nt.value = t.note || "";
       var a = document.getElementById("tx-amount"); if (a && !a.value) a.value = t.amount;
+      // подставляем ранее выбранное «чей расход» (v3.80)
+      if (t.whose) { var wb = document.querySelector('#tx-whose button[data-whose="' + t.whose + '"]'); if (wb) ww80PickWhose(t.whose, wb); }
       var ac = document.getElementById("tx-acc"); if (ac && t.accountId) ac.value = t.accountId;
       var h = document.querySelector("#modal .mhead h3"); if (h) h.textContent = "Изменить операцию";
       var sv = [].slice.call(document.querySelectorAll("#modal button")).filter(function (b) { return /Сохранить/.test(b.textContent); })[0];
