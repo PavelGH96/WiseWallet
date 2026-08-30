@@ -777,6 +777,17 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 /* Незаполненное обязательное поле подсвечивается только после попытки сохранить */
 .ww80-whose.need{border-color:var(--red);box-shadow:0 0 0 2px var(--red-bg)}
 @media(max-width:700px){.ww80-whose button{font-size:12.5px;padding:9px 2px}}
+
+/* ===== v3.84: «ручка» для закрытия окна свайпом =====
+   Когда содержимое окна прокручивается (например, с открытой клавиатурой),
+   закрыть свайпом можно только потянув за шапку — иначе жест мешал бы
+   прокрутке. Полоска показывает, за что тянуть. */
+@media (pointer: coarse){
+  .modal .mhead{position:relative;padding-top:10px}
+  .modal .mhead::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:38px;height:4px;border-radius:999px;background:var(--border)}
+  /* шапку тянем, а не выделяем текст */
+  .modal .mhead h3{user-select:none;-webkit-user-select:none}
+}
 </style>
 </head>
 <body>
@@ -4781,7 +4792,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.83";
+const WW_VERSION = "3.84";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6773,8 +6784,24 @@ try {
   /* --- свайп вниз для закрытия модалки --- */
   var md = document.getElementById("modal"), mY = 0, mOn = false, mD = 0;
   if (md) {
-    md.addEventListener("touchstart", function (e) { if (!isMobile() || e.touches.length !== 1 || md.scrollTop > 0) { mOn = false; return; } mY = e.touches[0].clientY; mOn = true; mD = 0; md.style.transition = "none"; }, { passive: true });
-    md.addEventListener("touchmove", function (e) { if (!mOn) return; mD = e.touches[0].clientY - mY; if (mD < 0 || md.scrollTop > 0) { mD = 0; md.style.transform = ""; return; } md.style.transform = "translateY(" + mD + "px)"; }, { passive: true });
+    /* v3.84: жест закрытия больше не перехватывает прокрутку.
+       Раньше он срабатывал на всей площади окна. Пока содержимое влезало,
+       это было удобно, но когда открывается клавиатура, окно становится
+       прокручиваемым — и жест начинал бороться с прокруткой: экран дрожал,
+       а попытка прокрутить вверх закрывала окно.
+       Теперь правило простое: если содержимое прокручивается, закрыть свайпом
+       можно только потянув за шапку окна; само содержимое прокручивается
+       свободно. Если содержимое влезает целиком — свайп работает где угодно,
+       как и раньше. */
+    md.addEventListener("touchstart", function (e) {
+      mOn = false;
+      if (!isMobile() || e.touches.length !== 1 || md.scrollTop > 0) return;
+      var scrollable = md.scrollHeight > md.clientHeight + 1;
+      var onHead = !!(e.target && e.target.closest && e.target.closest(".mhead"));
+      if (scrollable && !onHead) return;      // тянут за содержимое — это прокрутка, не закрытие
+      mY = e.touches[0].clientY; mOn = true; mD = 0; md.style.transition = "none";
+    }, { passive: true });
+    md.addEventListener("touchmove", function (e) { if (!mOn) return; mD = e.touches[0].clientY - mY; if (mD < 0 || md.scrollTop > 0) { if (mD !== 0 || md.style.transform) { mD = 0; md.style.transform = ""; } return; } md.style.transform = "translateY(" + mD + "px)"; }, { passive: true });
     md.addEventListener("touchend", function () { if (!mOn) return; mOn = false; md.style.transition = "transform .22s ease"; if (mD > 90) { window.haptic(10); md.style.transform = "translateY(100%)"; setTimeout(function () { closeModal(); md.style.transform = ""; md.style.transition = ""; }, 210); } else md.style.transform = ""; });
   }
 
