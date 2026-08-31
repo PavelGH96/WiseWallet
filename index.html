@@ -546,7 +546,9 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 #credit-period-btn:hover{color:var(--text)}
 /* ---- v3.7: мобильные жесты и читаемость календаря ---- */
 @media(max-width:700px){
-  .modal::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--border);margin:-6px auto 14px}
+  /* v3.92: старую «ручку» v3.7 убрали — она дублировала более новую
+     .modal .mhead::before (v3.84), из-за чего на телефоне рисовались две
+     полоски одна под другой. Оставлена одна, привязанная к шапке окна. */
   .cal-d{font-size:12.5px;font-weight:700}
   .cal-ev{font-size:10.5px;padding:1px 4px;line-height:1.3}
   .cal-cell{min-height:64px;padding:5px 4px}
@@ -2230,8 +2232,22 @@ function saveRecur(id) {
   if (id) { const r = S.recurring.find((x) => x.id === id); if (r) Object.assign(r, { name, amount, type, categoryId, day, who }); }
   else S.recurring.push({ id: uid(), name, type, amount, categoryId, day, who });
   save(); closeModal(); renderSettings();
+  // v3.93: список во вкладке «Доходы» рисуется отдельным модулем и раньше не
+  // обновлялся при сохранении отсюда — редактирование через эту вкладку
+  // применялось, но было видно только после ухода со страницы и возврата.
+  if (typeof window.ww63Render === "function") { try { window.ww63Render(); } catch (e) {} }
 }
-function delRecur(id) { if (isObserver()) return; const r = S.recurring.find((x) => x.id === id); if (!r) return; S.recurring = S.recurring.filter((x) => x.id !== id); save(); closeModal(); renderSettings(); ww2UndoToast("Регулярный платёж удалён", () => { S.recurring.push(r); save(); renderSettings(); }); }
+function delRecur(id) {
+  if (isObserver()) return;
+  const r = S.recurring.find((x) => x.id === id); if (!r) return;
+  S.recurring = S.recurring.filter((x) => x.id !== id);
+  save(); closeModal(); renderSettings();
+  if (typeof window.ww63Render === "function") { try { window.ww63Render(); } catch (e) {} }
+  ww2UndoToast("Регулярный платёж удалён", () => {
+    S.recurring.push(r); save(); renderSettings();
+    if (typeof window.ww63Render === "function") { try { window.ww63Render(); } catch (e) {} }
+  });
+}
 async function addAccount() { if (isObserver()) return; const n = await wwPrompt("", { title: "Новый счёт", placeholder: "Например: Карта Сбербанк", okText: "Добавить" }); if (!n) return; S.accounts.push({ id: uid(), name: n, type: "card", balance0: 0, balance0From: todayStr(), archived: false }); save(); renderSettings(); }
 async function renameAccount(id) { if (isObserver()) return; const a = acc(id); const n = await wwPrompt("", { title: "Название счёта", defaultValue: a.name, okText: "Сохранить" }); if (!n) return; a.name = n; save(); renderSettings(); }
 function restoreAccount(id) { if (isObserver()) return; const a = acc(id); if (!a) return; a.archived = false; a.archivedFrom = null; save(); renderSettings(); renderCoins(); toast("Счёт «" + a.name + "» снова в списке"); }
@@ -4889,7 +4905,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.91";
+const WW_VERSION = "3.93";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -14162,7 +14178,10 @@ window.ww50DataSignature = ww50DataSignature;
       return '<div class="row"><div class="ic">' + icon(c.icon, c.name) + '</div>' +
         '<div class="rmain"><div class="rt">' + e(r.name) + '</div>' +
         '<div class="rs">' + e(c.name) + (r.day ? ' · ' + num(r.day) + ' числа' : "") + '</div></div>' +
-        amtHtml + '</div>';
+        amtHtml +
+        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openRecurModal(\'' + r.id + '\')" title="Изменить">' + (window.WWI ? WWI.pencil : "✎") + '</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delRecur(\'' + r.id + '\')" title="Удалить">✕</button>' +
+        '</div>';
     }).join("");
     var hint = future
       ? '<div class="sub" style="margin:8px 0 -2px">Планирование на ' + e(ym) + '. Пустое поле — сумма ещё неизвестна, в прогноз не входит.</div>'
