@@ -258,6 +258,7 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
    целиком, touch-action:none добивает pinch-zoom и скролл жестами. Сама
    модалка/диалог получает свой touch-action, чтобы прокрутка длинной формы
    продолжала работать. */
+html.no-scroll{overflow:hidden;touch-action:none;overscroll-behavior:none}
 body.no-scroll{position:fixed;inset:0;overflow:hidden;touch-action:none;overscroll-behavior:none}
 body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior:contain}
 /* ---- экран входа для «Просмотра» (доступ по коду) ---- */
@@ -795,6 +796,11 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   /* шапку тянем, а не выделяем текст */
   .modal .mhead h3{user-select:none;-webkit-user-select:none}
 }
+
+/* ===== v3.89: поле помесячного плана регулярного дохода ===== */
+.ww89-plan{width:104px;text-align:right;font:inherit;font-weight:700;color:var(--green);font-family:var(--font-d);padding:6px 8px;border:1px dashed var(--border);border-radius:var(--radius-s);background:var(--bg)}
+.ww89-plan::placeholder{color:var(--t3);font-weight:400}
+.ww89-plan:focus{outline:none;border-style:solid;border-color:var(--green)}
 </style>
 </head>
 <body>
@@ -2482,6 +2488,11 @@ function wwScrollLock() {
     _wwScrollY = window.scrollY || window.pageYOffset || 0;
     document.body.style.top = -_wwScrollY + "px";
     document.body.classList.add("no-scroll");
+    // <html> тоже разрешал вертикальный жест (touch-action:pan-y) — этого
+    // хватало, чтобы iOS всё равно скрывал/показывал адресную строку и
+    // визуально «дёргал» страницу за спиной окна, хотя сам body уже был
+    // зафиксирован. Блокируем корневой элемент так же (v3.88).
+    document.documentElement.classList.add("no-scroll");
   }
   _wwLockCount++;
 }
@@ -2489,6 +2500,7 @@ function wwScrollUnlock() {
   _wwLockCount = Math.max(0, _wwLockCount - 1);
   if (_wwLockCount === 0) {
     document.body.classList.remove("no-scroll");
+    document.documentElement.classList.remove("no-scroll");
     document.body.style.top = "";
     window.scrollTo(0, _wwScrollY);
   }
@@ -3243,8 +3255,36 @@ let budgetYm = todayStr().slice(0, 7);
 function shiftBudgetMonth(delta) { budgetYm = ymShift(budgetYm, delta); renderBudgets(); }
 function resetBudgetMonth() { budgetYm = todayStr().slice(0, 7); renderBudgets(); }
 /* ---- будущий месяц целиком по плану (регулярные платежи + кредиты, с учётом льготных периодов) ---- */
+/* ===================== v3.89: помесячное планирование регулярного дохода =====================
+   Сумма регулярного дохода не всегда постоянна (премии, разовые
+   подработки), поэтому во вкладке «Доходы» её можно задать отдельно на
+   каждый БУДУЩИЙ месяц. Пока для месяца ничего не указано явно, доход не
+   прогнозируем — считаем это пропуском (0), а не молча продолжаем текущую
+   сумму шаблона до бесконечности. Текущий и прошлые месяцы это не
+   затрагивает: там по-прежнему действует обычная сумма шаблона, как и было
+   до этой версии. */
+function wwRecurIncomeAmount(r, ym) {
+  var key = r.id + ":" + ym;
+  if (S.recurIncomeAmt && Object.prototype.hasOwnProperty.call(S.recurIncomeAmt, key)) {
+    return +S.recurIncomeAmt[key] || 0;   // явно задано — учитываем для любого периода
+  }
+  var nowYm = todayStr().slice(0, 7);
+  if (ym > nowYm) return null;   // будущее без явного значения — пропуск, не прогнозируем
+  return +r.amount || 0;         // текущий/прошлый месяц — обычная сумма шаблона
+}
+function wwSetRecurIncomeAmount(id, ym, value) {
+  if (!S.recurIncomeAmt || typeof S.recurIncomeAmt !== "object") S.recurIncomeAmt = {};
+  var key = id + ":" + ym;
+  if (value === null || value === "" || value === undefined) delete S.recurIncomeAmt[key];
+  else S.recurIncomeAmt[key] = Math.round(+value * 100) / 100;
+  save();
+}
+function planIncomeMonthForYm(ym) {
+  return ((S && S.recurring) || []).filter(function (r) { return r.type === "income"; })
+    .reduce(function (s, r) { var v = wwRecurIncomeAmount(r, ym); return s + (v === null ? 0 : v); }, 0);
+}
 function monthPlanFull(ym) {
-  const income = planIncomeMonth();
+  const income = (typeof planIncomeMonthForYm === "function") ? planIncomeMonthForYm(ym) : planIncomeMonth();
   let expense = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
   const ds15 = ym + "-15";
   for (const c of S.credits.filter((c) => c.status === "active")) {
@@ -4806,7 +4846,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.87";
+const WW_VERSION = "3.89";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -14054,17 +14094,37 @@ window.ww50DataSignature = ww50DataSignature;
     }).join("") + '</div>';
   }
 
-  function recurHtml() {
+  /* v3.89: для будущего месяца сумма регулярного дохода необязательно
+     совпадает с шаблоном (премии, разовые подработки) — даём её задать
+     отдельно на каждый месяц. Пока значение не указано, считаем это
+     осознанным пропуском, а не «наверное, как обычно», и не прогнозируем
+     доход, в котором нет уверенности. Текущий/прошлый месяц и просмотр
+     периода длиннее месяца — без изменений, как раньше. */
+  function recurHtml(d) {
     var list = ((S && S.recurring) ? S.recurring : []).filter(function (r) { return r.type === "income"; });
     if (!list.length) return '<div class="sub">Регулярных доходов пока нет.</div>';
-    var total = list.reduce(function (s, r) { return s + num(r.amount); }, 0);
-    return list.slice().sort(function (a, b) { return num(a.day) - num(b.day); }).map(function (r) {
+    var nowYm = todayStr().slice(0, 7);
+    var ym = (d && d.isMonth && d.range && d.range.from) ? d.range.from.slice(0, 7) : nowYm;
+    var future = ym > nowYm;
+    var total = 0;
+    var rows = list.slice().sort(function (a, b) { return num(a.day) - num(b.day); }).map(function (r) {
       var c = (typeof cat === "function" ? cat(r.categoryId) : null) || { name: "", icon: "💵" };
+      var v = future ? wwRecurIncomeAmount(r, ym) : (+r.amount || 0);
+      total += (v === null ? 0 : v);
+      var amtHtml = future
+        ? '<input type="text" inputmode="decimal" class="ww89-plan" data-id="' + r.id + '" data-ym="' + ym + '" ' +
+          'value="' + (v === null ? "" : v) + '" placeholder="—" title="Сумма на ' + e(ym) + ' — оставьте пустым, если ещё не знаете" ' +
+          'onchange="ww89PlanChange(this)">'
+        : '<div class="ramt pos">+' + m(v) + '</div>';
       return '<div class="row"><div class="ic">' + icon(c.icon, c.name) + '</div>' +
         '<div class="rmain"><div class="rt">' + e(r.name) + '</div>' +
         '<div class="rs">' + e(c.name) + (r.day ? ' · ' + num(r.day) + ' числа' : "") + '</div></div>' +
-        '<div class="ramt pos">+' + m(r.amount) + '</div></div>';
-    }).join("") + '<div class="row" style="font-weight:800"><div class="ic">Σ</div>' +
+        amtHtml + '</div>';
+    }).join("");
+    var hint = future
+      ? '<div class="sub" style="margin:8px 0 -2px">Планирование на ' + e(ym) + '. Пустое поле — сумма ещё неизвестна, в прогноз не входит.</div>'
+      : "";
+    return rows + hint + '<div class="row" style="font-weight:800"><div class="ic">Σ</div>' +
       '<div class="rmain"><div class="rt">Итого в месяц</div></div>' +
       '<div class="ramt pos" id="ww63-recur-total">+' + m(total) + '</div></div>';
   }
@@ -14097,7 +14157,7 @@ window.ww50DataSignature = ww50DataSignature;
       '<div class="section card"><h2>Доходы по категориям</h2><div id="ww63-cats">' + catsHtml(d) + '</div></div>' +
       '<div class="section card"><h2>Регулярные доходы</h2>' +
       '<div class="sub" style="margin:-4px 0 12px">Повторяются каждый месяц. Те же записи, что в «Регулярных платежах» и в плане на месяц.</div>' +
-      '<div id="ww63-recur">' + recurHtml() + '</div>' +
+      '<div id="ww63-recur">' + recurHtml(d) + '</div>' +
       '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="ww63AddRecurIncome()">+ Регулярный доход</button></div>' +
       '<div class="section card"><h2 id="ww63-tx-h2">Операции — доходы' + (d.isMonth ? "" : " " + e(d.phrase)) + '</h2><div id="ww63-tx">' + txHtml(d) + '</div></div>';
   }
@@ -14171,6 +14231,19 @@ window.ww50DataSignature = ww50DataSignature;
   }
 
   /* ---------- кнопки добавления ---------- */
+  /* v3.89: правка помесячного плана дохода прямо из строки списка. */
+  window.ww89PlanChange = function (input) {
+    if (typeof isObserver === "function" && isObserver()) return;
+    var id = input.dataset.id, ym = input.dataset.ym;
+    var raw = (input.value || "").trim().replace(",", ".");
+    if (raw === "") { wwSetRecurIncomeAmount(id, ym, null); toast("Сумма на " + ym + " снова не задана"); }
+    else {
+      var v = parseFloat(raw);
+      if (!isFinite(v) || v < 0) { toast("Введите сумму или оставьте поле пустым"); input.value = ""; return; }
+      wwSetRecurIncomeAmount(id, ym, v);
+    }
+    try { renderInc(); } catch (e) {}
+  };
   window.ww63AddIncome = function () {
     try { if (typeof isObserver === "function" && isObserver()) return; } catch (e) {}
     try { openTxModal({ type: "income" }); return; } catch (err) {}
