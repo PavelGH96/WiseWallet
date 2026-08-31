@@ -2505,6 +2505,49 @@ function wwScrollUnlock() {
     window.scrollTo(0, _wwScrollY);
   }
 }
+
+/* ===================== v3.91: жёсткая блокировка фона на уровне жеста =====================
+   CSS (touch-action/overscroll-behavior) в теории должен полностью гасить
+   «резиновый» эффект под открытым окном, но на практике Safari на iOS не
+   всегда это соблюдает — известное ограничение WebKit, а не недоработка
+   разметки. Два прошлых исправления (v3.86, v3.88) были правильными, но
+   недостаточными именно поэтому.
+
+   Здесь — более грубая, но надёжная защита: слушаем жест на уровне всего
+   документа и, пока открыто хотя бы одно окно, решаем САМИ, можно ли браузеру
+   вообще прокручивать что бы то ни было. Если палец не над прокручиваемым
+   участком ВНУТРИ окна — просто не даём событию сработать. Если над ним —
+   позволяем прокрутку, но останавливаем именно в момент, когда содержимое
+   упирается в свой край и жест продолжился бы «отскоком» дальше — то есть
+   ровно в тот момент, когда наружу вырывается фон. */
+var _wwTouchY = 0, _wwTouchScroller = null;
+function _wwLockScroller(node) {
+  var ov = document.getElementById("overlay");
+  if (!ov || !ov.contains(node)) return null;
+  for (var el = node; el && el !== ov; el = el.parentElement) {
+    if (el.nodeType !== 1) continue;
+    var cs = getComputedStyle(el);
+    if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  // ни один вложенный элемент не прокручивается отдельно — прокручивается
+  // сама модалка/диалог (или содержимое целиком влезает, тогда двигаться
+  // вообще ничего не должно — см. проверку ниже).
+  return (node.closest && node.closest(".modal,.dlg")) || null;
+}
+document.addEventListener("touchstart", function (e) {
+  if (_wwLockCount <= 0 || e.touches.length !== 1) return;
+  _wwTouchY = e.touches[0].clientY;
+  _wwTouchScroller = _wwLockScroller(e.target);
+}, { passive: true });
+document.addEventListener("touchmove", function (e) {
+  if (_wwLockCount <= 0 || e.touches.length !== 1) return;
+  var s = _wwTouchScroller;
+  if (!s) { e.preventDefault(); return; }   // палец вне какого-либо содержимого открытого окна
+  var dy = e.touches[0].clientY - _wwTouchY;
+  var atTop = s.scrollTop <= 0;
+  var atBottom = Math.ceil(s.scrollTop + s.clientHeight) >= s.scrollHeight;
+  if ((dy > 0 && atTop) || (dy < 0 && atBottom)) e.preventDefault();
+}, { passive: false });
 function closeModal() { const ov = document.getElementById("overlay"); const wasOpen = ov.classList.contains("open"); ov.classList.remove("open"); ov.classList.remove("center"); if (wasOpen) wwScrollUnlock(); }
 /* Фокус в поле сразу после открытия модалки.
    На iOS программный focus() открывает клавиатуру только если он вызван внутри
@@ -4846,7 +4889,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.90";
+const WW_VERSION = "3.91";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
