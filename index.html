@@ -683,9 +683,16 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   /* Переключатель «Оплатить/Оплачено»: было 30px. На странице Кредитов их
      пять подряд вплотную — промах отмечает оплаченным не тот кредит. */
   .ww30-sw{height:44px}
-  /* Ползунок ездит через left (как в базовом правиле), не transform. */
-  .ww30-sw .knob{width:36px;height:36px;top:3px;left:3px}
-  .ww30-sw.on .knob{left:calc(100% - 39px)}
+  /* Ползунок ездит через left (как в базовом правиле), не transform.
+     Размер 28px, а не 36: при 36 подпись «Оплатить» оказывалась под ползунком.
+     Зона нажатия при этом не страдает — её задаёт высота всего переключателя
+     (44px), а не размер кружка. */
+  .ww30-sw .knob{width:28px;height:28px;top:7px;left:4px}
+  .ww30-sw.on .knob{left:calc(100% - 32px)}
+  /* Отступы подписи считаем от фактического размера ползунка, иначе текст
+     заезжает под него (v3.85). */
+  .ww30-sw .swlbl{left:36px;right:8px}
+  .ww30-sw.on .swlbl{left:8px;right:36px}
 
   /* Кнопка «⋮» у кошелька — была 20px, меньше половины нормы, а через неё
      удаляют счёт. Кружок оставляем компактным, расширяем зону нажатия. */
@@ -1647,7 +1654,13 @@ function crPeriodPayDate(c) {
 }
 
 function creditCardHtml(c) {
-  const p = currentPayment(c);
+  /* Раньше здесь стояло currentPayment(c) — оно смотрит на СЕГОДНЯШНЮЮ дату,
+     а не на месяц, выбранный переключателем периода этой страницы. Из-за
+     этого бейдж «льготный» продолжал показываться и в месяцах ПОСЛЕ конца
+     льготного периода, если сегодняшняя дата ещё в него укладывалась
+     (v3.87). ww316CrPay(c, ym) — тот же расчёт, что уже используется чуть
+     ниже для самого переключателя оплаты, теперь берём его и здесь. */
+  const p = ww316CrPay(c, ww30PageYm(crPeriod()));
   const paidShare = (() => { if (c.start && c.end) { const s = new Date(c.start).getTime(), e = new Date(c.end).getTime(); if (e > s) return Math.max(0, Math.min(1, (Date.now() - s) / (e - s))); } const o = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return o > 0 ? Math.max(0, Math.min(1, 1 - (+c.balance || 0) / o)) : 0; })();
   const next = nextPayDate(c);
   const _cd = crPeriodPayDate(c) || next;
@@ -1693,7 +1706,8 @@ function ww30PageYm(period) {
   return (r.from || today).slice(0, 7);
 }
 function creditRow(c) {
-  const p = currentPayment(c);
+  // См. пояснение в creditCardHtml — тот же перенос на период страницы (v3.87).
+  const p = ww316CrPay(c, ww30PageYm(crPeriod()));
   const next = nextPayDate(c);
   const _cd = crPeriodPayDate(c) || next;
   const overdue = c.status === "active" && !p.grace && isOverdue(c);
@@ -4792,7 +4806,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.84";
+const WW_VERSION = "3.87";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6793,12 +6807,30 @@ try {
        можно только потянув за шапку окна; само содержимое прокручивается
        свободно. Если содержимое влезает целиком — свайп работает где угодно,
        как и раньше. */
+    /* Есть ли между точкой касания и окном свой прокручиваемый элемент —
+       например, поле текста заметки или таблица разбора выписки. Такие
+       элементы прокручиваются сами, и жест закрытия им мешать не должен
+       (v3.86: раньше проверялась только прокрутка окна целиком, поэтому в
+       заметках с длинным текстом тряска сохранялась). */
+    function innerScrollable(node) {
+      for (var el = node; el && el !== md; el = el.parentElement) {
+        if (el.nodeType !== 1) continue;
+        var cs = getComputedStyle(el);
+        if (!/(auto|scroll)/.test(cs.overflowY)) continue;
+        if (el.scrollHeight > el.clientHeight + 1) return true;
+      }
+      return false;
+    }
     md.addEventListener("touchstart", function (e) {
       mOn = false;
       if (!isMobile() || e.touches.length !== 1 || md.scrollTop > 0) return;
-      var scrollable = md.scrollHeight > md.clientHeight + 1;
-      var onHead = !!(e.target && e.target.closest && e.target.closest(".mhead"));
-      if (scrollable && !onHead) return;      // тянут за содержимое — это прокрутка, не закрытие
+      var t = e.target;
+      var onHead = !!(t && t.closest && t.closest(".mhead"));
+      if (!onHead) {
+        // тянут за содержимое: если оно прокручивается — это прокрутка, не закрытие
+        if (md.scrollHeight > md.clientHeight + 1) return;
+        if (t && innerScrollable(t)) return;
+      }
       mY = e.touches[0].clientY; mOn = true; mD = 0; md.style.transition = "none";
     }, { passive: true });
     md.addEventListener("touchmove", function (e) { if (!mOn) return; mD = e.touches[0].clientY - mY; if (mD < 0 || md.scrollTop > 0) { if (mD !== 0 || md.style.transform) { mD = 0; md.style.transform = ""; } return; } md.style.transform = "translateY(" + mD + "px)"; }, { passive: true });
