@@ -4905,7 +4905,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.93";
+const WW_VERSION = "3.94";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6445,6 +6445,13 @@ function crCustom() {
 }
 /* Панель: доходы → кошельки → расходы, суммы за выбранный период */
 renderCoins = function () {
+  /* v3.94: если сейчас идёт перетаскивание иконки (ww26Down/ww26Move), не
+     перестраиваем разметку — фоновая синхронизация срабатывает каждую
+     минуту и раньше могла вызвать это ровно в момент, когда пользователь
+     тащит иконку: элемент, за который он держится, исчезал из DOM прямо
+     под курсором, и жест обрывался без видимой причины. Как только
+     перетаскивание завершится, ww26Cleanup сам вызовет обновление. */
+  if (typeof _ww26Drag !== "undefined" && _ww26Drag) return;
   const accEl = document.getElementById("coins-acc"); if (!accEl) return;
   const incEl = document.getElementById("coins-inc"), catEl = document.getElementById("coins-cat");
   const btn = document.getElementById("ww26-period-btn"); if (btn) btn.textContent = ww26Label() + " ▾";
@@ -6732,6 +6739,14 @@ function ww26Cleanup(st) {
   st.el.classList.remove("ww26-src");
   ww26LayoutReset(st);
   if (st.armed || st.moved) document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
+  // v3.94: renderCoins() отказывался перестраивать список, пока шло
+  // перетаскивание (см. защиту там же) — досылаем обновление сейчас, когда
+  // _ww26Drag уже сброшен в null и перестройка снова безопасна. НО только
+  // если реально было перетаскивание (st.moved) — иначе обычный короткий
+  // клик преждевременно пересобирал список ДО того, как успевал сработать
+  // его собственный click-обработчик (выбор кошелька для быстрого ввода),
+  // и выбор слетал сразу же после клика.
+  if (st.moved) { try { if (typeof renderCoins === "function") renderCoins(); } catch (e) {} }
 }
 function ww26Down(e, kind, id) {
   if (isObserver()) return;
@@ -9015,6 +9030,12 @@ function ww40Rail() {
   var item = document.createElement("button");
   item.className = "rail-item";
   item.dataset.nav = "vault";
+  // v3.94: пункт создаётся уже ПОСЛЕ того, как bindNavSorter() расставил
+  // data-sid остальным пунктам меню при загрузке страницы — сам он этот
+  // атрибут не получал. Без него перетаскивание мышью попросту не видело
+  // «Хранилище»: на его место нельзя было ни встать, ни утащить сам пункт,
+  // из-за чего опустить что-либо в самый низ списка не получалось.
+  item.dataset.sid = "vault";
   item.innerHTML = WW40_VAULT_ICON + "<span>Хранилище</span>";
   item.addEventListener("click", function () { nav("vault"); });
 
@@ -10113,7 +10134,7 @@ function wwReportSummaryLines(d) {
         if (!c.payDay || !+c.payment) return;
         var seen = {};
         sch.forEach(function (x) { seen[x.date] = 1; });
-        months(from, to, tdy).forEach(function (ym) {
+        monthsRange(from, to).forEach(function (ym) {
           var dd = monthDay(ym, c.payDay);
           if (!inR(dd) || dd >= tdy || seen[dd]) return;   // только прошедшие и не учтённые графиком
           var fullX = +c.payment || 0;
@@ -10133,7 +10154,7 @@ function wwReportSummaryLines(d) {
       }
     });
     ((S && S.recurring) || []).filter(function (x) { return x.type === "expense"; }).forEach(function (x) {
-      months(from, to, tdy).forEach(function (ym) {
+      monthsRange(from, to).forEach(function (ym) {
         var d = monthDay(ym, +x.day || 1);
         if (!inR(d)) return;   // v3.77: просроченное тоже показываем (помечено в примечании)
         var full = +x.amount || 0;
@@ -10175,6 +10196,27 @@ function wwReportSummaryLines(d) {
     var y = +ym.slice(0, 4), mo = +ym.slice(5, 7) - 1;
     var dim = new Date(y, mo + 1, 0).getDate();
     return iso(new Date(y, mo, Math.min(Math.max(1, day || 1), dim)));
+  }
+  /* v3.94: months(from, to, tdy) специально «поджимает» начало диапазона к
+     сегодняшнему дню — она писалась только для БУДУЩИХ платежей (доходы,
+     которые ещё ожидаются) и никогда не должна заглядывать в прошлое.
+     Добор ПРОСРОЧЕННЫХ платежей (v3.77) ошибочно использовал ту же функцию:
+     при просмотре прошлого периода (например, августа, когда сегодня уже
+     сентябрь) она пропускала весь август и начинала перебор с сентября —
+     просроченные платежи августа переставали находиться вовсе, а вместо них
+     в отчёт попадали ещё не наступившие сентябрьские. Здесь — простой
+     перебор от from до to БЕЗ поджатия к сегодня, для мест, которым
+     действительно нужно заглядывать и в прошлое тоже. */
+  function monthsRange(from, to) {
+    if (!from || !to || from > to) return [];
+    var out = [], y = +from.slice(0, 4), mo = +from.slice(5, 7) - 1, guard = 0;
+    while (guard++ < 240) {
+      var ym = y + "-" + String(mo + 1).padStart(2, "0");
+      if (ym > to.slice(0, 7)) break;
+      out.push(ym);
+      mo++; if (mo > 11) { mo = 0; y++; }
+    }
+    return out;
   }
   function months(from, to, tdy) {
     var start = from && from > tdy ? from : tdy;
