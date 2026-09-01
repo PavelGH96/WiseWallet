@@ -1558,8 +1558,9 @@ function renderDash() {
     const byCatPlan = {};
     S.recurring.filter((r) => r.type === "expense").forEach((r) => { byCatPlan[r.categoryId] = (byCatPlan[r.categoryId] || 0) + +r.amount; });
     for (const c of S.credits.filter((c) => c.status === "active")) { byCatPlan["c_credit"] = (byCatPlan["c_credit"] || 0) + currentPayment(c).amount; }
-    catRows = Object.entries(byCatPlan).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    catTotal = catRows.reduce((s, [, v]) => s + v, 0);
+    const sorted = Object.entries(byCatPlan).sort((a, b) => b[1] - a[1]);
+    catTotal = sorted.reduce((s, [, v]) => s + v, 0);
+    catRows = sorted.slice(0, 6);
     donutLabel = "план · " + phrase;
   } else {
     const byCat = {};
@@ -1568,7 +1569,17 @@ function renderDash() {
     catTotal = exp;
     donutLabel = phrase;
   }
-  drawDonut(document.getElementById("dash-donut"), catRows.map(([cid, sum]) => { const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" }); return [c.name, sum, c.icon]; }), catTotal, donutLabel);
+  /* v3.97: в списке показывались только топ-6 категорий, а в центр кольца и в
+     проценты долек шла ОБЩАЯ сумма расходов (со всеми категориями). Если
+     категорий было больше шести, видимые дольки не дотягивали до полного
+     круга — в кольце оставался пустой разрыв. В «Аналитике» такого не было,
+     потому что там total считается из того же списка, что и рисуется.
+     Чиним так же, как задумана «Аналитика», но не теряя точную сумму:
+     остаток сверх топ-6 идёт в кольцо отдельной долькой «Остальное». */
+  const catRest = catTotal - catRows.reduce((s, [, v]) => s + v, 0);
+  const donutEntries = catRows.map(([cid, sum]) => { const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" }); return [c.name, sum, c.icon]; });
+  if (catRest > 0.01) donutEntries.push(["Остальное", catRest, "•••"]);
+  drawDonut(document.getElementById("dash-donut"), donutEntries, catTotal, donutLabel);
   document.getElementById("dash-cats").innerHTML = catRows.length ? catRows.map(([cid, sum]) => {
     const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" });
     const pct = catTotal ? Math.round((sum / catTotal) * 100) : 0;
@@ -4950,7 +4961,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.96";
+const WW_VERSION = "3.97";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
