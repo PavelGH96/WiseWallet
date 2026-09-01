@@ -508,6 +508,20 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 @media(prefers-reduced-motion:reduce){.coin.ww26-shift,.coin.ww26-settle{transition:none}}
 .coin.ww26-sel .disc{border-color:var(--accent);box-shadow:0 0 0 4px var(--blue-bg);transform:scale(1.08)}
 .coin.ww26-sel .cname{color:var(--accent)}
+/* ---- v3.95: режим редактирования ярлыков, как на экране «Домой» iPhone.
+   Долгое нажатие на любой ярлык запускает покачивание у ВСЕХ ярлыков его
+   колонки — и тогда можно поднять и потянуть любой из них без повторного
+   удержания. Пока идёт реальное перетаскивание, покачивание соседей на
+   время выключается (иначе оно спорит с их сдвигом в нужный слот), и
+   включается снова после того, как палец отпущен. */
+.ww26-editmode .coin:not(.ww26-src):not(.add){animation:ww26Wiggle var(--ww26-wig-dur,.24s) ease-in-out infinite;animation-delay:var(--ww26-wig-delay,0s)}
+.ww26-editmode .coin:not(.ww26-src):not(.add):nth-child(2n){--ww26-wig-dur:.21s;--ww26-wig-delay:-.06s}
+.ww26-editmode .coin:not(.ww26-src):not(.add):nth-child(3n){--ww26-wig-dur:.27s;--ww26-wig-delay:-.12s}
+.ww26-editmode .coin:not(.ww26-src):not(.add):nth-child(5n){--ww26-wig-dur:.23s;--ww26-wig-delay:-.03s}
+@keyframes ww26Wiggle{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+.ww26-editmode.ww26-dragging .coin{animation:none!important}
+.ww26-editmode .coin .coin-menu-btn{pointer-events:none}
+@media(prefers-reduced-motion:reduce){.ww26-editmode .coin{animation:none!important}}
 /* ---- v2.9: три колонки — доходы слева, кошельки в центре, расходы справа ---- */
 .ww29-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) minmax(0,1.5fr);gap:14px;align-items:start}
 .ww29-mid{border-left:1px solid var(--border);border-right:1px solid var(--border);padding:0 10px}
@@ -625,6 +639,13 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 .task-check{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-h);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;background:var(--card);transition:background .15s,border-color .15s;padding:0}
 .task-check:hover{border-color:var(--green)}
 .task-check.done{background:var(--green);border-color:var(--green)}
+/* v3.96: короткая анимация отметки задачи выполненной, см. toggleTask() */
+@keyframes ww96CheckPop{0%{transform:scale(1)}40%{transform:scale(1.35)}65%{transform:scale(.9)}100%{transform:scale(1)}}
+.task-check.ww96-check-pop{animation:ww96CheckPop .32s cubic-bezier(.34,1.56,.64,1)}
+@keyframes ww96TaskDone{0%{opacity:1;transform:scale(1) translateX(0)}100%{opacity:0;transform:scale(.96) translateX(10px)}}
+.task-card.ww96-task-done{animation:ww96TaskDone .26s ease forwards;pointer-events:none}
+.task-card.ww96-task-done .task-text{text-decoration:line-through;text-decoration-color:var(--green)}
+@media(prefers-reduced-motion:reduce){.task-check.ww96-check-pop,.task-card.ww96-task-done{animation:none;opacity:.5}}
 .task-main{flex:1;min-width:0}
 .task-text{font-size:13.5px;font-weight:500;line-height:1.35}
 .task-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:5px;font-size:11px;color:var(--t3);align-items:center}
@@ -842,7 +863,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div id="dash-reminders" style="display:none"></div>
     <div id="ww318-hero"></div>
     <div class="section card coins-card" style="margin-top:0">
-      <h2>Быстрый ввод<span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span></h2>
+      <h2>Быстрый ввод<span style="display:flex;align-items:center;gap:8px"><span class="coins-hint">Доход → кошелёк · Кошелёк → расход</span><button type="button" id="ww26-done-btn" class="btn btn-ghost btn-sm" style="display:none" onclick="ww26ExitEditMode()">✓ Готово</button></span></h2>
       <div class="ww29-grid">
         <div class="ww29-col">
           <div class="coins-lbl ww26-lbl">Доходы <span class="ww26-total pos" id="ww26-inc-total"></span></div>
@@ -3432,7 +3453,7 @@ function taskCard(t) {
   const od = t.date && t.date < todayStr();
   const isToday = t.date === todayStr();
   const pr = PRIO_META[t.prio] || PRIO_META.mid;
-  return `<div class="task-card${od ? " od" : ""}" draggable="true" ondragstart="taskDrag(event,'${t.id}')" onclick="openTaskModal('${t.id}')">
+  return `<div class="task-card${od ? " od" : ""}" data-id="${t.id}" draggable="true" ondragstart="taskDrag(event,'${t.id}')" onclick="openTaskModal('${t.id}')">
     <button class="task-check" onclick="event.stopPropagation();toggleTask('${t.id}')" title="Отметить выполненной"></button>
     <div class="task-main">
       <div class="task-top"><div class="task-text">${esc(t.text)}</div>
@@ -3507,7 +3528,31 @@ function saveTask(id) {
   else S.tasks.push({ id: uid(), text, who, date, prio, done: false, created: Date.now() });
   save(); closeModal(); renderPlanner();
 }
-function toggleTask(id) { if (isObserver()) return; const t = S.tasks.find((x) => x.id === id); if (!t) return; t.done = !t.done; t.doneAt = t.done ? Date.now() : null; save(); renderPlanner(); }
+function toggleTask(id) {
+  if (isObserver()) return;
+  const t = S.tasks.find((x) => x.id === id); if (!t) return;
+  const completing = !t.done;
+  t.done = !t.done; t.doneAt = t.done ? Date.now() : null;
+  save();
+  /* v3.96: при отметке задачи выполненной — короткая анимация (галочка
+     «подпрыгивает», карточка гаснет и зачёркивается) и через 6 секунд
+     сгорающий тост с отменой. Карточку перестраиваем не мгновенно, а
+     после анимации, чтобы её было видно, а не резкий скачок в список. */
+  if (completing) {
+    const card = document.querySelector('.task-card[data-id="' + id + '"]');
+    if (card) {
+      const chk = card.querySelector(".task-check");
+      if (chk) chk.classList.add("ww96-check-pop");
+      card.classList.add("ww96-task-done");
+      setTimeout(() => {
+        renderPlanner();
+        ww2UndoToast("Задача выполнена", () => { const x = S.tasks.find((y) => y.id === id); if (x) { x.done = false; x.doneAt = null; save(); renderPlanner(); } });
+      }, 260);
+      return;
+    }
+  }
+  renderPlanner();
+}
 function delTask(id) { if (isObserver()) return; const t = S.tasks.find((x) => x.id === id); if (!t) return; S.tasks = S.tasks.filter((x) => x.id !== id); save(); closeModal(); renderPlanner(); ww2UndoToast("Задача удалена", () => { S.tasks.push(t); save(); renderPlanner(); }); }
 
 /* ===================== links ===================== */
@@ -4905,7 +4950,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.94";
+const WW_VERSION = "3.96";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6614,6 +6659,7 @@ async function ww26DeleteAccount(id) {
 }
 function ww26Tap(kind, id) {
   if (_ww26SkipClick) return;
+  if (_ww26EditKind === kind) return; /* v3.95: в режиме покачивания тап по ярлыку ничего не открывает */
   if (isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
   const sel = _ww26Sel;
   if (kind === "inc") {
@@ -6645,7 +6691,7 @@ function ww26ClearSel() {
 }
 /* Esc и клик мимо подсвеченных «целей» сбрасывают выделение и подсказку.
    Клик по самой цели или по источнику не трогаем — им займётся свой onclick. */
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && _ww26Sel) ww26ClearSel(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && _ww26Sel) ww26ClearSel(); if (e.key === "Escape" && _ww26EditKind) ww26ExitEditMode(); });
 document.addEventListener("click", (e) => {
   if (!_ww26Sel) return;
   const targetSel = _ww26Sel.kind === "inc" ? ".coin.acc" : ".coin.cat";
@@ -6654,6 +6700,41 @@ document.addEventListener("click", (e) => {
   ww26ClearSel();
 });
 let _ww26Drag = null;
+/* v3.95: режим редактирования (покачивание) — как на экране «Домой» iPhone.
+   _ww26EditKind = 'inc' | 'acc' | 'cat' | null — какая колонка сейчас
+   покачивается и готова к перетаскиванию без повторного удержания. */
+let _ww26EditKind = null;
+function ww26RowIdFor(kind) { return kind === "inc" ? "coins-inc" : kind === "acc" ? "coins-acc" : "coins-cat"; }
+function ww26EnterEditMode(kind) {
+  if (_ww26EditKind === kind) return;
+  if (_ww26EditKind) ww26ExitEditMode();
+  _ww26EditKind = kind;
+  const row = document.getElementById(ww26RowIdFor(kind));
+  if (row) row.classList.add("ww26-editmode");
+  const btn = document.getElementById("ww26-done-btn"); if (btn) btn.style.display = "inline-flex";
+  document.addEventListener("pointerdown", ww26EditOutside, true);
+}
+function ww26ExitEditMode() {
+  if (!_ww26EditKind) return;
+  ["coins-inc", "coins-acc", "coins-cat"].forEach((id) => { const r = document.getElementById(id); if (r) r.classList.remove("ww26-editmode", "ww26-dragging"); });
+  _ww26EditKind = null;
+  const btn = document.getElementById("ww26-done-btn"); if (btn) btn.style.display = "none";
+  document.removeEventListener("pointerdown", ww26EditOutside, true);
+}
+function ww26EditOutside(e) {
+  if (!_ww26EditKind) return;
+  if (_ww26Drag) return; /* сейчас поднимают ярлык — не путаем с тапом мимо */
+  const row = document.getElementById(ww26RowIdFor(_ww26EditKind));
+  if (row && row.contains(e.target)) return;
+  if (e.target.closest && e.target.closest("#ww26-done-btn")) return;
+  ww26ExitEditMode();
+}
+/* v3.96: если pointerup потерян (мышь отпустили вне окна, Alt+Tab, сворачивание
+   вкладки) — принудительно завершаем зависшее перетаскивание ярлыка, иначе
+   мышь на дашборде «переставала работать» до перезагрузки страницы. */
+function ww26ForceRelease() { if (_ww26Drag) { const s = _ww26Drag; _ww26Drag = null; ww26Cleanup(s); } }
+window.addEventListener("blur", ww26ForceRelease);
+document.addEventListener("visibilitychange", () => { if (document.hidden) ww26ForceRelease(); });
 /* v3.16: на телефоне снова работает перетаскивание: удержите иконку ~0.25 с и тяните.
    Короткое нажатие — прежний режим «источник → цель», скролл не блокируется. */
 function ww26StartGhost(st) {
@@ -6737,6 +6818,7 @@ function ww26Cleanup(st) {
   document.removeEventListener("touchmove", ww26Block);
   if (st.ghost) st.ghost.remove();
   st.el.classList.remove("ww26-src");
+  if (st.row) st.row.classList.remove("ww26-dragging"); /* v3.95: покачивание соседей возобновляется после отпускания */
   ww26LayoutReset(st);
   if (st.armed || st.moved) document.querySelectorAll(".coin.drop-target").forEach(function (c) { c.classList.remove("drop-target"); });
   // v3.94: renderCoins() отказывался перестраивать список, пока шло
@@ -6750,16 +6832,30 @@ function ww26Cleanup(st) {
 }
 function ww26Down(e, kind, id) {
   if (isObserver()) return;
+  /* v3.96: защита от «залипшего» перетаскивания — если предыдущий жест
+     не получил pointerup (например, кнопку отпустили за пределами окна
+     браузера или окно потеряло фокус), _ww26Drag мог остаться висеть
+     навсегда, и renderCoins() с этого момента отказывался перестраивать
+     список — мышь переставала работать до перезагрузки страницы. */
+  if (_ww26Drag) { const s = _ww26Drag; _ww26Drag = null; ww26Cleanup(s); }
   const touch = e.pointerType && e.pointerType !== "mouse";
   if (!touch) e.preventDefault();
-  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, touch, armed: !touch, timer: null };
-  if (touch) {
+  /* v3.95: колонка уже покачивается (режим редактирования) — не ждём
+     повторного удержания, поднимаем ярлык сразу же, как на iPhone. */
+  const alreadyEditing = touch && _ww26EditKind === kind;
+  _ww26Drag = { kind, id, el: e.currentTarget, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, touch, armed: !touch || alreadyEditing, timer: null };
+  if (touch && alreadyEditing) {
+    ww26ClearSel();
+    ww26StartGhost(_ww26Drag);
+    document.addEventListener("touchmove", ww26Block, { passive: false });
+  } else if (touch) {
     _ww26Drag.timer = setTimeout(function () {
       const st = _ww26Drag;
       if (!st || st.moved) return;
       st.armed = true;
       ww26ClearSel();
       ww26StartGhost(st);
+      ww26EnterEditMode(st.kind);
       if (navigator.vibrate) { try { navigator.vibrate(15); } catch (err) {} }
     }, 250);
     document.addEventListener("touchmove", ww26Block, { passive: false });
@@ -6779,6 +6875,7 @@ function ww26Move(e) {
   if (!st.moved && Math.abs(dx) + Math.abs(dy) > 6) {
     st.moved = true;
     if (!st.ghost) { ww26ClearSel(); ww26StartGhost(st); }
+    if (st.row) st.row.classList.add("ww26-dragging"); /* v3.95: на время реального перетаскивания выключаем покачивание соседей */
   }
   if (st.ghost) st.ghost.style.transform = `translate(${dx}px,${dy}px)`;
   // Пока палец над своим рядом — живая раскладка: соседи расступаются,
