@@ -826,6 +826,11 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 .ww89-plan:focus{outline:none;border-style:solid;border-color:var(--green)}
 /* v3.98: сумма задана отдельно на этот месяц (не как в шаблоне) */
 .ww89-plan.ww98-over{border-style:solid;border-color:var(--green);background:var(--green-bg,var(--bg))}
+/* v4.03: строки разделения чека по категориям */
+.ww403-split-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.ww403-split-row select{flex:1 1 auto;min-width:0}
+.ww403-split-row input{width:104px;flex:0 0 auto;text-align:right}
+.ww403-split-row .btn{flex:0 0 auto}
 /* v4.01: шапка карточки «Сравнение месяцев» — два поля выбора + ⇄ и ↺.
    На узком экране контролы уходят на свою строку и растягиваются на всю
    ширину, иначе четыре элемента не помещаются рядом с заголовком. */
@@ -1670,9 +1675,96 @@ function renderDash() {
 function txRow(t) {
   const c = cat(t.categoryId) || { icon: t.type === "income" ? "💵" : "📌", name: "Без категории" };
   const tagsHtml = (t.tags && t.tags.length) ? " " + t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join("") : "";
-  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button></div>`;
+  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}${t.splitId ? ' <span class="tag" title="Часть разделённого чека">часть чека</span>' : ""}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();dupTx('${t.id}')" title="Повторить операцию">⧉</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button></div>`;
+}
+/* ===================== v4.03: разделение чека по категориям =====================
+   Классика: в супермаркете 3000 ₽, из них 2200 — еда, 800 — бытовая химия.
+   Раньше приходилось либо писать всё одной категорией (и портить аналитику),
+   либо заводить две операции руками и следить, чтобы сумма сошлась.
+   Архитектурно части — это ОБЫЧНЫЕ операции, по одной на категорию, связанные
+   общим splitId. Никакой «родительской» записи нет намеренно: иначе её
+   пришлось бы исключать из каждого подсчёта (месяц, аналитика, отчёты,
+   бюджеты), и любой забытый фильтр давал бы двойной счёт. */
+let _txSplit = null;   /* null — обычный режим; массив [{cid, amt}] — режим разделения */
+function ww403SplitToggle() {
+  if (_txSplit) { _txSplit = null; ww403SplitRender(); return; }
+  const total = wwCalcExpr(document.getElementById("tx-amount").value) || 0;
+  const cats = S.categories.filter((c) => c.type === txType);
+  _txSplit = [
+    { cid: txCat || (cats[0] || {}).id || "", amt: total > 0 ? Math.round(total * 100) / 100 : "" },
+    { cid: (cats.find((c) => c.id !== txCat) || cats[1] || cats[0] || {}).id || "", amt: "" },
+  ];
+  ww403SplitRender();
+}
+function ww403SplitAdd() { if (!_txSplit) return; const cats = S.categories.filter((c) => c.type === txType); _txSplit.push({ cid: (cats[0] || {}).id || "", amt: "" }); ww403SplitRender(); }
+function ww403SplitDel(i) { if (!_txSplit) return; _txSplit.splice(i, 1); if (_txSplit.length < 2) _txSplit = null; ww403SplitRender(); }
+function ww403SplitSet(i, field, v) {
+  if (!_txSplit || !_txSplit[i]) return;
+  _txSplit[i][field] = v;
+  /* При вводе суммы НЕ перерисовываем строки — иначе курсор выпрыгивает из
+     поля на каждом символе. Обновляем только строку остатка. */
+  if (field === "amt") ww403SplitRestRender(); else ww403SplitRender();
+}
+function ww403SplitSum() { return (_txSplit || []).reduce((s, p) => s + (wwCalcExpr(p.amt) || 0), 0); }
+/* Остаток: сколько ещё не разложено по категориям. Показываем всегда, потому
+   что сойтись «в ноль» — единственное условие сохранения. */
+function ww403SplitRest() {
+  const total = wwCalcExpr(document.getElementById("tx-amount").value) || 0;
+  return Math.round((total - ww403SplitSum()) * 100) / 100;
+}
+function ww403SplitRestRender() {
+  const el = document.getElementById("tx-split-rest");
+  if (!el) return;
+  const rest = ww403SplitRest();
+  el.style.color = Math.abs(rest) < 0.005 ? "var(--green)" : "var(--amber)";
+  el.textContent = Math.abs(rest) < 0.005 ? "Разложено полностью" : (rest > 0 ? "Осталось разложить: " + money(rest) : "Перебор на " + money(-rest));
+}
+function ww403SplitRender() {
+  const box = document.getElementById("tx-split-box");
+  const btn = document.getElementById("tx-split-btn");
+  const catFg = document.getElementById("tx-cat-fg");
+  if (!box) return;
+  if (btn) btn.textContent = _txSplit ? "Отменить разделение" : "Разделить по категориям";
+  if (catFg) catFg.style.display = _txSplit ? "none" : "";   /* одиночная категория в этом режиме не нужна */
+  if (!_txSplit) { box.innerHTML = ""; return; }
+  const cats = S.categories.filter((c) => c.type === txType);
+  const opts = (sel) => cats.map((c) => `<option value="${c.id}"${c.id === sel ? " selected" : ""}>${esc(c.icon + " " + c.name)}</option>`).join("");
+  box.innerHTML = '<label>Части чека</label>' +
+    _txSplit.map((p, i) =>
+      '<div class="ww403-split-row">' +
+      '<select onchange="ww403SplitSet(' + i + ',\'cid\',this.value)">' + opts(p.cid) + '</select>' +
+      '<input type="text" inputmode="decimal" placeholder="сумма" value="' + esc(String(p.amt)) + '" ' +
+      'oninput="ww403SplitSet(' + i + ',\'amt\',this.value)" data-si="' + i + '">' +
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="ww403SplitDel(' + i + ')" title="Убрать часть">✕</button>' +
+      '</div>').join("") +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px">' +
+    '<button type="button" class="btn btn-ghost btn-sm" onclick="ww403SplitAdd()">+ Часть</button>' +
+    '<span class="sub" id="tx-split-rest"></span></div>';
+  ww403SplitRestRender();
 }
 async function delTx(id) { if (isObserver()) return; if (!await wwConfirm("Операцию можно будет вернуть только вручную.", { title: "Удалить операцию?", okText: "Удалить", danger: true })) return; S.transactions = S.transactions.filter((t) => t.id !== id); save(); render(activePage()); }
+/* v4.03: повтор операции — самый частый ежедневный сценарий (тот же кофе,
+   та же заправка, тот же обед). Открываем форму, заполненную по образцу, но
+   с СЕГОДНЯШНЕЙ датой и без привязки к исходной записи: это новая операция,
+   а не правка старой. Пользователь может что-то поправить и сохранить —
+   поэтому именно форма, а не молчаливое создание копии: сумма у повторов
+   почти всегда отличается. */
+function dupTx(id) {
+  if (isObserver()) return;
+  const t = S.transactions.find((x) => x.id === id);
+  if (!t) { toast("Операция не найдена"); return; }
+  window._txEditId = null;
+  openTxModal({
+    type: t.type,
+    amount: t.amount,
+    categoryId: t.categoryId,
+    accountId: t.accountId,
+    whose: t.whose || "",
+    note: t.note || "",
+    tags: (t.tags || []).slice(),
+    _dup: true,
+  });
+}
 function activePage() { return (document.querySelector(".page.active") || {}).id?.replace("page-", "") || "dashboard"; }
 </script>
 <script>
@@ -1685,7 +1777,7 @@ function txCard(t) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
       <div style="display:flex;gap:10px;align-items:center;min-width:0"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div style="min-width:0"><div class="rt">${esc(c.name)}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div></div>
       <div style="display:flex;gap:4px;flex-shrink:0">
-        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();dupTx('${t.id}')" title="Повторить операцию">⧉</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button>
       </div>
     </div>
@@ -2810,6 +2902,7 @@ function openTxModal(pre) {
   if (isObserver()) return;
   pre = pre || {};
   if (!pre._edit) window._txEditId = null;
+  _txSplit = null;   /* v4.03: режим разделения не должен протекать из прошлой формы */
   txType = pre.type || "expense"; txCat = pre.categoryId || (S.settings.lastCat && S.settings.lastCat[txType]) || null;
   const lockedCat = pre.lockCategory ? cat(txCat) : null;
   showModal(`<div class="mhead"><h3>Новая операция</h3><button class="x" onclick="closeModal()">✕</button></div>
@@ -2818,28 +2911,113 @@ function openTxModal(pre) {
     <div class="fg"><div class="seg" id="tx-seg">
       <button class="${txType === "expense" ? "active exp" : ""}" onclick="setTxType('expense',this)">Расход</button>
       <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>`}
-    <div class="fg"><input class="amount-in" id="tx-amount" type="number" inputmode="decimal" placeholder="0 ₽" value="${pre.amount || ""}" autofocus></div>
-    ${lockedCat ? "" : `<div class="fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>`}
+    <div class="fg"><input class="amount-in" id="tx-amount" type="text" inputmode="decimal" placeholder="0 ₽ (можно 450+120)" value="${pre.amount || ""}" autofocus onblur="wwApplyCalc(this)"></div>
+    ${lockedCat ? "" : `<div class="fg" id="tx-cat-fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>
+    <div class="fg" id="tx-split-box"></div>
+    <button type="button" class="btn btn-ghost btn-sm" id="tx-split-btn" style="margin:-4px 0 10px" onclick="ww403SplitToggle()">Разделить по категориям</button>`}
     ${(pre.type || txType) === "expense" || txType === "expense" ? `<div class="fg" id="tx-whose-fg"><label>Чей расход <span style="color:var(--red)">*</span></label>
       <div class="seg ww80-whose" id="tx-whose">${WW80_WHOSE.map((w) => `<button type="button" data-whose="${w.id}" class="${pre.whose === w.id ? "active" : ""}" onclick="ww80PickWhose('${w.id}',this)">${w.name}</button>`).join("")}</div></div>` : ""}
     <div class="fg-row">
       <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${wwDefaultTxDate()}">${wwDefaultTxDate() !== todayStr() ? `<div class="sub" style="margin-top:4px;color:var(--amber)">Дата подставлена по выбранному периоду — вы смотрите не текущий месяц</div>` : ""}</div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
     </div>
-    <div class="fg"><label>Метки (через запятую)</label><input id="tx-tags" placeholder="напр.: работа, катя"></div>
-    <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
+    <div class="fg"><label>Метки (через запятую)</label><input id="tx-tags" placeholder="напр.: работа, катя" value="${esc((pre.tags || []).join(", "))}"></div>
+    <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" value="${esc(pre.note || "")}" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTx()">Сохранить</button>`);
   if (!lockedCat) renderTxCats();
-  wwFocus(pre.amount ? "tx-amount" : "tx-quick");
+  /* v4.03: у повтора всё уже заполнено — ставим курсор в сумму и выделяем её,
+     потому что сумма как раз почти всегда отличается от образца. */
+  if (pre._dup) {
+    const a = document.getElementById("tx-amount");
+    if (a) { a.focus(); try { a.select(); } catch (e) {} }
+  } else {
+    wwFocus(pre.amount ? "tx-amount" : "tx-quick");
+  }
+}
+/* ===================== v4.03: арифметика в поле суммы =====================
+   На кассе постоянно нужно сложить: скинулись на подарок, разделили счёт,
+   две покупки одним чеком. Раньше поле было <input type="number">, и ввести
+   «450+120» было нельзя — приходилось считать в уме.
+   Считаем СВОИМ парсером, а не eval(): eval в поле, куда пользователь что-то
+   вводит, — это исполнение произвольного кода, и так делать нельзя даже в
+   локальном приложении. Поддерживаем + - * / и скобки, запятую как
+   десятичный разделитель. Возвращаем null, если строка не является
+   корректным выражением, — тогда вызывающий код покажет обычную ошибку. */
+function wwCalcExpr(src) {
+  const s = String(src == null ? "" : src).replace(/\s+/g, "").replace(/,/g, ".").replace(/[−–—]/g, "-").replace(/[×]/g, "*").replace(/[÷]/g, "/");
+  if (!s) return null;
+  if (!/^[0-9.+\-*/()]+$/.test(s)) return null;
+  let i = 0;
+  const peek = () => s[i];
+  function parseExpr() {
+    let v = parseTerm();
+    if (v === null) return null;
+    while (peek() === "+" || peek() === "-") {
+      const op = s[i++];
+      const r = parseTerm();
+      if (r === null) return null;
+      v = op === "+" ? v + r : v - r;
+    }
+    return v;
+  }
+  function parseTerm() {
+    let v = parseFactor();
+    if (v === null) return null;
+    while (peek() === "*" || peek() === "/") {
+      const op = s[i++];
+      const r = parseFactor();
+      if (r === null) return null;
+      if (op === "/" && r === 0) return null;   /* деление на ноль — ошибка ввода, а не Infinity */
+      v = op === "*" ? v * r : v / r;
+    }
+    return v;
+  }
+  function parseFactor() {
+    if (peek() === "+") { i++; return parseFactor(); }
+    if (peek() === "-") { i++; const v = parseFactor(); return v === null ? null : -v; }
+    if (peek() === "(") {
+      i++;
+      const v = parseExpr();
+      if (v === null || peek() !== ")") return null;
+      i++;
+      return v;
+    }
+    const start = i;
+    while (i < s.length && /[0-9.]/.test(s[i])) i++;
+    if (i === start) return null;
+    const num = parseFloat(s.slice(start, i));
+    return isFinite(num) ? num : null;
+  }
+  const val = parseExpr();
+  if (val === null || i !== s.length || !isFinite(val)) return null;
+  return Math.round(val * 100) / 100;
+}
+/* Пересчитывает выражение прямо в поле, когда пользователь из него уходит. */
+function wwApplyCalc(el) {
+  if (!el) return;
+  const raw = (el.value || "").trim();
+  if (!raw || !/[+\-*/()]/.test(raw.slice(1))) return;   /* обычное число — не трогаем */
+  const v = wwCalcExpr(raw);
+  if (v !== null && v > 0) el.value = String(v);
 }
 function parseQuick() {
   const raw = (document.getElementById("tx-quick").value || "").trim();
   if (!raw) return;
-  const m = raw.match(/-?\d+[.,]?\d*/);
-  if (m) document.getElementById("tx-amount").value = m[0].replace(",", ".");
+  /* v4.03: в быстром вводе тоже понимаем выражение — «450+120 обед» */
+  const expr = raw.match(/^[\s0-9.,+\-*/()]+/);
+  const exprVal = expr ? wwCalcExpr(expr[0]) : null;
+  const usedExpr = exprVal !== null && exprVal > 0 && /[+\-*/()]/.test(expr[0].trim().slice(1));
+  if (usedExpr) {
+    document.getElementById("tx-amount").value = String(exprVal);
+  } else {
+    const m = raw.match(/-?\d+[.,]?\d*/);
+    if (m) document.getElementById("tx-amount").value = m[0].replace(",", ".");
+  }
   const tags = (raw.match(/#[\p{L}\d_]+/gu) || []).map((s) => s.slice(1));
   if (tags.length) document.getElementById("tx-tags").value = tags.join(", ");
-  let rest = raw.replace(/-?\d+[.,]?\d*/, "").replace(/#[\p{L}\d_]+/gu, "").trim();
+  /* вырезаем ровно то, что съели: всё выражение целиком, а не первое число,
+     иначе в комментарий попадал «хвост» вида «+120» */
+  let rest = (usedExpr ? raw.slice(expr[0].length) : raw.replace(/-?\d+[.,]?\d*/, "")).replace(/#[\p{L}\d_]+/gu, "").trim();
   if (rest) {
     if (document.getElementById("tx-cats")) {
       const words = rest.toLowerCase().split(/\s+/);
@@ -3071,8 +3249,14 @@ function ww318CatFreq() {
   return f;
 }
 function saveTx() {
-  const amount = parseFloat(document.getElementById("tx-amount").value);
+  /* v4.03: сумма может быть выражением («450+120»), поэтому сначала считаем.
+     Если пользователь сохранил, не уходя из поля, onblur мог не сработать. */
+  const _amtEl = document.getElementById("tx-amount");
+  const _rawAmt = (_amtEl.value || "").trim();
+  let amount = /[+\-*/()]/.test(_rawAmt.slice(1)) ? wwCalcExpr(_rawAmt) : parseFloat(_rawAmt.replace(",", "."));
+  if (amount === null) { toast("Не понял выражение в поле суммы"); wwFocus("tx-amount"); return; }
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
+  if (_amtEl) _amtEl.value = String(amount);
   /* v3.80: для расхода обязательно указать, чей он. Без выбора не сохраняем
      и подсвечиваем поле, а не просто показываем тост — иначе на длинной форме
      непонятно, что именно не заполнено. */
@@ -3095,6 +3279,31 @@ function saveTx() {
     return;
   }
   const tags = (document.getElementById("tx-tags").value || "").split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean);
+  /* v4.03: разделённый чек сохраняется как НЕСКОЛЬКО обычных операций —
+     по одной на категорию, со общим splitId. Требуем, чтобы части сошлись
+     с общей суммой до копейки: иначе итог месяца разошёлся бы с чеком,
+     а молча «дотягивать» последнюю часть — значит подменять данные
+     пользователя. */
+  if (_txSplit) {
+    if (window._txEditId) { toast("Разделить можно только новую операцию"); return; }
+    const parts = _txSplit.map((p) => ({ cid: p.cid, amt: wwCalcExpr(p.amt) }));
+    if (parts.some((p) => !p.cid)) { toast("У каждой части должна быть категория"); return; }
+    if (parts.some((p) => p.amt === null || !(p.amt > 0))) { toast("У каждой части должна быть сумма больше нуля"); return; }
+    const rest = Math.round((amount - parts.reduce((s, p) => s + p.amt, 0)) * 100) / 100;
+    if (Math.abs(rest) >= 0.005) {
+      toast(rest > 0 ? "Не разложено: " + money(rest) : "Части превышают сумму на " + money(-rest));
+      return;
+    }
+    const splitId = uid();
+    const base = { date: document.getElementById("tx-date").value || todayStr(), type: txType, accountId: document.getElementById("tx-acc").value, whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
+    const ids = [];
+    parts.forEach((p) => { const id = uid(); ids.push(id); S.transactions.push({ id, ...base, amount: p.amt, categoryId: p.cid, splitId, createdAt: Date.now() }); });
+    _txSplit = null;
+    save(); closeModal(); render(activePage());
+    ww2UndoToast("Чек разделён на " + parts.length + " ч. · " + money(amount),
+      () => { S.transactions = S.transactions.filter((x) => ids.indexOf(x.id) < 0); save(); render(activePage()); }, "Отменено");
+    return;
+  }
   const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
   let _undoFn = null;
   if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) { const _old = { ..._ex }; Object.assign(_ex, _txData); _undoFn = () => { const _c = S.transactions.find((x) => x.id === _old.id); if (_c) Object.assign(_c, _old); }; } window._txEditId = null; }
@@ -5012,7 +5221,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.02";
+const WW_VERSION = "4.03";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
