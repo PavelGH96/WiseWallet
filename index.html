@@ -1059,7 +1059,23 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 /* ===================== state & seed ===================== */
 const LS_KEY = "ww_state_v1";
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-const todayStr = () => new Date().toISOString().slice(0, 10);
+/* v4.02: дата берётся по МЕСТНОМУ времени, а не по UTC.
+   Раньше todayStr() был `new Date().toISOString().slice(0,10)`, то есть
+   возвращал UTC-дату. В поясах восточнее Гринвича (Екатеринбург — UTC+5)
+   с 00:00 до 05:00 по местному времени это давало ВЧЕРАШНЮЮ дату: ночная
+   операция попадала во вчера, а в ночь на 1-е число — вообще в прошлый
+   месяц, мимо всей текущей отчётности. То же касалось «сегодня» в
+   планировщике, просроченных задач и duePostings.
+   ymdLocal(d) — единая точка форматирования Date → "ГГГГ-ММ-ДД" по
+   местному времени; использовать её везде вместо toISOString().slice(0,10).
+   Уже сохранённые записи не трогаем: их даты и так лежат строками, а
+   пересчитывать задним числом было бы хуже — мы не знаем, в каком поясе
+   они вводились. */
+function ymdLocal(d) {
+  const x = d instanceof Date ? d : new Date(d);
+  return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+}
+const todayStr = () => ymdLocal(new Date());
 
 function seedState() {
   const cats = [
@@ -1173,11 +1189,43 @@ function wwLooksUntouched(st) {
   var edits = Array.isArray(st.audit) ? st.audit.length : 0;
   return tx === 0 && marks === 0 && edits === 0;
 }
+/* v4.02: запись в localStorage защищена от переполнения.
+   Раньше save() вызывал setItem без try/catch, и при исчерпании квоты
+   (~5 МБ; при 150 операциях в месяц это достижимо за несколько лет)
+   исключение улетало наружу: текущая операция обрывалась на середине,
+   пользователь не получал никакого предупреждения и терял правку молча.
+   Теперь ошибка перехватывается, пользователю показывается честное
+   сообщение, а данные остаются в памяти (S) — их можно выгрузить в файл
+   через «Настройки → Экспорт», ничего не потеряв. */
+var _wwQuotaWarned = false;
+function wwIsQuotaError(e) {
+  return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014);
+}
+function wwPersist() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    _wwQuotaWarned = false;
+    return true;
+  } catch (e) {
+    if (!wwIsQuotaError(e)) { console.error("Не удалось сохранить состояние:", e); return false; }
+    /* Показываем предупреждение один раз на серию, иначе при каждом
+       нажатии клавиши посыплются одинаковые тосты. */
+    if (!_wwQuotaWarned) {
+      _wwQuotaWarned = true;
+      try {
+        toast("Память браузера заполнена — изменения не сохраняются. Сделайте экспорт в «Настройках»");
+      } catch (err) {}
+      console.error("localStorage переполнен: данные есть в памяти, но не записаны на диск", e);
+    }
+    return false;
+  }
+}
 function save() {
   S.updatedAt = Date.now();
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  const ok = wwPersist();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => syncNow(false), 1500);
+  return ok;
 }
 
 /* ===================== observer (read-only) mode ===================== */
@@ -1189,7 +1237,7 @@ function save() {
 /* ---- сворачивание бокового меню ---- */
 function toggleRailCollapse() {
   S.settings.railCollapsed = !S.settings.railCollapsed;
-  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  wwPersist();
   applyRailCollapse();
 }
 function applyRailCollapse() {
@@ -1214,7 +1262,7 @@ async function setObserverMode(v) {
   if (v === S.settings.observerMode) return;
   if (v && !await wwConfirm("Редактирование станет недоступно — только просмотр с автообновлением. Синхронизацию (URL, ключ, syncId) нужно настроить как обычно.", { title: "Включить режим наблюдателя?", okText: "Включить" })) return;
   S.settings.observerMode = v;
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  wwPersist();
   applyObserverMode();
   renderSettings();
   toast(v ? "Режим наблюдателя включён" : "Режим наблюдателя выключен");
@@ -1287,7 +1335,7 @@ function isOverdue(c) {
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const thisMonthPay = new Date(now.getFullYear(), now.getMonth(), Math.min(c.payDay, dim));
   if (now < thisMonthPay) return false;
-  const cutoff = thisMonthPay.toISOString().slice(0, 10);
+  const cutoff = ymdLocal(thisMonthPay);
   return !S.transactions.some((t) => t.categoryId === "c_credit" && t.note === c.name && t.date >= cutoff);
 }
 function balance() {
@@ -1320,7 +1368,7 @@ function capitalSparklineSeries() {
   const pts = [];
   for (let i = 5; i >= 0; i--) {
     const cutoffDate = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-    const cutoff = cutoffDate.toISOString().slice(0, 10);
+    const cutoff = ymdLocal(cutoffDate);
     let bal = base;
     for (const t of sorted) { if (t.date > cutoff) break; bal += t.type === "income" ? +t.amount : -t.amount; }
     pts.push(bal - debt);
@@ -1381,7 +1429,7 @@ document.addEventListener("click", (e) => {
 function setViewMode(page, mode) {
   S.settings.viewMode = S.settings.viewMode || {};
   S.settings.viewMode[page] = mode;
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  wwPersist();
   const m = document.getElementById("view-menu-pop"); if (m) m.remove();
   render(page);
 }
@@ -1390,7 +1438,7 @@ function setViewMode(page, mode) {
 function isDismissed(key) { return !!S.settings.dismissed[key]; }
 function dismissReminder(key) {
   S.settings.dismissed[key] = true;
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  wwPersist();
   renderReminders();
 }
 function upcomingReminders(days) {
@@ -1646,38 +1694,11 @@ function txCard(t) {
     <div class="ramt ${t.type === "income" ? "pos" : ""}" style="font-size:17px">${moneySign(t.amount, t.type)}</div>
   </div>`;
 }
-function renderOps() {
-  const vb = document.getElementById("view-btn-ops"); if (vb) vb.innerHTML = viewBtnHtml("ops");
-  const mEl = document.getElementById("ops-month");
-  if (!mEl.value) mEl.value = todayStr().slice(0, 7);
-  const ym = mEl.value, type = document.getElementById("ops-type").value,
-    cid = document.getElementById("ops-cat").value, q = document.getElementById("ops-q").value.toLowerCase();
-  const catSel = document.getElementById("ops-cat");
-  if (catSel.options.length <= 1) catSel.innerHTML = '<option value="">Все категории</option>' + S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
-  let tx = monthTx(ym);
-  if (type) tx = tx.filter((t) => t.type === type);
-  if (cid) tx = tx.filter((t) => t.categoryId === cid);
-  if (q) tx = tx.filter((t) => (t.note || "").toLowerCase().includes(q) || (cat(t.categoryId) || {}).name?.toLowerCase().includes(q) || (t.tags || []).some((tg) => ("#" + tg).toLowerCase().includes(q) || tg.toLowerCase().includes(q.replace(/^#/, ""))));
-  const inc = tx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0);
-  const exp = tx.filter((t) => t.type === "expense").reduce((s, t) => s + +t.amount, 0);
-  document.getElementById("ops-summary").innerHTML = `<div style="display:flex;gap:24px;flex-wrap:wrap"><div><div class="sub">Доходы</div><div class="ramt pos" style="font-size:17px">+${money(inc)}</div></div><div><div class="sub">Расходы</div><div class="ramt neg" style="font-size:17px">−${money(exp)}</div></div><div><div class="sub">Итог</div><div class="ramt ${inc - exp >= 0 ? "pos" : "neg"}" style="font-size:17px">${inc - exp >= 0 ? "+" : "−"}${money(Math.abs(inc - exp))}</div></div></div>`;
-  const listEl = document.getElementById("ops-list");
-  if (!tx.length) { listEl.className = "card"; listEl.innerHTML = '<div class="empty"><div class="big">' + WWI.folder + '</div>Нет операций по выбранным фильтрам</div>'; return; }
-  if (viewMode("ops") === "list") {
-    listEl.className = "card";
-    const byDay = {};
-    tx.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
-    listEl.innerHTML = Object.keys(byDay).sort().reverse().map((d) => {
-      const rows = byDay[d];
-      const dayTotal = rows.reduce((s, t) => s + (t.type === "income" ? +t.amount : -t.amount), 0);
-      return `<div class="day-head"><span>${fmtDay(d)}</span><span>${dayTotal >= 0 ? "+" : "−"}${money(Math.abs(dayTotal))}</span></div><div class="ops-day">` + rows.map(txRow).join("") + `</div>`;
-    }).join("");
-    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { reorderById(S.transactions, ids); save(); renderOps(); }; });
-  } else {
-    listEl.className = "grid grid-2";
-    listEl.innerHTML = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).map(txCard).join("");
-  }
-}
+/* v4.02: здесь была вторая, МЁРТВАЯ копия renderOps(). Она объявлялась раньше
+   рабочей версии (см. ниже, рядом с ensureTransferBtn) и полностью ею
+   перекрывалась — то есть не выполнялась никогда. Отличалась не косметически:
+   считала суммы через monthTx() и не учитывала переводы, поэтому правки в ней
+   не давали никакого эффекта и сбивали с толку. Удалена. */
 
 /* ===================== credits ===================== */
 function crPaidRub(c) { const total = Math.max(+c.balanceFull || 0, +c.initial || 0, +c.balance || 0); return Math.max(0, Math.round(total - (+c.balance || 0))); }
@@ -2057,7 +2078,7 @@ function planSeries() {
   const out = []; const now = new Date();
   for (let i = 0; i < 6; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 15);
-    const ds = d.toISOString().slice(0, 10);
+    const ds = ymdLocal(d);
     let exp = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
     for (const c of S.credits.filter((c) => c.status === "active")) {
       exp += (c.graceFrom && c.graceTo && ds >= c.graceFrom.slice(0, 7) + "-01" && ds <= c.graceTo) ? c.gracePayment : c.payment;
@@ -2071,7 +2092,7 @@ function factSeries() {
   const out = []; const now = new Date();
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const ym = d.toISOString().slice(0, 7); const tx = monthTx(ym);
+    const ym = ymdLocal(d).slice(0, 7); const tx = monthTx(ym);
     out.push({ label: MONTHS[d.getMonth()].slice(0, 3), a: tx.filter((t) => t.type === "income").reduce((s, t) => s + +t.amount, 0), b: tx.filter((t) => t.type === "expense").reduce((s, t) => s + +t.amount, 0) });
   }
   return out;
@@ -2151,7 +2172,7 @@ function renderSettings() {
 }
 function setReminderDays(v) {
   S.settings.reminderDays = Math.max(0, Math.min(14, Math.round(+v) || 0));
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  wwPersist();
   renderReminders();
 }
 function setTheme(id) { S.settings.theme = id; document.body.dataset.theme = id; try { ww35ThemeColor(); } catch (e) {} save(); renderSettings(); }
@@ -2459,7 +2480,7 @@ function normalizeDate(s) {
   const m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   const d = new Date(s);
-  return isNaN(d) ? null : d.toISOString().slice(0, 10);
+  return isNaN(d) ? null : ymdLocal(d);
 }
 function importJson(inp) {
   if (isObserver()) { inp.value = ""; return; }
@@ -2501,7 +2522,7 @@ function ww36RealtimeInit() {
         const remote = payload.new; if (!remote || !remote.data) return;
         if ((remote.data.updatedAt || 0) > S.updatedAt) {
           const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
-          localStorage.setItem(LS_KEY, JSON.stringify(S));
+          wwPersist();
           render(activePage());
           toast("🔄 Обновлено с другого устройства");
         }
@@ -2529,13 +2550,13 @@ async function syncNow(manual) {
     if (isObs) {
       if (remote && remote.data) {
         const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
-        localStorage.setItem(LS_KEY, JSON.stringify(S));
+        wwPersist();
         render(activePage());
         if (manual) toast("Данные обновлены");
       } else if (manual) toast("На сервере пока нет данных");
     } else if (remote && remote.data && (remote.data.updatedAt || 0) > S.updatedAt) {
       const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
-      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      wwPersist();
       render(activePage());
       if (manual) toast("Загружены данные с сервера");
     } else {
@@ -2544,7 +2565,7 @@ async function syncNow(manual) {
       if (manual) toast("Данные отправлены в Supabase");
     }
     S.settings.lastSync = Date.now();
-    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    wwPersist();
     sbStatus();
   } catch (e) { if (manual) toast("Ошибка синхронизации: " + e.message); sbStatus("Ошибка: " + e.message); }
 }
@@ -3463,7 +3484,7 @@ const WHO_LABEL = { me: "👤 Я", wife: "👩 Жена", both: "👥 Вмест
 const WHO_ICON = { me: "👤", wife: "👩", both: "👥" };
 const PRIO_META = { high: ["Высокий", "var(--red)"], mid: ["Средний", "var(--amber)"], low: ["Низкий", "var(--green)"] };
 const PRIO_RANK = { high: 0, mid: 1, low: 2 };
-const dayOff = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const dayOff = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymdLocal(d); };
 function setTaskWho(w) { taskWho = w; renderPlanner(); }
 function taskCols() {
   const T = todayStr(), TM = dayOff(1), WE = dayOff(7);
@@ -4126,7 +4147,7 @@ async function _syncNowInner(manual) {
     const doPull = () => {
       const keep = S.settings; S = remote.data; S.settings = { ...S.settings, ...keep };
       ww2Migrate();
-      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      wwPersist();
       localStorage.setItem(WW2K.lastRemote, remote.updated_at || "");
       render(activePage());
     };
@@ -4177,7 +4198,7 @@ async function _syncNowInner(manual) {
       }
     }
     S.settings.lastSync = Date.now();
-    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    wwPersist();
     sbStatus();
   } catch (e) { if (manual) toast("Ошибка синхронизации: " + e.message); sbStatus("Ошибка: " + e.message); }
 }
@@ -4638,7 +4659,7 @@ function creditSchedule(c, extraMonthly, oneTime, overridePayment) {
   const start = new Date();
   for (let i = 0; i < 600 && bal > 0.5; i++) {
     const d = new Date(start.getFullYear(), start.getMonth() + i + 1, Math.min(+c.payDay || 15, 28));
-    const ds = d.toISOString().slice(0, 10);
+    const ds = ymdLocal(d);
     const grace = c.graceFrom && c.graceTo && ds >= c.graceFrom && ds <= c.graceTo;
     let pay = (grace ? (+c.gracePayment || +c.payment) : (overridePayment || +c.payment)) + (grace ? 0 : (extraMonthly || 0));
     const interest = bal * mr;
@@ -4722,10 +4743,10 @@ async function ww2Restore(t) {
   const s = ww2Snapshots().find((x) => x.t === t); if (!s) return;
   if (!await wwConfirm("Текущие данные будут заменены. Перед заменой создадим ещё одну копию, так что откатиться будет можно.", { title: "Восстановить копию от " + new Date(t).toLocaleString("ru-RU") + "?", okText: "Восстановить" })) return;
   ww2Snapshot(true);
-  try { S = JSON.parse(s.data); localStorage.setItem(LS_KEY, JSON.stringify(S)); location.reload(); } catch (e) { toast("Ошибка восстановления"); }
+  try { S = JSON.parse(s.data); wwPersist(); location.reload(); } catch (e) { toast("Ошибка восстановления"); }
 }
 const _save2 = save;
-save = function () { _save2(); ww2Snapshot(false); };
+save = function () { const _r = _save2(); ww2Snapshot(false); return _r; };  /* v4.02: пробрасываем результат — save() теперь возвращает false при переполнении хранилища */
 let _undoTimer = null;
 function ww2UndoToast(msg, fn, doneMsg) {
   const t = document.getElementById("toast"); if (!t) return;
@@ -4754,7 +4775,7 @@ function flowSeries() {
   let bal = balance(); const out = []; const now = new Date();
   for (let i = 1; i <= 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 15);
-    const ds = d.toISOString().slice(0, 10);
+    const ds = ymdLocal(d);
     const inc = S.recurring.filter((r) => r.type === "income").reduce((s, r) => s + +r.amount, 0);
     let exp = S.recurring.filter((r) => r.type === "expense").reduce((s, r) => s + +r.amount, 0);
     for (const c of S.credits.filter((x) => x.status === "active")) {
@@ -4991,7 +5012,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.01";
+const WW_VERSION = "4.02";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5380,7 +5401,7 @@ function ww342Guard() {
   if (good) {
     try {
       S = JSON.parse(good.data);
-      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      wwPersist();
       localStorage.removeItem("ww342_alerted");
       wwAlert("Обнаружено, что в основную учётную запись попали демо-данные.\n\nДанные автоматически восстановлены из резервной копии от " + new Date(good.t).toLocaleString("ru-RU") + ".\n\nЕсли копия не самая свежая — выполните синхронизацию в настройках, чтобы подтянуть последнюю версию из облака.");
       location.reload();
@@ -5389,7 +5410,7 @@ function ww342Guard() {
   }
   S.updatedAt = 0;
   if (S.settings) S.settings.lastSync = 0;
-  localStorage.setItem(LS_KEY, JSON.stringify(S));
+  wwPersist();
   if (!localStorage.getItem("ww342_alerted")) {
     localStorage.setItem("ww342_alerted", "1");
     wwAlert("В основную учётную запись попали демо-данные, а локальной резервной копии не нашлось.\n\nЕсли вы пользуетесь синхронизацией: откройте Настройки → Синхронизация, проверьте URL и ключ и запустите синхронизацию — настоящие данные вернутся из облака.\n\nЗащита включена: демо-данные НЕ будут отправлены в облако.");
@@ -5405,7 +5426,16 @@ function ww342Guard() {
     try { d = JSON.parse(localStorage.getItem(WW22_DEMO_KEY) || "null"); } catch (e) { d = null; }
     if (!d || !Array.isArray(d.accounts)) { d = ww22DemoState(); localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(d)); }
     S = d;
-    save = function () { S.updatedAt = Date.now(); localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(S)); };
+    /* v4.02: в демо-режиме запись тоже защищена от переполнения квоты */
+    save = function () {
+      S.updatedAt = Date.now();
+      try { localStorage.setItem(WW22_DEMO_KEY, JSON.stringify(S)); return true; }
+      catch (e) {
+        if (!wwIsQuotaError(e)) { console.error("Не удалось сохранить демо-состояние:", e); return false; }
+        if (!_wwQuotaWarned) { _wwQuotaWarned = true; try { toast("Память браузера заполнена — изменения не сохраняются"); } catch (err) {} }
+        return false;
+      }
+    };
     syncNow = async function () {};
     /* v3.4.2: жёсткая изоляция демо — любые прямые записи в основное хранилище перенаправляются в демо-хранилище */
     const _ww342set = localStorage.setItem.bind(localStorage);
@@ -5422,13 +5452,13 @@ function ww342Guard() {
     nav("dashboard");
   } else if (prof === "parents") {
     S.settings.observerMode = true;
-    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    wwPersist();
     applyObserverMode();
     setObserverMode = function () { toast("🔒 Учётная запись «Просмотр» — только просмотр. Смените учётную запись, чтобы редактировать."); };
     ww24ApplyViewSections();
     nav(activePage());
   } else if (localStorage.getItem(WW22_SW_FLAG) === "1") {
-    if (S.settings.observerMode) { S.settings.observerMode = false; localStorage.setItem(LS_KEY, JSON.stringify(S)); applyObserverMode(); nav(activePage()); }
+    if (S.settings.observerMode) { S.settings.observerMode = false; wwPersist(); applyObserverMode(); nav(activePage()); }
   }
   localStorage.removeItem(WW22_SW_FLAG);
   ww22Badge();
@@ -5457,7 +5487,7 @@ async function ww2ForgotPin() {
   try { const st = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (st && st.settings) sb = { u: st.settings.sbUrl || "", k: st.settings.sbKey || "" }; } catch (e) {}
   try { localStorage.clear(); } catch (e) {}
   try {
-    if (sb && (sb.u || sb.k)) { const ns = seedState(); ns.settings.sbUrl = sb.u; ns.settings.sbKey = sb.k; ns.updatedAt = 0; localStorage.setItem(LS_KEY, JSON.stringify(ns)); }
+    if (sb && (sb.u || sb.k)) { const ns = seedState(); ns.settings.sbUrl = sb.u; ns.settings.sbKey = sb.k; ns.updatedAt = 0; try { localStorage.setItem(LS_KEY, JSON.stringify(ns)); } catch (e) { if (wwIsQuotaError(e)) toast("Память браузера заполнена — не удалось сохранить"); } }
   } catch (e) {}
   location.reload();
 }
@@ -7521,7 +7551,7 @@ try {
         h.setAttribute("aria-expanded", String(willOpen));
         S.settings.setOpen = S.settings.setOpen || {};
         S.settings.setOpen[key] = willOpen;
-        try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+        wwPersist();
       }
       h.addEventListener("click", toggle);
       h.addEventListener("keydown", function (e) {
@@ -7615,7 +7645,7 @@ async function wwCloudRestore(id, when) {
     // восстановленные данные устаревшими и затрёт их обратно.
     restored.updatedAt = Date.now();
     S = restored;
-    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    wwPersist();
     if (typeof syncNow === "function") { try { await syncNow(false); } catch (e) {} }
     location.reload();
   } catch (e) {
@@ -7723,7 +7753,7 @@ async function wwViewerTry() {
   try { localStorage.setItem(WW_VIEWER_LOCAL, got); } catch (e) {}
   localStorage.setItem(WW22_PROF_KEY, "parents");
   S.settings.observerMode = true;
-  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  wwPersist();
   location.reload();
 }
 
@@ -7739,7 +7769,7 @@ async function wwViewerBoot() {
     if (u) S.settings.sbUrl = decodeURIComponent(u);
     if (k) S.settings.sbKey = decodeURIComponent(k);
     S.settings.syncId = sid;
-    try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+    wwPersist();
     try { history.replaceState({}, "", location.pathname); } catch (e) {}
     if (!wwViewerStoredHash()) {
       if (typeof syncNow === "function") { try { await syncNow(false); } catch (e) {} }
@@ -7975,25 +8005,35 @@ function ww331Clean(st) {
   return c;
 }
 function ww331Snap() { try { return JSON.stringify(ww331Clean(S)); } catch (e) { return null; } }
-function ww331Persist() { try { S.updatedAt = Date.now(); localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+function ww331Persist() { try { S.updatedAt = Date.now(); wwPersist(); } catch (e) {} }
 
 _ww331Base = ww331Snap();
 _ww331Prev = _ww331Base ? JSON.parse(_ww331Base) : null;
 
 const _ww331Save = save;
 save = function () {
+  /* v4.02: ww331Snap() сериализует всё состояние целиком, и раньше он
+     вызывался в save() ДВАЖДЫ — один раз для сравнения с базой, второй раз
+     сразу после записи. Вместе с JSON.stringify внутри wwPersist это давало
+     три полные сериализации на каждое сохранение (замер: 313 мс на 20 000
+     операций). Второй снимок при этом всегда совпадает с первым: ww331Clean
+     отбрасывает updatedAt, а _ww331Save() больше ничего в S не меняет.
+     Считаем снимок один раз и переиспользуем. */
+  let _snap = null;
   if (!_ww331Busy) {
     try { ww331Audit(_ww331Prev); } catch (e) {}
-    if (_ww331Base && _ww331Base !== ww331Snap()) {
+    _snap = ww331Snap();
+    if (_ww331Base && _ww331Base !== _snap) {
       _ww331Undo.push(_ww331Base);
       if (_ww331Undo.length > WW331_MAX_UNDO) _ww331Undo.shift();
       _ww331Redo = [];
     }
   }
-  _ww331Save();
-  _ww331Base = ww331Snap();
+  const _r = _ww331Save();   /* v4.02: результат нижележащего save() не теряем */
+  _ww331Base = _snap !== null ? _snap : ww331Snap();
   try { _ww331Prev = JSON.parse(_ww331Base); } catch (e) {}
   ww331Refresh();
+  return _r;
 };
 
 function ww331Restore(json, msg) {
@@ -8579,7 +8619,7 @@ if (WW332_BAKED) {
   if (typeof WW332_LEGACY_SYNC === "string" && WW332_LEGACY_SYNC) {
     S.settings.syncId = WW332_LEGACY_SYNC;
   }
-  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  wwPersist();
 }
 
 function ww332Creds() {
@@ -8712,7 +8752,7 @@ function ww332SaveCreds() {
   var k = (document.getElementById("ww332-key").value || "").trim();
   if (!u || !k) { ww332Msg("Заполните URL и anon key"); return; }
   S.settings.sbUrl = u; S.settings.sbKey = k;
-  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
+  wwPersist();
   ww332Msg("Подключение сохранено — теперь войдите", true);
   var conn = document.getElementById("ww332-conn"); if (conn) conn.open = false;
   var f = document.getElementById("ww332-email"); if (f) f.focus();
@@ -8819,7 +8859,7 @@ async function ww332MigrateLegacy() {
       merged.settings = Object.assign({}, merged.settings, keep);
       Object.keys(S).forEach(function (k) { delete S[k]; });
       Object.assign(S, merged);
-      localStorage.setItem(LS_KEY, JSON.stringify(S));
+      wwPersist();
       payload = S;
     }
     var up = await fetch(c.url + "/rest/v1/ww_user_state", {
@@ -8851,7 +8891,7 @@ async function ww332Logout() {
     [WW2K.sess, WW2K.snap, WW2K.lastRemote, WW2K.notif, LS_KEY, WW332_MIGK, "ww_state_v1"].forEach(function (k) { localStorage.removeItem(k); });
     var fresh = seedState();
     fresh.settings.sbUrl = c.url; fresh.settings.sbKey = c.key;
-    localStorage.setItem(LS_KEY, JSON.stringify(fresh));
+    try { localStorage.setItem(LS_KEY, JSON.stringify(fresh)); } catch (e) { if (wwIsQuotaError(e)) toast("Память браузера заполнена — не удалось сохранить"); }
   } catch (e) {}
   location.reload();
 }
@@ -9027,7 +9067,7 @@ wwCloudRestore = async function (id, when) {
     restored.updatedAt = Date.now();
     Object.keys(S).forEach(function (k) { delete S[k]; });
     Object.assign(S, restored);
-    localStorage.setItem(LS_KEY, JSON.stringify(S));
+    wwPersist();
     try { await syncNow(false); } catch (e) {}
     location.reload();
   } catch (e) {
@@ -11195,7 +11235,7 @@ function wwReportSummaryLines(d) {
       if (S && Object.prototype.hasOwnProperty.call(S, "viewSections")) { delete S.viewSections; changed = true; }
       /* Это очистка локальной конфигурации, а не финансовая правка: сохраняем
          напрямую, не вызывая save() и не меняя updatedAt. */
-      if (saveState && changed) localStorage.setItem(LS_KEY, JSON.stringify(S));
+      if (saveState && changed) wwPersist();
     } catch (e) {}
     try { if (typeof applyObserverMode === "function") applyObserverMode(); } catch (e) {}
     document.body.classList.remove("observer");
@@ -11570,7 +11610,7 @@ window.ww50DataSignature = ww50DataSignature;
       if (!localStorage.getItem(KEY)) {
         S.settings.setOpen = {};
         /* Это только состояние интерфейса — updatedAt финансовых данных не меняем. */
-        localStorage.setItem(LS_KEY, JSON.stringify(S));
+        wwPersist();
         localStorage.setItem(KEY, "1");
       }
     } catch (e) {}
@@ -13483,7 +13523,7 @@ window.ww50DataSignature = ww50DataSignature;
 (function () {
   function ST() { try { if (typeof S !== 'undefined' && S) return S; } catch (e) {} return window.S || {}; }
   function accs() { var s = ST(); return Array.isArray(s.accounts) ? s.accounts : []; }
-  function today() { try { if (typeof todayStr === 'function') return todayStr(); } catch (e) {} return new Date().toISOString().slice(0, 10); }
+  function today() { try { if (typeof todayStr === 'function') return todayStr(); } catch (e) {} const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function monthStart(d) { return String(d).slice(0, 7) + '-01'; }
 
   /* Для уже заведённых кошельков без даты: считаем, что сумма действует
@@ -13548,7 +13588,7 @@ window.ww50DataSignature = ww50DataSignature;
   /* ---------- доступ к состоянию (S — top-level const, не на window) ---------- */
   function ST() { try { if (typeof S !== 'undefined' && S) return S; } catch (e) {} return null; }
   function saveS() { try { if (typeof save === 'function') save(); } catch (e) {} }
-  function today() { try { return todayStr(); } catch (e) { return new Date().toISOString().slice(0, 10); } }
+  function today() { try { return todayStr(); } catch (e) { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); } }
   function esc2(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function say(m) { try { if (typeof toast === 'function') toast(m); } catch (e) {} }
   function repaint() { try { if (typeof renderPlanner === 'function') renderPlanner(); } catch (e) {} }
