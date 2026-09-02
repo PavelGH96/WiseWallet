@@ -824,6 +824,24 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 .ww89-plan{width:104px;text-align:right;font:inherit;font-weight:700;color:var(--green);font-family:var(--font-d);padding:6px 8px;border:1px dashed var(--border);border-radius:var(--radius-s);background:var(--bg)}
 .ww89-plan::placeholder{color:var(--t3);font-weight:400}
 .ww89-plan:focus{outline:none;border-style:solid;border-color:var(--green)}
+/* v3.98: сумма задана отдельно на этот месяц (не как в шаблоне) */
+.ww89-plan.ww98-over{border-style:solid;border-color:var(--green);background:var(--green-bg,var(--bg))}
+/* v4.01: шапка карточки «Сравнение месяцев» — два поля выбора + ⇄ и ↺.
+   На узком экране контролы уходят на свою строку и растягиваются на всю
+   ширину, иначе четыре элемента не помещаются рядом с заголовком. */
+.ww401-cmp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+/* Элементы grid по умолчанию имеют min-width:auto и не дают себя сжать —
+   из-за этого колонка сетки растягивалась под содержимое шапки и карточка
+   вылезала за экран на телефоне. */
+#ww23-an-trend-card,#ww23-an-cmp-card{min-width:0}
+#ww23-an-trend-card h2,#ww23-an-cmp-card h2{min-width:0}
+.ww401-cmp-ctl{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;flex-wrap:nowrap}
+.ww401-cmp-ctl input[type="month"]{font:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);color:var(--text);min-width:0;flex:1 1 auto}
+.ww401-cmp-ctl .btn{flex:0 0 auto;padding:5px 8px}
+@media(max-width:560px){
+  .ww401-cmp-head{align-items:flex-start}
+  .ww401-cmp-ctl{width:100%;justify-content:space-between}
+}
 </style>
 </head>
 <body>
@@ -948,7 +966,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="page-head"><h1>Аналитика</h1></div>
     <div class="grid grid-2">
       <div class="card"><h2>Структура расходов (текущий месяц)</h2><canvas id="chart-donut" height="240"></canvas><div class="legend" id="donut-legend"></div></div>
-      <div class="card"><h2>Плановая нагрузка по месяцам</h2><canvas id="chart-plan" height="240"></canvas><div class="legend"><span><i style="background:var(--red)"></i>План расходов</span><span><i style="background:var(--green)"></i>Факт доходов</span></div></div>
+      <div class="card"><h2>Плановая нагрузка по месяцам</h2><canvas id="chart-plan" height="240"></canvas><div class="legend"><span><i style="background:var(--green)"></i>Факт доходов</span><span><i style="background:var(--red)"></i>План расходов</span></div></div>
     </div>
     <div class="section card"><h2>Доходы и расходы по месяцам (факт)</h2><canvas id="chart-bars" height="240"></canvas><div class="legend"><span><i style="background:var(--green)"></i>Доходы</span><span><i style="background:var(--red)"></i>Расходы</span></div></div>
   </section>
@@ -1286,7 +1304,13 @@ function planExpenseMonth() {
   return p;
 }
 function planIncomeMonth() {
-  return S.recurring.filter((r) => r.type === "income").reduce((s, r) => s + +r.amount, 0);
+  /* v3.98: учитываем помесячные исключения, если для текущего месяца
+     сумма регулярного дохода задана отдельно (премия, подработка). */
+  const ym = todayStr().slice(0, 7);
+  return S.recurring.filter((r) => r.type === "income").reduce((s, r) => {
+    if (typeof wwRecurIncomeAmount === "function") { const v = wwRecurIncomeAmount(r, ym); return s + (v === null ? 0 : v); }
+    return s + +r.amount;
+  }, 0);
 }
 function capitalSparklineSeries() {
   const now = new Date();
@@ -3390,7 +3414,7 @@ function monthRemaining(ym) {
   if (ym > nowYm) return monthPlanFull(ym);
   let income = 0, expense = 0;
   if (typeof duePostings === "function") {
-    duePostings().forEach((d) => { const r = Math.max(0, +d.r.amount - d.posted); if (d.r.type === "income") income += r; else expense += r; });
+    duePostings().forEach((d) => { const r = Math.max(0, (d.due !== undefined ? d.due : +d.r.amount) - d.posted); if (d.r.type === "income") income += r; else expense += r; });
   }
   for (const c of S.credits.filter((c) => c.status === "active")) {
     const full = currentPayment(c).amount;
@@ -4198,10 +4222,16 @@ function duePostings() {
   if (!S.skipped || typeof S.skipped !== "object") S.skipped = {};
   const now = new Date(); const ym = todayStr().slice(0, 7);
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  /* v3.98: у регулярного дохода сумма может быть задана отдельно на этот
+     месяц — «к зачислению» тогда считаем по ней, а не по шаблону. */
+  const amtOf = (r) => {
+    if (r.type === "income" && typeof wwRecurIncomeAmount === "function") { const v = wwRecurIncomeAmount(r, ym); return v === null ? 0 : v; }
+    return +r.amount;
+  };
   return S.recurring
     .filter((r) => now.getDate() >= Math.min(r.day, dim) && !S.skipped[r.id + ":" + ym])
-    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: wwRecurEffectivePosted(r, ym) }))
-    .filter((d) => d.posted < +d.r.amount);
+    .map((r) => ({ r, date: ym + "-" + String(Math.min(r.day, dim)).padStart(2, "0"), posted: wwRecurEffectivePosted(r, ym), due: amtOf(r) }))
+    .filter((d) => d.posted < d.due);
 }
 /* ===== v3.0: «К оплате» — два раздела (Расходы / Кредиты), ползунки «Оплатить/Оплачено», просрочка ===== */
 /* v3.16→доработка: месяц «К оплате» и «Свободных денег» больше не выбирается отдельно —
@@ -4590,7 +4620,7 @@ async function postAllRecur() {
   if (isObserver()) return;
   // Последовательно, а не forEach: postRecur стал асинхронным, и параллельные
   // вызовы затирали бы друг другу S.posted при сохранении.
-  for (const d of duePostings()) await postRecur(d.r.id, Math.max(0, +d.r.amount - d.posted));
+  for (const d of duePostings()) await postRecur(d.r.id, Math.max(0, (d.due !== undefined ? d.due : +d.r.amount) - d.posted));
 }
 const _renderDash2 = renderDash;
 renderDash = function () { _renderDash2(); renderDuePanel(); };
@@ -4961,7 +4991,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "3.97";
+const WW_VERSION = "4.01";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5633,6 +5663,77 @@ renderCredits = function () {
 
 /* ---------- 4. Аналитика: тренды, сравнение месяцев, отчёт по тегам ---------- */
 let ww23AnCat = null, ww23TagPeriod = "3m";
+/* ===================== v4.0: «Динамика категорий» — несколько категорий сразу
+   Раньше можно было смотреть только одну категорию за раз. Теперь выбор
+   множественный: галочками, плюс отдельный пункт «Все категории».
+   ww23AnCats — массив id; сентинел WW23_ALL означает «все» (динамически,
+   чтобы новые категории попадали в выбор сами). Пустой массив = ничего не
+   выбрано, показываем подсказку вместо пустой диаграммы. */
+const WW23_ALL = "__all__";
+let ww23AnCats = null;
+function ww23CatsInit() {
+  if (Array.isArray(ww23AnCats)) {
+    /* выкидываем удалённые категории, но сентинел «все» не трогаем.
+       Пустой массив — это ОСОЗНАННЫЙ выбор «ничего не отмечено», а не
+       «ещё не инициализировано»: иначе снятие всех галочек тут же молча
+       возвращало бы категорию обратно. Неинициализированное — только null. */
+    ww23AnCats = ww23AnCats.filter((id) => id === WW23_ALL || S.categories.some((c) => c.id === id));
+    return;
+  }
+  if (ww23AnCat && S.categories.some((c) => c.id === ww23AnCat)) { ww23AnCats = [ww23AnCat]; return; }
+  const sums = {};
+  S.transactions.filter((t) => t.type === "expense" && !t.transfer).forEach((t) => { sums[t.categoryId] = (sums[t.categoryId] || 0) + +t.amount; });
+  const top = Object.entries(sums).sort((a, b) => b[1] - a[1])[0];
+  const id = top ? top[0] : (S.categories[0] || {}).id;
+  ww23AnCats = id ? [id] : [];
+  ww23AnCat = id || null;
+}
+function ww23CatsAll() { return Array.isArray(ww23AnCats) && ww23AnCats.indexOf(WW23_ALL) >= 0; }
+function ww23CatsResolved() {
+  ww23CatsInit();
+  return ww23CatsAll() ? S.categories.map((c) => c.id) : ww23AnCats.slice();
+}
+function ww23CatsLabel() {
+  ww23CatsInit();
+  if (ww23CatsAll()) return "Все категории ▾";
+  if (!ww23AnCats.length) return "Выбрать категории ▾";
+  if (ww23AnCats.length === 1) { const c = cat(ww23AnCats[0]); return (c ? c.icon + " " + c.name : "—") + " ▾"; }
+  const n = ww23AnCats.length;
+  const word = (n % 10 === 1 && n % 100 !== 11) ? "категория" : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? "категории" : "категорий");
+  return n + " " + word + " ▾";
+}
+function ww23CatSheet() {
+  ww23CatsInit();
+  const all = ww23CatsAll();
+  const row = (id, label, on) =>
+    '<div class="opt" onclick="ww23CatToggle(\'' + id + '\')"><span>' + label + '</span>' + (on ? '<span class="chk">✓</span>' : "") + '</div>';
+  showModal('<div class="mhead"><h3>Динамика категорий</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div class="ww26-sheet" id="ww23-cat-sheet">' +
+    row(WW23_ALL, "<b>Все категории</b>", all) +
+    '<div class="opt" style="cursor:default;opacity:.7" onclick="event.stopPropagation()"><span class="sub">Или отметьте нужные — их можно сравнить на одной диаграмме</span></div>' +
+    S.categories.map((c) => row(c.id, esc(c.icon + " " + c.name), !all && ww23AnCats.indexOf(c.id) >= 0)).join("") +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">' +
+    '<button class="btn btn-ghost btn-sm" onclick="ww23CatClear()">Снять всё</button>' +
+    '<button class="btn btn-primary btn-sm" onclick="closeModal()">Готово</button></div>');
+}
+function ww23CatToggle(id) {
+  ww23CatsInit();
+  if (id === WW23_ALL) {
+    ww23AnCats = ww23CatsAll() ? [] : [WW23_ALL];
+  } else {
+    /* уходя от «все», раскрываем сентинел в явный список, чтобы снятие
+       одной галочки означало «все, кроме неё», а не «ничего» */
+    if (ww23CatsAll()) ww23AnCats = S.categories.map((c) => c.id);
+    const i = ww23AnCats.indexOf(id);
+    if (i >= 0) ww23AnCats.splice(i, 1); else ww23AnCats.push(id);
+    if (ww23AnCats.length === S.categories.length) ww23AnCats = [WW23_ALL];
+  }
+  ww23AnCat = (!ww23CatsAll() && ww23AnCats.length === 1) ? ww23AnCats[0] : ww23AnCat;
+  ww23CatSheet();
+  ww23Trend();
+}
+function ww23CatClear() { ww23AnCats = []; ww23CatSheet(); ww23Trend(); }
 function ww23Ym(y, m) { const d = new Date(y, m, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
 const _renderAnalytics23 = renderAnalytics;
 renderAnalytics = function () {
@@ -5640,66 +5741,162 @@ renderAnalytics = function () {
   const page = document.getElementById("page-analytics");
   if (page && !document.getElementById("ww23-an-trend-card")) {
     page.insertAdjacentHTML("beforeend", '<div class="grid grid-2 section">' +
-      '<div class="card" id="ww23-an-trend-card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Динамика категории<select id="ww23-an-cat" onchange="ww23AnCat=this.value;ww23Trend()" style="max-width:190px"></select></h2><canvas id="ww23-an-trend" height="220"></canvas><div class="sub" id="ww23-an-trend-sub" style="margin-top:6px"></div></div>' +
-      '<div class="card" id="ww23-an-cmp-card"><h2>Сравнение месяцев</h2><div id="ww23-an-cmp"></div></div></div>' +
+      '<div class="card" id="ww23-an-trend-card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Динамика категорий<button id="ww23-an-cat" class="ww319-pill" onclick="ww23CatSheet()" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></button></h2><canvas id="ww23-an-trend" height="220"></canvas><div class="legend" id="ww23-an-trend-leg" style="margin-top:6px"></div><div class="sub" id="ww23-an-trend-sub" style="margin-top:6px"></div></div>' +
+      '<div class="card" id="ww23-an-cmp-card"><h2 class="ww401-cmp-head">Сравнение месяцев' +
+      '<span class="ww401-cmp-ctl">' +
+      '<input type="month" id="ww23-cmp-a" onchange="ww23CmpSet(\'a\',this.value)" title="С каким месяцем сравниваем">' +
+      '<button class="btn btn-ghost btn-sm" onclick="ww23CmpSwap()" title="Поменять месяцы местами">⇄</button>' +
+      '<input type="month" id="ww23-cmp-b" onchange="ww23CmpSet(\'b\',this.value)" title="Какой месяц сравниваем">' +
+      '<button class="btn btn-ghost btn-sm" onclick="ww23CmpReset()" title="Вернуть прошлый и текущий месяц">↺</button>' +
+      '</span></h2><div id="ww23-an-cmp"></div></div></div>' +
       '<div class="section card" id="ww23-an-tags-card"><h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">Отчёт по тегам<span class="chips" style="margin:0" id="ww23-tag-chips"></span></h2><div id="ww23-an-tags"></div></div>');
   }
   ww23Trend(); ww23Compare(); ww23Tags();
 };
-function ww23DrawBars(cv, series) {
+/* v4.0: третий аргумент stacks — сегменты столбца снизу вверх, каждый
+   {name, color, values[]}. Без него рисуем как раньше, одним цветом. */
+function ww23DrawBars(cv, series, stacks) {
   if (!cv) return;
   const { ctx, w, h } = setupCanvas(cv);
   ctx.clearRect(0, 0, w, h);
   const max = Math.max(1, ...series.map((s) => s.v));
   const pad = 26, bw = (w - pad * 2) / series.length;
   ctx.font = "500 10px Inter, sans-serif"; ctx.textAlign = "center";
+  const usable = h - 58;
   series.forEach((s, i) => {
-    const x = pad + i * bw + bw / 2, hh = (s.v / max) * (h - 58);
-    ctx.fillStyle = PALETTE[0];
-    ctx.beginPath(); ctx.roundRect(x - bw * 0.3, h - 30 - hh, bw * 0.6, Math.max(hh, s.v > 0 ? 2 : 0), 3); ctx.fill();
+    const x = pad + i * bw + bw / 2, hh = (s.v / max) * usable;
+    const bx = x - bw * 0.3, bwid = bw * 0.6;
+    if (stacks && stacks.length > 1) {
+      let y = h - 30;
+      stacks.forEach((st, k) => {
+        const seg = (st.values[i] / max) * usable;
+        if (seg <= 0) return;
+        ctx.fillStyle = st.color;
+        ctx.beginPath();
+        /* скругляем только верх самого верхнего видимого сегмента */
+        const isTop = !stacks.slice(k + 1).some((o) => o.values[i] > 0);
+        if (isTop) ctx.roundRect(bx, y - seg, bwid, seg, [3, 3, 0, 0]);
+        else ctx.rect(bx, y - seg, bwid, seg);
+        ctx.fill();
+        y -= seg;
+      });
+    } else {
+      ctx.fillStyle = (stacks && stacks[0]) ? stacks[0].color : PALETTE[0];
+      ctx.beginPath(); ctx.roundRect(bx, h - 30 - hh, bwid, Math.max(hh, s.v > 0 ? 2 : 0), 3); ctx.fill();
+    }
     ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
   });
   ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
   ctx.fillText(fmtM.format(max), w - 4, 14);
 }
 function ww23Trend() {
-  const sel = document.getElementById("ww23-an-cat"); if (!sel) return;
-  if (!sel.options.length) sel.innerHTML = S.categories.map((c) => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");
-  if (!ww23AnCat || !S.categories.find((c) => c.id === ww23AnCat)) {
-    const sums = {};
-    S.transactions.filter((t) => t.type === "expense" && !t.transfer).forEach((t) => { sums[t.categoryId] = (sums[t.categoryId] || 0) + +t.amount; });
-    const top = Object.entries(sums).sort((a, b) => b[1] - a[1])[0];
-    ww23AnCat = top ? top[0] : (S.categories[0] || {}).id;
+  const btn = document.getElementById("ww23-an-cat"); if (!btn) return;
+  const ids = ww23CatsResolved();
+  btn.textContent = ww23CatsLabel();
+  const leg = document.getElementById("ww23-an-trend-leg");
+  const sub = document.getElementById("ww23-an-trend-sub");
+  const cv = document.getElementById("ww23-an-trend");
+  if (!ids.length) {
+    if (cv) { const { ctx, w, h } = setupCanvas(cv); ctx.clearRect(0, 0, w, h); }
+    if (leg) leg.innerHTML = "";
+    if (sub) sub.textContent = "Категории не выбраны — отметьте хотя бы одну.";
+    return;
   }
-  sel.value = ww23AnCat;
-  const now = new Date(); const series = [];
-  let total = 0;
+  const now = new Date();
+  const labels = [], months = [];
   for (let i = 11; i >= 0; i--) {
-    const ym = ww23Ym(now.getFullYear(), now.getMonth() - i);
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const sum = S.transactions.filter((t) => t.categoryId === ww23AnCat && t.date.slice(0, 7) === ym).reduce((s, t) => s + +t.amount, 0);
-    total += sum;
-    series.push({ label: MONTHS[d.getMonth()].slice(0, 3), v: sum });
+    months.push(ww23Ym(now.getFullYear(), now.getMonth() - i));
+    labels.push(MONTHS[d.getMonth()].slice(0, 3));
   }
-  ww23DrawBars(document.getElementById("ww23-an-trend"), series);
-  document.getElementById("ww23-an-trend-sub").textContent = "За 12 месяцев: " + money(total) + " · в среднем " + money(total / 12) + "/мес";
+  /* один проход по операциям вместо (категории × месяцы) фильтров */
+  const acc = {};
+  ids.forEach((id) => { acc[id] = months.map(() => 0); });
+  const mi = {}; months.forEach((m, i) => { mi[m] = i; });
+  S.transactions.forEach((t) => {
+    const i = mi[t.date.slice(0, 7)];
+    if (i === undefined || !acc[t.categoryId]) return;
+    acc[t.categoryId][i] += +t.amount;
+  });
+  /* при большом выборе не рисуем десятки неразличимых цветов: показываем
+     топ-6 по сумме, остальное сворачиваем в «Остальные» — как в кольце */
+  const ordered = ids.slice().sort((a, b) => acc[b].reduce((s, v) => s + v, 0) - acc[a].reduce((s, v) => s + v, 0));
+  const MAXS = 6;
+  let stacks = ordered.slice(0, MAXS).map((id, i) => {
+    const c = cat(id) || { icon: "📌", name: "—" };
+    return { name: c.icon + " " + c.name, color: PALETTE[i % PALETTE.length], values: acc[id] };
+  });
+  if (ordered.length > MAXS) {
+    const rest = months.map((_, i) => ordered.slice(MAXS).reduce((s, id) => s + acc[id][i], 0));
+    if (rest.some((v) => v > 0)) stacks.push({ name: "Остальные (" + (ordered.length - MAXS) + ")", color: cssVar("--t3"), values: rest });
+  }
+  const totals = months.map((_, i) => stacks.reduce((s, st) => s + st.values[i], 0));
+  const total = totals.reduce((s, v) => s + v, 0);
+  ww23DrawBars(cv, labels.map((l, i) => ({ label: l, v: totals[i] })), stacks);
+  if (leg) {
+    leg.innerHTML = stacks.length > 1
+      ? stacks.map((st) => '<span><i style="background:' + st.color + '"></i>' + esc(st.name) + '</span>').join("")
+      : "";
+  }
+  if (sub) {
+    sub.textContent = "За 12 месяцев: " + money(total) + " · в среднем " + money(total / 12) + "/мес" +
+      (stacks.length > 1 ? " · " + ids.length + " кат." : "");
+  }
+}
+/* ===================== v4.01: сравнение ЛЮБЫХ двух месяцев =====================
+   Раньше карточка жёстко сравнивала прошлый месяц с текущим. Теперь оба
+   месяца выбираются вручную (по умолчанию — те же прошлый и текущий, так
+   что при первом открытии ничего не меняется). Средний расход в день для
+   незавершённого текущего месяца по-прежнему считается по прошедшим дням,
+   а для любого завершённого — по полному числу дней в нём, иначе сравнение
+   было бы нечестным. */
+let ww23CmpA = null, ww23CmpB = null;
+function ww23CmpDefaults() {
+  const now = new Date();
+  return { b: ww23Ym(now.getFullYear(), now.getMonth()), a: ww23Ym(now.getFullYear(), now.getMonth() - 1) };
+}
+function ww23CmpYms() {
+  const d = ww23CmpDefaults();
+  return { a: ww23CmpA || d.a, b: ww23CmpB || d.b };
+}
+function ww23CmpSet(which, v) {
+  if (!/^\d{4}-\d{2}$/.test(v || "")) return;
+  if (which === "a") ww23CmpA = v; else ww23CmpB = v;
+  ww23Compare();
+}
+function ww23CmpSwap() { const y = ww23CmpYms(); ww23CmpA = y.b; ww23CmpB = y.a; ww23Compare(); }
+function ww23CmpReset() { ww23CmpA = null; ww23CmpB = null; ww23Compare(); }
+function ww23YmLabel(ym) {
+  const y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1;
+  const cy = new Date().getFullYear();
+  return MONTHS[m].slice(0, 3) + (y === cy ? "" : " " + y);
+}
+function ww23YmDays(ym) {
+  const nowYm = todayStr().slice(0, 7);
+  if (ym === nowYm) return new Date().getDate();           /* текущий месяц — только прошедшие дни */
+  return new Date(+ym.slice(0, 4), +ym.slice(5, 7), 0).getDate();
 }
 function ww23Compare() {
   const el = document.getElementById("ww23-an-cmp"); if (!el) return;
-  const now = new Date();
-  const ym = ww23Ym(now.getFullYear(), now.getMonth());
-  const pd = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const pym = ww23Ym(pd.getFullYear(), pd.getMonth());
+  const { a: aym, b: bym } = ww23CmpYms();
+  const ia = document.getElementById("ww23-cmp-a"), ib = document.getElementById("ww23-cmp-b");
+  if (ia) ia.value = aym;
+  if (ib) ib.value = bym;
   const sums = (m) => { const o = {}; S.transactions.filter((t) => t.type === "expense" && !t.transfer && t.date.slice(0, 7) === m).forEach((t) => { o[t.categoryId] = (o[t.categoryId] || 0) + +t.amount; }); return o; };
-  const cur = sums(ym), prev = sums(pym);
+  const prev = sums(aym), cur = sums(bym);
   const ids = [...new Set([...Object.keys(cur), ...Object.keys(prev)])].sort((a, b) => (cur[b] || 0) - (cur[a] || 0)).slice(0, 10);
-  if (!ids.length) { el.innerHTML = '<div class="empty"><div class="big">' + WWI.chart + '</div>Недостаточно данных для сравнения</div>'; return; }
+  if (!ids.length) {
+    el.innerHTML = '<div class="empty"><div class="big">' + WWI.chart + '</div>За ' + esc(ww23YmLabel(aym)) + ' и ' + esc(ww23YmLabel(bym)) + ' расходов нет — сравнивать нечего</div>';
+    return;
+  }
   const curT = Object.values(cur).reduce((s, v) => s + v, 0), prevT = Object.values(prev).reduce((s, v) => s + v, 0);
-  const avgCur = curT / now.getDate();
-  const avgPrev = prevT / new Date(pd.getFullYear(), pd.getMonth() + 1, 0).getDate();
+  const avgCur = curT / ww23YmDays(bym);
+  const avgPrev = prevT / ww23YmDays(aym);
   const arrow = (c, p) => { const d = c - p; if (Math.abs(d) < 1) return '<span class="sub">＝</span>'; return d > 0 ? `<span style="color:var(--red)">▲ ${money(d)}</span>` : `<span style="color:var(--green)">▼ ${money(-d)}</span>`; };
-  el.innerHTML = `<div class="sub" style="margin-bottom:8px">Средний расход в день: <b>${money(avgCur)}</b> сейчас · ${money(avgPrev)} в прошлом месяце</div>` +
-    `<table class="ww23-cmp-table"><tr><th>Категория</th><th>${MONTHS[pd.getMonth()].slice(0, 3)}</th><th>${MONTHS[now.getMonth()].slice(0, 3)}</th><th>Δ</th></tr>` +
+  const same = aym === bym;
+  el.innerHTML = `<div class="sub" style="margin-bottom:8px">Средний расход в день: <b>${money(avgCur)}</b> в ${esc(ww23YmLabel(bym))} · ${money(avgPrev)} в ${esc(ww23YmLabel(aym))}` +
+    (same ? " · выбран один и тот же месяц" : "") + `</div>` +
+    `<table class="ww23-cmp-table"><tr><th>Категория</th><th>${esc(ww23YmLabel(aym))}</th><th>${esc(ww23YmLabel(bym))}</th><th>Δ</th></tr>` +
     ids.map((id) => { const c = cat(id) || { icon: "📌", name: "—" }; return `<tr><td>${c.icon} ${esc(c.name)}</td><td>${money(prev[id] || 0)}</td><td>${money(cur[id] || 0)}</td><td>${arrow(cur[id] || 0, prev[id] || 0)}</td></tr>`; }).join("") +
     `<tr><td><b>Итого</b></td><td><b>${money(prevT)}</b></td><td><b>${money(curT)}</b></td><td>${arrow(curT, prevT)}</td></tr></table>`;
 }
@@ -14303,39 +14500,50 @@ window.ww50DataSignature = ww50DataSignature;
     }).join("") + '</div>';
   }
 
-  /* v3.89: для будущего месяца сумма регулярного дохода необязательно
-     совпадает с шаблоном (премии, разовые подработки) — даём её задать
-     отдельно на каждый месяц. Пока значение не указано, считаем это
-     осознанным пропуском, а не «наверное, как обычно», и не прогнозируем
-     доход, в котором нет уверенности. Текущий/прошлый месяц и просмотр
-     периода длиннее месяца — без изменений, как раньше. */
+  /* v3.98: сумма регулярного дохода нестабильна (премии, разовые
+     подработки), поэтому её можно задать отдельно на КАЖДЫЙ месяц —
+     и на будущий, и на текущий, и на прошедший. Раньше поле было
+     редактируемым только для будущих месяцев, а в текущем правка шла
+     через карандаш, то есть меняла сам шаблон — и сумма разъезжалась
+     сразу по всем месяцам. Теперь правка суммы в строке всегда локальна:
+     она пишет значение только для показанного месяца. Карандаш по-прежнему
+     редактирует сам шаблон (название, день, категорию, базовую сумму).
+     Пустое поле в будущем месяце = «ещё не знаю, в прогноз не берём»;
+     в текущем/прошлом = «как в шаблоне». */
   function recurHtml(d) {
     var list = ((S && S.recurring) ? S.recurring : []).filter(function (r) { return r.type === "income"; });
     if (!list.length) return '<div class="sub">Регулярных доходов пока нет.</div>';
     var nowYm = todayStr().slice(0, 7);
     var ym = (d && d.isMonth && d.range && d.range.from) ? d.range.from.slice(0, 7) : nowYm;
     var future = ym > nowYm;
-    var total = 0;
+    var editable = !!(d && d.isMonth);   /* период длиннее месяца править построчно нельзя */
+    var total = 0, anyOver = false;
     var rows = list.slice().sort(function (a, b) { return num(a.day) - num(b.day); }).map(function (r) {
       var c = (typeof cat === "function" ? cat(r.categoryId) : null) || { name: "", icon: "💵" };
-      var v = future ? wwRecurIncomeAmount(r, ym) : (+r.amount || 0);
+      var v = wwRecurIncomeAmount(r, ym);
+      var base = +r.amount || 0;
+      var over = !!(S.recurIncomeAmt && Object.prototype.hasOwnProperty.call(S.recurIncomeAmt, r.id + ":" + ym));
+      if (over) anyOver = true;
       total += (v === null ? 0 : v);
-      var amtHtml = future
-        ? '<input type="text" inputmode="decimal" class="ww89-plan" data-id="' + r.id + '" data-ym="' + ym + '" ' +
-          'value="' + (v === null ? "" : v) + '" placeholder="—" title="Сумма на ' + e(ym) + ' — оставьте пустым, если ещё не знаете" ' +
+      var amtHtml = editable
+        ? '<input type="text" inputmode="decimal" class="ww89-plan' + (over ? " ww98-over" : "") + '" data-id="' + r.id + '" data-ym="' + ym + '" ' +
+          'value="' + (v === null ? "" : v) + '" placeholder="' + (future ? "—" : m(base)) + '" ' +
+          'title="Сумма только за ' + e(ym) + (future ? " — оставьте пустым, если ещё не знаете" : " — очистите поле, чтобы вернуть сумму из шаблона (" + m(base) + ")") + '" ' +
           'onchange="ww89PlanChange(this)">'
-        : '<div class="ramt pos">+' + m(v) + '</div>';
+        : '<div class="ramt pos">+' + m(v === null ? 0 : v) + '</div>';
       return '<div class="row"><div class="ic">' + icon(c.icon, c.name) + '</div>' +
-        '<div class="rmain"><div class="rt">' + e(r.name) + '</div>' +
+        '<div class="rmain"><div class="rt">' + e(r.name) + (over ? ' <span class="badge">только ' + e(ym) + '</span>' : "") + '</div>' +
         '<div class="rs">' + e(c.name) + (r.day ? ' · ' + num(r.day) + ' числа' : "") + '</div></div>' +
         amtHtml +
-        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openRecurModal(\'' + r.id + '\')" title="Изменить">' + (window.WWI ? WWI.pencil : "✎") + '</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openRecurModal(\'' + r.id + '\')" title="Изменить" aria-label="Изменить шаблон — повлияет на все месяцы">' + (window.WWI ? WWI.pencil : "✎") + '</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delRecur(\'' + r.id + '\')" title="Удалить">✕</button>' +
         '</div>';
     }).join("");
-    var hint = future
-      ? '<div class="sub" style="margin:8px 0 -2px">Планирование на ' + e(ym) + '. Пустое поле — сумма ещё неизвестна, в прогноз не входит.</div>'
-      : "";
+    var hint = !editable
+      ? '<div class="sub" style="margin:8px 0 -2px">Период длиннее месяца — суммы показаны справочно. Чтобы задать сумму на конкретный месяц, выберите этот месяц.</div>'
+      : future
+        ? '<div class="sub" style="margin:8px 0 -2px">Планирование на ' + e(ym) + '. Пустое поле — сумма ещё неизвестна, в прогноз не входит.</div>'
+        : '<div class="sub" style="margin:8px 0 -2px">Сумма в строке относится только к ' + e(ym) + (anyOver ? '. Очистите поле, чтобы вернуть значение из шаблона' : '') + '. Карандаш меняет сам шаблон — сразу во всех месяцах.</div>';
     return rows + hint + '<div class="row" style="font-weight:800"><div class="ic">Σ</div>' +
       '<div class="rmain"><div class="rt">Итого в месяц</div></div>' +
       '<div class="ramt pos" id="ww63-recur-total">+' + m(total) + '</div></div>';
@@ -14443,16 +14651,29 @@ window.ww50DataSignature = ww50DataSignature;
   }
 
   /* ---------- кнопки добавления ---------- */
-  /* v3.89: правка помесячного плана дохода прямо из строки списка. */
+  /* v3.89: правка помесячного плана дохода прямо из строки списка.
+     v3.98: работает и для текущего/прошлого месяца — значение всегда
+     пишется только для указанного ym и не трогает шаблон. */
   window.ww89PlanChange = function (input) {
     if (typeof isObserver === "function" && isObserver()) return;
     var id = input.dataset.id, ym = input.dataset.ym;
     var raw = (input.value || "").trim().replace(",", ".");
-    if (raw === "") { wwSetRecurIncomeAmount(id, ym, null); toast("Сумма на " + ym + " снова не задана"); }
-    else {
+    var future = ym > todayStr().slice(0, 7);
+    if (raw === "") {
+      wwSetRecurIncomeAmount(id, ym, null);
+      toast(future ? "Сумма на " + ym + " снова не задана" : "Вернули сумму из шаблона на " + ym);
+    } else {
       var v = parseFloat(raw);
       if (!isFinite(v) || v < 0) { toast("Введите сумму или оставьте поле пустым"); input.value = ""; return; }
-      wwSetRecurIncomeAmount(id, ym, v);
+      var rec = ((S && S.recurring) || []).find(function (x) { return x.id === id; });
+      var base = rec ? +rec.amount || 0 : 0;
+      if (!future && Math.abs(v - base) < 0.005) {
+        /* совпало с шаблоном — не плодим лишнюю запись-исключение */
+        wwSetRecurIncomeAmount(id, ym, null);
+      } else {
+        wwSetRecurIncomeAmount(id, ym, v);
+        if (!future) toast("Сумма изменена только на " + ym);
+      }
     }
     try { renderInc(); } catch (e) {}
   };
