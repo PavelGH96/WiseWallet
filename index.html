@@ -666,7 +666,13 @@ button,a,input,select,textarea,label{touch-action:manipulation}
 .kb-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:var(--t2);padding:8px 14px;background:var(--fill);border-radius:12px;margin-bottom:10px}
 .kb-count{background:var(--fill);border-radius:999px;padding:1px 8px;font-size:11.5px;color:var(--t2)}
 .kb-cards{display:flex;flex-direction:column;gap:8px;min-height:24px;border-radius:10px}
-.kb-cards.drag-over{outline:2px dashed var(--blue);outline-offset:2px;background:var(--blue-bg)}
+/* v4.09: принимает перенос вся колонка целиком, поэтому и подсвечивается она,
+   а не только список карточек. min-height даёт заметную зону приёма даже у
+   пустой колонки — раньше в неё было почти некуда попасть. */
+.kb-col{min-height:150px;padding:0 4px 8px;transition:background .12s ease}
+.kb-col.drag-over{outline:2px dashed var(--blue);outline-offset:-2px;background:var(--blue-bg)}
+.kb-col.drag-over .kb-add{border-color:var(--blue);color:var(--blue)}
+@media(prefers-reduced-motion:reduce){.kb-col{transition:none}}
 .task-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;display:flex;gap:9px;align-items:flex-start;cursor:grab;box-shadow:var(--sh-s)}
 .task-card:active{cursor:grabbing}
 .task-card.od{border-color:var(--red)}
@@ -863,7 +869,23 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 }
 
 /* ===== v3.89: поле помесячного плана регулярного дохода ===== */
-.ww89-plan{width:104px;text-align:right;font:inherit;font-weight:700;color:var(--green);font-family:var(--font-d);padding:6px 8px;border:1px dashed var(--border);border-radius:var(--radius-s);background:var(--bg)}
+/* v4.08: поле подстраивается под сумму.
+   Была жёсткая ширина 104 px. Замер: «200000» требует 99 px — запас 5 px, и
+   его съедал любой шрифт пошире (Manrope не всегда успевает загрузиться, а
+   запасной шире); с семи знаков («1500000» — 107 px) обрезало гарантированно.
+   field-sizing:content растит поле по содержимому; там, где он не
+   поддерживается, работает увеличенная фиксированная ширина. Верхняя граница
+   не даёт полю выдавить название категории на узком экране. */
+.ww89-plan{width:132px;text-align:right;font:inherit;font-weight:700;color:var(--green);font-family:var(--font-d);padding:6px 8px;border:1px dashed var(--border);border-radius:var(--radius-s);background:var(--bg)}
+@supports (field-sizing: content) {
+  .ww89-plan{field-sizing:content;width:auto;min-width:104px;max-width:min(190px,48vw)}
+}
+/* v4.08: обёртка голосового ввода объявлена как width:100% — она рассчитана
+   на полноширинные поля формы. Но вокруг компактного поля суммы внутри строки
+   она требовала всю ширину (замер: 207 px из 334) и выдавливала название
+   категории ровно в 0 px. Внутри .row обёртка должна занимать столько же,
+   сколько само поле. */
+.row > .ww61-wrap{width:auto;min-width:0;flex:0 0 auto}
 .ww89-plan::placeholder{color:var(--t3);font-weight:400}
 .ww89-plan:focus{outline:none;border-style:solid;border-color:var(--green)}
 /* v3.98: сумма задана отдельно на этот месяц (не как в шаблоне) */
@@ -1795,6 +1817,17 @@ function ww403SplitRender() {
    Решение: на узком экране три кнопки прячутся, вместо них одна «⋮», которая
    открывает лист действий. На десктопе всё остаётся как было — там места
    хватает, и кнопки в один клик удобнее. */
+/* v4.08: лист действий для строки регулярного дохода на телефоне. */
+function ww408RecurMenu(id) {
+  const r = (S.recurring || []).find((x) => x.id === id);
+  if (!r) return;
+  showModal('<div class="mhead"><h3>' + esc(r.name) + '</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div class="sub" style="margin:-4px 0 10px">' + (r.day ? r.day + ' числа · ' : "") + money(r.amount) + '</div>' +
+    '<div class="ww26-sheet">' +
+    '<div class="opt" onclick="closeModal();openRecurModal(\'' + id + '\')"><span>✎ Изменить шаблон</span></div>' +
+    '<div class="opt" onclick="closeModal();delRecur(\'' + id + '\')"><span style="color:var(--red)">✕ Удалить</span></div>' +
+    '</div>');
+}
 function ww404RowMenu(id) {
   const t = S.transactions.find((x) => x.id === id);
   if (!t) return;
@@ -3963,17 +3996,43 @@ function renderPlanner() {
     const sorted = srt(act);
     document.getElementById("planner-list").innerHTML = sorted.length ? `<div style="display:flex;flex-direction:column;gap:8px">${sorted.map(taskCard).join("")}</div>` : '<div class="empty"><div class="big">' + WWI.clipboard + '</div>Нет активных задач</div>';
   } else {
+    /* v4.09: принимает перенос ВСЯ колонка, а не только список карточек.
+       Раньше обработчики висели на .kb-cards, а её высота равна содержимому:
+       ниже последней карточки (на кнопке «Добавить задачу» и в пустом месте)
+       перенос не срабатывал, и задача возвращалась назад. */
     document.getElementById("kanban").innerHTML = taskCols().map((c) => `
-    <div class="kb-col"><div class="kb-head"><span>${c.title}</span><span class="kb-count">${c.tasks.length}</span></div>
-    <div class="kb-cards" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="taskDrop(event,'${c.key}')">${c.tasks.map(taskCard).join("") || '<div class="empty" style="padding:14px 6px;font-size:12.5px">Нет задач</div>'}</div>
+    <div class="kb-col" data-col="${c.key}" ondragover="ww409ColOver(event)" ondragenter="ww409ColOver(event)" ondragleave="ww409ColLeave(event)" ondrop="taskDrop(event,'${c.key}')">
+    <div class="kb-head"><span>${c.title}</span><span class="kb-count">${c.tasks.length}</span></div>
+    <div class="kb-cards">${c.tasks.map(taskCard).join("") || '<div class="empty" style="padding:14px 6px;font-size:12.5px">Нет задач</div>'}</div>
     <button class="kb-add" onclick="openTaskModal(null,'${c.key}')">＋ Добавить задачу</button></div>`).join("");
   }
   const done = S.tasks.filter((t) => t.done && (taskWho === "all" || t.who === taskWho)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 20);
   document.getElementById("tasks-done").innerHTML = done.length ? done.map((t) => `<div class="row done-list"><button class="task-check done" onclick="toggleTask('${t.id}')" title="Вернуть в работу">✓</button><div class="rmain"><div class="task-text" style="font-size:13.5px">${esc(t.text)}</div><div class="rs">${WHO_LABEL[t.who] || ""}</div></div><button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')">${WWI.trash}</button></div>`).join("") : '<div class="empty">Выполненных задач пока нет</div>';
 }
 function taskDrag(e, id) { _dragTaskId = id; e.dataTransfer.effectAllowed = "move"; }
+/* v4.09: подсветка колонки-приёмника. dragleave срабатывает и при переходе
+   между дочерними элементами внутри колонки, поэтому снимаем подсветку
+   только когда курсор действительно вышел за её границы. */
+function ww409ColOver(e) {
+  if (!_dragTaskId) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  const col = e.currentTarget;
+  if (!col.classList.contains("drag-over")) col.classList.add("drag-over");
+}
+function ww409ColLeave(e) {
+  const col = e.currentTarget;
+  if (e.relatedTarget && col.contains(e.relatedTarget)) return;
+  col.classList.remove("drag-over");
+}
+/* если перенос отменили (Esc, бросили мимо) — гасим подсветку во всех колонках */
+document.addEventListener("dragend", function () {
+  _dragTaskId = null;
+  document.querySelectorAll("#kanban .kb-col.drag-over").forEach((el) => el.classList.remove("drag-over"));
+});
 function taskDrop(e, col) {
-  e.preventDefault(); e.currentTarget.classList.remove("drag-over");
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
   if (isObserver()) return;
   const t = S.tasks.find((x) => x.id === _dragTaskId); if (!t) return;
   t.date = col === "today" ? todayStr() : col === "tomorrow" ? dayOff(1) : col === "week" ? dayOff(3) : "";
@@ -5446,7 +5505,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.07";
+const WW_VERSION = "4.09";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -13825,6 +13884,10 @@ window.ww50DataSignature = ww50DataSignature;
   }
 
   function doneColEl() {
+    /* v4.09: обработчик переноса переехал с .kb-cards на саму колонку,
+       поэтому ищем по явному data-col, а не регуляркой по атрибуту ondrop. */
+    var byData = document.querySelector('#kanban .kb-col[data-col="done"]');
+    if (byData) return byData;
     var cols = document.querySelectorAll('#kanban .kb-col');
     for (var i = 0; i < cols.length; i++) {
       var box = cols[i].querySelector('.kb-cards');
@@ -15020,8 +15083,14 @@ window.ww50DataSignature = ww50DataSignature;
         '<div class="rmain"><div class="rt">' + e(r.name) + (over ? ' <span class="badge">только ' + e(ym) + '</span>' : "") + '</div>' +
         '<div class="rs">' + e(c.name) + (r.day ? ' · ' + num(r.day) + ' числа' : "") + '</div></div>' +
         amtHtml +
+        /* v4.08: на телефоне две кнопки вместе с полем суммы не оставляли
+           названию ни пикселя (замер: 0 px при 360–430 px). Прячем их за одну
+           «⋮», как в списке операций. На десктопе всё как было. */
+        '<span class="ww404-acts">' +
         '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openRecurModal(\'' + r.id + '\')" title="Изменить" aria-label="Изменить шаблон — повлияет на все месяцы">' + (window.WWI ? WWI.pencil : "✎") + '</button>' +
         '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delRecur(\'' + r.id + '\')" title="Удалить">✕</button>' +
+        '</span>' +
+        '<button class="btn btn-ghost btn-sm ww404-more" onclick="event.stopPropagation();ww408RecurMenu(\'' + r.id + '\')" title="Действия" aria-label="Действия с регулярным доходом">⋮</button>' +
         '</div>';
     }).join("");
     var hint = !editable
