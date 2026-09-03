@@ -1102,7 +1102,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 </nav>
 
 <button class="fab" onclick="openTxModal()" aria-label="Добавить операцию">+</button>
-<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
 <script>
 "use strict";
@@ -2241,7 +2241,18 @@ function drawDonut(cv, entries, total, subLabel) {
     centerText();
     if (k < 1) { cv._donutAnim = requestAnimationFrame(frame); } else { cv._donutAnim = null; decorations(); }
   }
-  cv._donutAnim = requestAnimationFrame(frame);
+  /* v4.05: раньше анимация стартовала сразу при отрисовке. На дашборде эта
+     карточка лежит внизу длинной страницы, и к моменту, когда пользователь до
+     неё доскроллит, 550 мс уже прошли — анимация проигрывалась вхолостую.
+     Теперь ждём появления холста на экране. */
+  ww405Animate(cv, function (k) {
+    const ease = k;
+    ctx.clearRect(0, 0, w, h);
+    let a0 = -Math.PI / 2;
+    entries.forEach((e, i) => { const a1 = a0 + fr[i] * Math.PI * 2 * ease; seg(i, a0, a1); a0 = a1; });
+    if (k > 0) centerText();
+    if (k >= 1) decorations();
+  });
 }
 function renderAnalytics() {
   /* donut: expenses of current month, fallback to plan */
@@ -2286,21 +2297,79 @@ function factSeries() {
   }
   return out;
 }
+/* ===================== v4.05: анимация графиков при появлении на экране =====================
+   Бублик анимировался с самого начала, но на дашборде его никто не видел:
+   карточка «Расходы по категориям» лежит в самом низу длинной страницы, и
+   пока пользователь до неё доскроллит, 550 мс давно проходят. Замер это
+   подтвердил — анимация есть, просто вхолостую.
+   Поэтому не «добавляем анимацию», а привязываем её к моменту, когда график
+   реально попал в поле зрения.
+
+   Про нагрузку: IntersectionObserver — не опрос, браузер сам будит нас при
+   пересечении. Каждый холст анимируется РОВНО ОДИН раз за отрисовку
+   (после срабатывания перестаём наблюдать), requestAnimationFrame крутится
+   только во время самой анимации и отменяется при перерисовке. Постоянных
+   таймеров и циклов не остаётся. При prefers-reduced-motion и в фоновой
+   вкладке рисуем сразу конечный кадр. */
+const WW405_DUR = 520;
+let _ww405IO = null;
+function ww405Reduced() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
+}
+/* draw(progress) должна отрисовать кадр: 0 — пусто, 1 — итоговый вид. */
+function ww405Animate(cv, draw) {
+  if (!cv) return;
+  if (cv._ww405raf) { cancelAnimationFrame(cv._ww405raf); cv._ww405raf = 0; }
+  if (cv._ww405io) { try { _ww405IO.unobserve(cv); } catch (e) {} cv._ww405io = 0; }
+  const run = () => {
+    if (ww405Reduced() || document.hidden) { draw(1); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / WW405_DUR);
+      draw(1 - Math.pow(1 - k, 3));               /* easeOutCubic */
+      cv._ww405raf = k < 1 ? requestAnimationFrame(step) : 0;
+    };
+    cv._ww405raf = requestAnimationFrame(step);
+  };
+  /* уже видим — стартуем сразу; иначе ждём появления */
+  const r = cv.getBoundingClientRect();
+  const visible = r.width > 0 && r.bottom > 0 && r.top < (window.innerHeight || 0);
+  if (visible) { run(); return; }
+  draw(0);                                        /* до появления холст пустой, без мигания */
+  if (!("IntersectionObserver" in window)) { run(); return; }
+  if (!_ww405IO) {
+    _ww405IO = new IntersectionObserver((ents) => {
+      ents.forEach((e) => {
+        if (!e.isIntersecting) return;
+        _ww405IO.unobserve(e.target);
+        e.target._ww405io = 0;
+        if (typeof e.target._ww405run === "function") e.target._ww405run();
+      });
+    }, { threshold: 0.25 });
+  }
+  cv._ww405run = run;
+  cv._ww405io = 1;
+  _ww405IO.observe(cv);
+}
 function drawBars(id, series, planStyle) {
-  const { ctx, w, h } = setupCanvas(document.getElementById(id));
-  ctx.clearRect(0, 0, w, h);
+  const cv = document.getElementById(id);
+  const { ctx, w, h } = setupCanvas(cv);
   const max = Math.max(1, ...series.flatMap((s) => [s.a, s.b]));
   const pad = 26, bw = (w - pad * 2) / series.length;
-  ctx.font = "500 11px Inter, sans-serif"; ctx.textAlign = "center";
-  series.forEach((s, i) => {
-    const x = pad + i * bw + bw / 2;
-    const ha = (s.a / max) * (h - 58), hb = (s.b / max) * (h - 58);
-    ctx.fillStyle = cssVar("--green"); ctx.beginPath(); ctx.roundRect(x - bw * 0.32, h - 30 - ha, bw * 0.27, ha, 3); ctx.fill();
-    ctx.fillStyle = cssVar("--red"); ctx.beginPath(); ctx.roundRect(x + bw * 0.05, h - 30 - hb, bw * 0.27, hb, 3); ctx.fill();
-    ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
+  /* v4.05: столбцы вырастают снизу — рисуем кадр по прогрессу */
+  ww405Animate(cv, (k) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = "500 11px Inter, sans-serif"; ctx.textAlign = "center";
+    series.forEach((s, i) => {
+      const x = pad + i * bw + bw / 2;
+      const ha = (s.a / max) * (h - 58) * k, hb = (s.b / max) * (h - 58) * k;
+      ctx.fillStyle = cssVar("--green"); ctx.beginPath(); ctx.roundRect(x - bw * 0.32, h - 30 - ha, bw * 0.27, ha, 3); ctx.fill();
+      ctx.fillStyle = cssVar("--red"); ctx.beginPath(); ctx.roundRect(x + bw * 0.05, h - 30 - hb, bw * 0.27, hb, 3); ctx.fill();
+      ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
+    });
+    ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
+    ctx.fillText(fmtM.format(max), w - 4, 14);
   });
-  ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
-  ctx.fillText(fmtM.format(max), w - 4, 14);
 }
 </script>
 <script>
@@ -2831,6 +2900,28 @@ document.addEventListener("touchmove", function (e) {
   if ((dy > 0 && atTop) || (dy < 0 && atBottom)) e.preventDefault();
 }, { passive: false });
 function closeModal() { const ov = document.getElementById("overlay"); const wasOpen = ov.classList.contains("open"); ov.classList.remove("open"); ov.classList.remove("center"); if (wasOpen) wwScrollUnlock(); }
+/* ===================== v4.06: клик по подложке закрывает окно =====================
+   Раньше на подложке висел onclick с проверкой event.target === this. Проблема
+   в том, что браузер шлёт click НЕ по месту отпускания кнопки, а по ближайшему
+   ОБЩЕМУ предку места нажатия и места отпускания. Поэтому сценарий «выделяю
+   текст в поле мышкой и отпускаю кнопку за пределами окна» давал click с
+   target = подложка — и окно закрывалось прямо посреди заполнения формы,
+   теряя введённое.
+   Теперь закрываем только если жест ЦЕЛИКОМ прошёл по подложке: и нажатие, и
+   отпускание. Началось внутри окна — что бы ни случилось дальше, не закрываем. */
+(function () {
+  const ov = document.getElementById("overlay");
+  if (!ov) return;
+  let downOnOverlay = false;
+  ov.addEventListener("pointerdown", (e) => { downOnOverlay = e.target === ov; });
+  /* если нажатие началось внутри окна, а отпустили снаружи — сбрасываем флаг,
+     чтобы следующий click точно ничего не закрыл */
+  ov.addEventListener("pointerup", (e) => { if (e.target !== ov) downOnOverlay = false; });
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov && downOnOverlay) closeModal();
+    downOnOverlay = false;
+  });
+})();
 /* Фокус в поле сразу после открытия модалки.
    На iOS программный focus() открывает клавиатуру только если он вызван внутри
    стека обработчика нажатия. setTimeout из этого стека выходит — поле выглядит
@@ -2860,7 +2951,13 @@ function _dlgEl() {
     ov = document.createElement("div");
     ov.className = "dlg-ov"; ov.id = "ww-dlg-ov";
     ov.innerHTML = '<div class="dlg" id="ww-dlg" role="dialog" aria-modal="true"></div>';
-    ov.addEventListener("click", (e) => { if (e.target === ov) _dlgClose(null); });
+    /* v4.06: закрываем только если жест целиком прошёл по подложке — см.
+       комментарий у #overlay. Иначе выделение текста мышкой с отпусканием
+       за пределами диалога закрывало его. */
+    let dOn = false;
+    ov.addEventListener("pointerdown", (e) => { dOn = e.target === ov; });
+    ov.addEventListener("pointerup", (e) => { if (e.target !== ov) dOn = false; });
+    ov.addEventListener("click", (e) => { if (e.target === ov && dOn) _dlgClose(null); dOn = false; });
     document.body.appendChild(ov);
   }
   return ov;
@@ -5095,20 +5192,34 @@ function flowSeries() {
 function drawFlow() {
   ensureFlowCard();
   const cv = document.getElementById("chart-flow"); if (!cv) return;
-  const { ctx, w, h } = setupCanvas(cv); ctx.clearRect(0, 0, w, h);
+  const { ctx, w, h } = setupCanvas(cv);
   const s = flowSeries(); const vals = s.map((p) => p.v);
   const min = Math.min(0, ...vals), max = Math.max(0, ...vals); const range = max - min || 1;
   const pad = 30;
   const X = (i) => pad + i * (w - pad * 2) / (s.length - 1);
   const Y = (v) => 18 + (h - 48 - 18) * (1 - (v - min) / range);
-  ctx.strokeStyle = cssVar("--border"); ctx.setLineDash([4, 4]);
-  ctx.beginPath(); ctx.moveTo(pad, Y(0)); ctx.lineTo(w - pad, Y(0)); ctx.stroke(); ctx.setLineDash([]);
-  const neg = vals.some((v) => v < 0);
-  ctx.strokeStyle = cssVar(neg ? "--red" : "--green"); ctx.lineWidth = 2;
-  ctx.beginPath(); s.forEach((p, i) => { i ? ctx.lineTo(X(i), Y(p.v)) : ctx.moveTo(X(i), Y(p.v)); }); ctx.stroke(); ctx.lineWidth = 1;
-  ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = cssVar("--t3"); ctx.textAlign = "center";
-  s.forEach((p, i) => { if (i % 2 === 1) ctx.fillText(p.label, X(i), h - 10); });
-  ctx.textAlign = "left"; ctx.fillText("через год: " + fmtM.format(Math.round(vals[vals.length - 1])) + " ₽", pad, 12);
+  /* v4.05: линия прогноза прочерчивается слева направо при появлении карточки */
+  ww405Animate(cv, (k) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = cssVar("--border"); ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(pad, Y(0)); ctx.lineTo(w - pad, Y(0)); ctx.stroke(); ctx.setLineDash([]);
+    const neg = vals.some((v) => v < 0);
+    ctx.strokeStyle = cssVar(neg ? "--red" : "--green"); ctx.lineWidth = 2;
+    /* сколько точек уже показано; последний отрезок дорисовываем частично,
+       чтобы линия росла плавно, а не прыгала по узлам */
+    const last = (s.length - 1) * k;
+    ctx.beginPath();
+    s.forEach((p, i) => { if (i > last) return; i ? ctx.lineTo(X(i), Y(p.v)) : ctx.moveTo(X(i), Y(p.v)); });
+    const i0 = Math.floor(last);
+    if (i0 < s.length - 1) {
+      const f = last - i0;
+      ctx.lineTo(X(i0) + (X(i0 + 1) - X(i0)) * f, Y(s[i0].v) + (Y(s[i0 + 1].v) - Y(s[i0].v)) * f);
+    }
+    ctx.stroke(); ctx.lineWidth = 1;
+    ctx.font = "500 11px Inter, sans-serif"; ctx.fillStyle = cssVar("--t3"); ctx.textAlign = "center";
+    s.forEach((p, i) => { if (i % 2 === 1) ctx.fillText(p.label, X(i), h - 10); });
+    ctx.textAlign = "left"; ctx.fillText("через год: " + fmtM.format(Math.round(vals[vals.length - 1])) + " ₽", pad, 12);
+  });
   const firstNeg = s.find((p) => p.v < 0);
   const note = document.getElementById("flow-note");
   if (note) note.textContent = firstNeg ? "⚠️ Прогноз уходит в минус (" + firstNeg.label + ".) — плановые расходы выше доходов." : "✓ Прогноз положительный на всём горизонте.";
@@ -5318,7 +5429,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.04";
+const WW_VERSION = "4.06";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6094,36 +6205,38 @@ renderAnalytics = function () {
 function ww23DrawBars(cv, series, stacks) {
   if (!cv) return;
   const { ctx, w, h } = setupCanvas(cv);
-  ctx.clearRect(0, 0, w, h);
   const max = Math.max(1, ...series.map((s) => s.v));
   const pad = 26, bw = (w - pad * 2) / series.length;
-  ctx.font = "500 10px Inter, sans-serif"; ctx.textAlign = "center";
   const usable = h - 58;
-  series.forEach((s, i) => {
-    const x = pad + i * bw + bw / 2, hh = (s.v / max) * usable;
-    const bx = x - bw * 0.3, bwid = bw * 0.6;
-    if (stacks && stacks.length > 1) {
-      let y = h - 30;
-      stacks.forEach((st, k) => {
-        const seg = (st.values[i] / max) * usable;
-        if (seg <= 0) return;
-        ctx.fillStyle = st.color;
-        ctx.beginPath();
-        /* скругляем только верх самого верхнего видимого сегмента */
-        const isTop = !stacks.slice(k + 1).some((o) => o.values[i] > 0);
-        if (isTop) ctx.roundRect(bx, y - seg, bwid, seg, [3, 3, 0, 0]);
-        else ctx.rect(bx, y - seg, bwid, seg);
-        ctx.fill();
-        y -= seg;
-      });
-    } else {
-      ctx.fillStyle = (stacks && stacks[0]) ? stacks[0].color : PALETTE[0];
-      ctx.beginPath(); ctx.roundRect(bx, h - 30 - hh, bwid, Math.max(hh, s.v > 0 ? 2 : 0), 3); ctx.fill();
-    }
-    ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
+  /* v4.05: столбцы вырастают снизу при появлении карточки на экране */
+  ww405Animate(cv, (k) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = "500 10px Inter, sans-serif"; ctx.textAlign = "center";
+    series.forEach((s, i) => {
+      const x = pad + i * bw + bw / 2, hh = (s.v / max) * usable * k;
+      const bx = x - bw * 0.3, bwid = bw * 0.6;
+      if (stacks && stacks.length > 1) {
+        let y = h - 30;
+        stacks.forEach((st, kk) => {
+          const seg = (st.values[i] / max) * usable * k;
+          if (seg <= 0) return;
+          ctx.fillStyle = st.color;
+          ctx.beginPath();
+          const isTop = !stacks.slice(kk + 1).some((o) => o.values[i] > 0);
+          if (isTop) ctx.roundRect(bx, y - seg, bwid, seg, [3, 3, 0, 0]);
+          else ctx.rect(bx, y - seg, bwid, seg);
+          ctx.fill();
+          y -= seg;
+        });
+      } else {
+        ctx.fillStyle = (stacks && stacks[0]) ? stacks[0].color : PALETTE[0];
+        ctx.beginPath(); ctx.roundRect(bx, h - 30 - hh, bwid, Math.max(hh, s.v > 0 ? 2 * k : 0), 3); ctx.fill();
+      }
+      ctx.fillStyle = cssVar("--t3"); ctx.fillText(s.label, x, h - 12);
+    });
+    ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
+    ctx.fillText(fmtM.format(max), w - 4, 14);
   });
-  ctx.textAlign = "right"; ctx.fillStyle = cssVar("--t3");
-  ctx.fillText(fmtM.format(max), w - 4, 14);
 }
 function ww23Trend() {
   const btn = document.getElementById("ww23-an-cat"); if (!btn) return;
@@ -13370,7 +13483,12 @@ window.ww50DataSignature = ww50DataSignature;
       '<div class="p-foot"><span>↑↓ выбор</span><span>Enter открыть</span><span>Ctrl+K / ⌘K вызов</span></div>' +
       '</div>';
     document.body.appendChild(ov);
-    ov.addEventListener('click', function (e) { if (e.target === ov) closePal(); });
+    /* v4.06: та же защита, что и у модалок: закрываем, только если и нажатие,
+       и отпускание пришлись на подложку. */
+    var pOnOv = false;
+    ov.addEventListener('pointerdown', function (e) { pOnOv = e.target === ov; });
+    ov.addEventListener('pointerup', function (e) { if (e.target !== ov) pOnOv = false; });
+    ov.addEventListener('click', function (e) { if (e.target === ov && pOnOv) closePal(); pOnOv = false; });
     var q = ov.querySelector('#ww57-q');
     q.addEventListener('input', function () { runSearch(q.value); });
     q.addEventListener('keydown', function (e) {
