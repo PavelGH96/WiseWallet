@@ -1755,7 +1755,7 @@ function txRow(t) {
 let _txSplit = null;   /* null — обычный режим; массив [{cid, amt}] — режим разделения */
 function ww403SplitToggle() {
   if (_txSplit) { _txSplit = null; ww403SplitRender(); return; }
-  const total = wwCalcExpr(document.getElementById("tx-amount").value) || 0;
+  const total = wwCalcExpr(ww410Strip(document.getElementById("tx-amount").value)) || 0;
   const cats = S.categories.filter((c) => c.type === txType);
   _txSplit = [
     { cid: txCat || (cats[0] || {}).id || "", amt: total > 0 ? Math.round(total * 100) / 100 : "" },
@@ -1772,11 +1772,11 @@ function ww403SplitSet(i, field, v) {
      поля на каждом символе. Обновляем только строку остатка. */
   if (field === "amt") ww403SplitRestRender(); else ww403SplitRender();
 }
-function ww403SplitSum() { return (_txSplit || []).reduce((s, p) => s + (wwCalcExpr(p.amt) || 0), 0); }
+function ww403SplitSum() { return (_txSplit || []).reduce((s, p) => s + (wwCalcExpr(ww410Strip(p.amt)) || 0), 0); }
 /* Остаток: сколько ещё не разложено по категориям. Показываем всегда, потому
    что сойтись «в ноль» — единственное условие сохранения. */
 function ww403SplitRest() {
-  const total = wwCalcExpr(document.getElementById("tx-amount").value) || 0;
+  const total = wwCalcExpr(ww410Strip(document.getElementById("tx-amount").value)) || 0;
   return Math.round((total - ww403SplitSum()) * 100) / 100;
 }
 function ww403SplitRestRender() {
@@ -3155,7 +3155,7 @@ function openTxModal(pre) {
     <div class="fg"><div class="seg" id="tx-seg">
       <button class="${txType === "expense" ? "active exp" : ""}" onclick="setTxType('expense',this)">Расход</button>
       <button class="${txType === "income" ? "active inc" : ""}" onclick="setTxType('income',this)">Доход</button></div></div>`}
-    <div class="fg"><input class="amount-in" id="tx-amount" type="text" inputmode="decimal" placeholder="0 ₽ (можно 450+120)" value="${pre.amount || ""}" autofocus onblur="wwApplyCalc(this)"></div>
+    <div class="fg"><input class="amount-in" id="tx-amount" type="text" inputmode="decimal" placeholder="0 ₽ (можно 450+120)" value="${pre.amount ? ww410Group(pre.amount) : ""}" autofocus onfocus="ww410Unformat(this)" onblur="wwApplyCalc(this);ww410Format(this)"></div>
     ${lockedCat ? "" : `<div class="fg" id="tx-cat-fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>
     <div class="fg" id="tx-split-box"></div>
     <button type="button" class="btn btn-ghost btn-sm" id="tx-split-btn" style="margin:-4px 0 10px" onclick="ww403SplitToggle()">Разделить по категориям</button>`}
@@ -3187,6 +3187,39 @@ function openTxModal(pre) {
    локальном приложении. Поддерживаем + - * / и скобки, запятую как
    десятичный разделитель. Возвращаем null, если строка не является
    корректным выражением, — тогда вызывающий код покажет обычную ошибку. */
+/* ===================== v4.10: разряды в полях суммы =====================
+   Просьба: показывать «200 000», а не «200000». Хитрость в том, что поле
+   остаётся полем ввода: если вставлять пробелы прямо во время набора, курсор
+   прыгает и правка становится мучением. Поэтому разряды показываем только
+   когда поле НЕ в фокусе, а при заходе в него возвращаем «сырое» число.
+   Разделитель — узкий неразрывный пробел (U+202F), как и в money(). */
+function ww410Group(v) {
+  var n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.,-]/g, "").replace(",", "."));
+  if (!isFinite(n)) return String(v == null ? "" : v);
+  var neg = n < 0; n = Math.abs(n);
+  var int = Math.floor(n);
+  var frac = Math.round((n - int) * 100);
+  var out = String(int).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F");
+  if (frac) out += "," + String(frac).padStart(2, "0");
+  return (neg ? "−" : "") + out;
+}
+/* Убирает разделители, оставляя то, что понимает парсер выражений. */
+function ww410Strip(s) {
+  return String(s == null ? "" : s).replace(/[\u202F\u00A0\s]/g, "").replace(/−/g, "-");
+}
+function ww410Unformat(el) {
+  if (!el) return;
+  el.value = ww410Strip(el.value);
+  try { el.select(); } catch (e) {}
+}
+function ww410Format(el) {
+  if (!el) return;
+  var raw = ww410Strip(el.value).trim();
+  if (!raw) { el.value = ""; return; }
+  /* поддерживаем и выражения: «200000+5000» превратится в «205 000» */
+  var v = /[+\-*/()]/.test(raw.slice(1)) ? wwCalcExpr(raw) : parseFloat(raw.replace(",", "."));
+  el.value = (v === null || !isFinite(v)) ? raw : ww410Group(v);
+}
 function wwCalcExpr(src) {
   const s = String(src == null ? "" : src).replace(/\s+/g, "").replace(/,/g, ".").replace(/[−–—]/g, "-").replace(/[×]/g, "*").replace(/[÷]/g, "/");
   if (!s) return null;
@@ -3239,7 +3272,7 @@ function wwCalcExpr(src) {
 /* Пересчитывает выражение прямо в поле, когда пользователь из него уходит. */
 function wwApplyCalc(el) {
   if (!el) return;
-  const raw = (el.value || "").trim();
+  const raw = ww410Strip(el.value).trim();
   if (!raw || !/[+\-*/()]/.test(raw.slice(1))) return;   /* обычное число — не трогаем */
   const v = wwCalcExpr(raw);
   if (v !== null && v > 0) el.value = String(v);
@@ -3496,7 +3529,7 @@ function saveTx() {
   /* v4.03: сумма может быть выражением («450+120»), поэтому сначала считаем.
      Если пользователь сохранил, не уходя из поля, onblur мог не сработать. */
   const _amtEl = document.getElementById("tx-amount");
-  const _rawAmt = (_amtEl.value || "").trim();
+  const _rawAmt = ww410Strip(_amtEl.value).trim();   /* v4.10: убираем разделители разрядов */
   let amount = /[+\-*/()]/.test(_rawAmt.slice(1)) ? wwCalcExpr(_rawAmt) : parseFloat(_rawAmt.replace(",", "."));
   if (amount === null) { toast("Не понял выражение в поле суммы"); wwFocus("tx-amount"); return; }
   if (!amount || amount <= 0) { toast("Введите сумму"); return; }
@@ -3530,7 +3563,7 @@ function saveTx() {
      пользователя. */
   if (_txSplit) {
     if (window._txEditId) { toast("Разделить можно только новую операцию"); return; }
-    const parts = _txSplit.map((p) => ({ cid: p.cid, amt: wwCalcExpr(p.amt) }));
+    const parts = _txSplit.map((p) => ({ cid: p.cid, amt: wwCalcExpr(ww410Strip(p.amt)) }));
     if (parts.some((p) => !p.cid)) { toast("У каждой части должна быть категория"); return; }
     if (parts.some((p) => p.amt === null || !(p.amt > 0))) { toast("У каждой части должна быть сумма больше нуля"); return; }
     const rest = Math.round((amount - parts.reduce((s, p) => s + p.amt, 0)) * 100) / 100;
@@ -5505,7 +5538,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.09";
+const WW_VERSION = "4.10";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -14496,13 +14529,24 @@ window.ww50DataSignature = ww50DataSignature;
   function isTextarea(el) { return el.tagName === 'TEXTAREA'; }
   function isNumberField(el) {
     if (el.type === 'number') return true;
-    var n = (el.id || '') + ' ' + (el.getAttribute('inputmode') || '');
-    return /amount|sum|-bal|balance|price/i.test(n) && el.tagName === 'INPUT';
+    if (el.tagName !== 'INPUT') return false;
+    /* v4.10: поле помесячной суммы (.ww89-plan) и поле суммы операции — это
+       type="text" inputmode="decimal" без id, под прежнее правило по id они
+       не попадали. Считаем числовым и по inputmode, и по классу. */
+    var im = (el.getAttribute('inputmode') || '').toLowerCase();
+    if (im === 'decimal' || im === 'numeric') return true;
+    if (el.classList && (el.classList.contains('ww89-plan') || el.classList.contains('amount-in'))) return true;
+    return /amount|sum|-bal|balance|price/i.test(el.id || '');
   }
   function eligible(el) {
     if (!el || el.__ww61) return false;
     if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
     if (el.tagName === 'INPUT' && SKIP_TYPES[(el.type || 'text').toLowerCase()]) return false;
+    /* v4.10: в полях, куда вводят только сумму, диктовка не нужна — цифры
+       быстрее и надёжнее набрать руками, а микрофон лишь занимает место в
+       строке и путает. Определение числового поля то же, что и раньше
+       использовалось для распознавания «четыреста пятьдесят» → 450. */
+    if (isNumberField(el)) return false;
     if (el.disabled || el.readOnly) return false;
     if (el.dataset && el.dataset.ww61 === 'off') return false;
     if (el.closest && el.closest('[data-ww61="off"]')) return false;
@@ -15075,9 +15119,12 @@ window.ww50DataSignature = ww50DataSignature;
       total += (v === null ? 0 : v);
       var amtHtml = editable
         ? '<input type="text" inputmode="decimal" class="ww89-plan' + (over ? " ww98-over" : "") + '" data-id="' + r.id + '" data-ym="' + ym + '" ' +
-          'value="' + (v === null ? "" : v) + '" placeholder="' + (future ? "—" : m(base)) + '" ' +
+          /* v4.10: показываем сумму с разделителями разрядов (200 000).
+             При фокусе поле переключается на «сырое» число — так проще
+             править, и не приходится бороться с пробелами при вводе. */
+          'value="' + (v === null ? "" : ww410Group(v)) + '" placeholder="' + (future ? "—" : m(base)) + '" ' +
           'title="Сумма только за ' + e(ym) + (future ? " — оставьте пустым, если ещё не знаете" : " — очистите поле, чтобы вернуть сумму из шаблона (" + m(base) + ")") + '" ' +
-          'onchange="ww89PlanChange(this)">'
+          'onfocus="ww410Unformat(this)" onblur="ww410Format(this)" onchange="ww89PlanChange(this)">'
         : '<div class="ramt pos">+' + m(v === null ? 0 : v) + '</div>';
       return '<div class="row"><div class="ic">' + icon(c.icon, c.name) + '</div>' +
         '<div class="rmain"><div class="rt">' + e(r.name) + (over ? ' <span class="badge">только ' + e(ym) + '</span>' : "") + '</div>' +
@@ -15211,7 +15258,9 @@ window.ww50DataSignature = ww50DataSignature;
   window.ww89PlanChange = function (input) {
     if (typeof isObserver === "function" && isObserver()) return;
     var id = input.dataset.id, ym = input.dataset.ym;
-    var raw = (input.value || "").trim().replace(",", ".");
+    /* v4.10: значение может прийти с разделителями разрядов — снимаем их
+       перед разбором, иначе «200 000» не превратилось бы в число. */
+    var raw = ww410Strip(input.value).trim().replace(",", ".");
     var future = ym > todayStr().slice(0, 7);
     if (raw === "") {
       wwSetRecurIncomeAmount(id, ym, null);
