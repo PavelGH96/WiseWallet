@@ -904,7 +904,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <button class="rail-item" data-nav="budgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 8.5 6H12z"/></svg><span>Бюджеты</span></button>
   <button class="rail-item" data-nav="goals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Цели</span></button>
   <div class="rail-grp">Планы</div>
-  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Расходы и доходы</span></button>
+  <button class="rail-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg><span>Доходы и расходы</span></button>
   <button class="rail-item" data-nav="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.6" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 2.8V6M16 2.8V6"/></svg><span>Календарь</span></button>
   <button class="rail-item" data-nav="planner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 5.5 4.8 7 7.2 4.3"/><path d="M3.5 11.5 4.8 13 7.2 10.3"/><path d="M3.5 17.5 4.8 19 7.2 16.3"/></svg><span>Планировщик</span></button>
   <div class="rail-grp">Хранилище</div>
@@ -978,7 +978,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 
   <!-- ================= CREDITS ================= -->
   <section class="page" id="page-credits">
-    <div class="page-head"><h1>Расходы и доходы</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" id="ww63-add-head" style="display:none" onclick="ww63AddIncome()">+ Доход</button><button class="btn btn-primary" id="credits-add-cr" onclick="openCreditModal()">+ Кредит</button></div></div>
+    <div class="page-head"><h1>Доходы и расходы</h1><div style="display:flex;gap:8px"><span id="view-btn-credits"></span><button class="btn btn-primary" id="ww63-add-head" style="display:none" onclick="ww63AddIncome()">+ Доход</button><button class="btn btn-primary" id="credits-add-cr" onclick="openCreditModal()">+ Кредит</button></div></div>
     <div class="grid grid-4" id="credit-stats"></div>
     <h2 style="margin:6px 0 2px">Кредиты</h2><div class="sub" style="margin:0 0 12px">Кредиты и график платежей. Статусы оплаты берутся из дашборда.</div>
     <div class="section card" id="credit-month-progress" style="display:none"></div>
@@ -1097,7 +1097,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <button class="bn-item active" data-nav="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Дашборд</button>
   <button class="bn-item" data-nav="ops"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Операции</button>
   <button class="bn-item" data-nav="budgets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 8.5 6H12z"/></svg>Бюджеты</button>
-  <button class="bn-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>Расходы и доходы</button>
+  <button class="bn-item" data-nav="credits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>Доходы и расходы</button>
   <button class="bn-item" onclick="openMore()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>Ещё</button>
 </nav>
 
@@ -2531,14 +2531,31 @@ function renderRecurList() {
   }).join("");
 }
 
-function openRecurModal(id) {
+/* v4.07: тип регулярного платежа больше не выбирается там, где он и так
+   известен. Раньше при добавлении дохода из вкладки «Доходы» открывалась
+   форма с выпадающим списком «Расход / Доход» — выбор был бессмысленным
+   (и опасным: сменив тип, можно было увести запись в другой раздел с
+   несовпадающей категорией). Теперь:
+     • правка существующей записи — тип берётся из неё и показан как факт;
+     • добавление из «Доходов» / из блока «Регулярные расходы» — тип задаёт
+       вызывающая сторона (forceType);
+     • общая кнопка «+ Регулярный платёж» в смешанном списке — выбор
+       остаётся, там контекст действительно неоднозначен. */
+function openRecurModal(id, forceType) {
   if (isObserver()) return;
   const r = id ? S.recurring.find((x) => x.id === id) : null;
-  const type = r ? r.type : "expense";
-  showModal(`<div class="mhead"><h3>${r ? "Регулярный платёж" : "Новый регулярный платёж"}</h3><button class="x" onclick="closeModal()">✕</button></div>
+  const type = r ? r.type : (forceType === "income" || forceType === "expense" ? forceType : "expense");
+  const locked = !!r || forceType === "income" || forceType === "expense";
+  const typeLabel = type === "income" ? "Доход" : "Расход";
+  const title = r ? "Регулярный " + (type === "income" ? "доход" : "расход")
+                  : (locked ? "Новый регулярный " + (type === "income" ? "доход" : "расход") : "Новый регулярный платёж");
+  const typeField = locked
+    ? `<div class="fg"><label>Тип</label><div class="tx-locked-cat" style="display:flex;align-items:center;gap:6px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--bg)"><b style="color:var(--${type === "income" ? "green" : "red"})">${typeLabel}</b></div><input type="hidden" id="rc-type" value="${type}"></div>`
+    : `<div class="fg"><label>Тип</label><select id="rc-type" onchange="recurCatOptions()">${[["expense", "Расход"], ["income", "Доход"]].map(([k, l]) => `<option value="${k}"${type === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>`;
+  showModal(`<div class="mhead"><h3>${title}</h3><button class="x" onclick="closeModal()">✕</button></div>
     <div class="fg"><label>Название</label><input id="rc-name" value="${esc(r ? r.name : "")}" placeholder="напр.: Коммуналка"></div>
     <div class="fg-row">
-      <div class="fg"><label>Тип</label><select id="rc-type" onchange="recurCatOptions()">${[["expense", "Расход"], ["income", "Доход"]].map(([k, l]) => `<option value="${k}"${type === k ? " selected" : ""}>${l}</option>`).join("")}</select></div>
+      ${typeField}
       <div class="fg"><label>Сумма, ₽</label><input type="number" inputmode="numeric" id="rc-amt" value="${r ? r.amount : ""}" placeholder="0"></div>
     </div>
     <div class="fg-row">
@@ -4751,7 +4768,7 @@ function renderDuePanel() {
   el.innerHTML = `<div class="card" style="border-color:var(--blue);margin-bottom:14px"><h2 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>${WWI.inbox} К оплате${unpaid ? ` (${unpaid})` : ""}</span><span style="flex:1"></span><span class="sub" style="font-weight:700;text-transform:uppercase;font-size:11.5px;letter-spacing:.04em">${ww316DueLabel().toUpperCase()}</span></h2><div class="sub" style="margin:2px 0 6px">Платежи за месяц, выбранный переключателем периода вверху дашборда. Ползунок отмечает оплату, повторное нажатие возвращает обратно.</div><div class="ww31-grid"><div class="ww31-col">` +
     `<div class="ww30-sec">Регулярные расходы <span class="ww30-cnt">${exp.filter((d) => !d.paid).length}</span></div>` +
     (exp.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет регулярных расходов в этом месяце.</div>') +
-    `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal()">+ Добавить расход</button></div></div><div class="ww31-col">` +
+    `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openRecurModal(null,'expense')">+ Добавить расход</button></div></div><div class="ww31-col">` +
     `<div class="ww30-sec">Кредиты <span class="ww30-cnt">${cr.filter((d) => !d.paid).length}</span></div>` +
     (cr.map(ww30Row).join("") || '<div class="sub" style="padding:6px 4px">Нет кредитов к оплате в этом месяце.</div>') +
     `<div style="margin:8px 0 2px"><button class="btn btn-ghost btn-sm" onclick="openCreditModal()">+ Добавить кредит</button></div></div></div></div>`;
@@ -5429,7 +5446,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.06";
+const WW_VERSION = "4.07";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -5776,7 +5793,7 @@ wwOnSettings("v2.2: учётные записи", 20, function () {
    По умолчанию скрываем «Пароли»: человек с кодом доступа не должен видеть
    чужие учётные записи. «Настройки» оставляем — через них он выходит обратно. */
 const WW24_SECTION_NAMES = {
-  dashboard: "Дашборд", ops: "Операции", credits: "Расходы и доходы", budgets: "Бюджеты",
+  dashboard: "Дашборд", ops: "Операции", credits: "Доходы и расходы", budgets: "Бюджеты",
   goals: "Цели", calendar: "Календарь", planner: "Планировщик", links: "Ссылки",
   passwords: "Пароли", analytics: "Аналитика", settings: "Настройки",
 };
@@ -9571,7 +9588,7 @@ var WW40_TABS = ["goals", "notes", "links", "passwords"];
 var WW40_TAB_LABEL = { goals: "Цели и накопления", notes: "Заметки", links: "Ссылки", passwords: "Пароли" };
 var WW40_SECTIONS = [
   ["dashboard", "Дашборд"], ["ops", "Операции"],
-  ["credits", "Расходы и доходы"], ["calendar", "Календарь"], ["planner", "Планировщик"],
+  ["credits", "Доходы и расходы"], ["calendar", "Календарь"], ["planner", "Планировщик"],
   ["vault", "Хранилище"], ["analytics", "Аналитика"], ["settings", "Настройки"],
 ];
 var WW40_VAULT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="12" cy="12" r="3.4"/><path d="M12 8.6V6.2M12 17.8v-2.4M8.6 12H6.2M17.8 12h-2.4"/></svg>';
@@ -11496,7 +11513,7 @@ function wwReportSummaryLines(d) {
 */
 (function () {
   var LABEL = {
-    dashboard: "Дашборд", ops: "Операции", credits: "Расходы и доходы",
+    dashboard: "Дашборд", ops: "Операции", credits: "Доходы и расходы",
     calendar: "Календарь", planner: "Планировщик", vault: "Хранилище",
     analytics: "Аналитика", settings: "Настройки"
   };
@@ -13294,7 +13311,7 @@ window.ww50DataSignature = ww50DataSignature;
      6. ГЛОБАЛЬНЫЙ ПОИСК Ctrl+K / ⌘K
      ================================================================= */
   var SECTIONS = [
-    ['dashboard', 'Дашборд'], ['ops', 'Операции'], ['credits', 'Расходы и доходы'],
+    ['dashboard', 'Дашборд'], ['ops', 'Операции'], ['credits', 'Доходы и расходы'],
     ['calendar', 'Календарь'], ['analytics', 'Аналитика'], ['planner', 'Планировщик'],
     ['vault', 'Цели, ссылки, пароли, заметки'], ['settings', 'Настройки'],
   ];
@@ -14833,9 +14850,11 @@ window.ww50DataSignature = ww50DataSignature;
    ============================================================ */
 (function () {
   var KEY = "ww63_credits_tab_v1";
+  /* v4.07: «Доходы» идут первыми — раздел называется «Доходы и расходы»,
+     и порядок вкладок должен совпадать с названием. */
   var TABS = [
-    { key: "exp", title: "Расходы и кредиты" },
-    { key: "inc", title: "Доходы" }
+    { key: "inc", title: "Доходы" },
+    { key: "exp", title: "Расходы и кредиты" }
   ];
 
   function css() {
@@ -14861,7 +14880,9 @@ window.ww50DataSignature = ww50DataSignature;
   function curTab() {
     var v = null;
     try { v = localStorage.getItem(KEY); } catch (e) {}
-    return (v === "inc" || v === "exp") ? v : "exp";
+    /* v4.07: по умолчанию открываются «Доходы» — первая вкладка, как и в
+       названии раздела. Ранее выбранная вкладка по-прежнему запоминается. */
+    return (v === "inc" || v === "exp") ? v : "inc";
   }
   function num(v) { return +v || 0; }
   function m(v) { return (typeof money === "function") ? money(v) : String(Math.round(num(v))); }
@@ -15096,7 +15117,7 @@ window.ww50DataSignature = ww50DataSignature;
     if (pi) pi.style.display = cur === "inc" ? "" : "none";
     renderInc();
     var h1 = document.querySelector("#page-credits .page-head h1");
-    if (h1) h1.textContent = cur === "inc" ? "Доходы" : "Расходы и доходы";
+    if (h1) h1.textContent = cur === "inc" ? "Доходы" : "Доходы и расходы";
     var addCr = document.querySelector('#page-credits .page-head button[onclick^="openCreditModal"]');
     if (addCr) addCr.style.display = cur === "inc" ? "none" : "";
     var addInc = document.getElementById("ww63-add-head");
@@ -15148,14 +15169,10 @@ window.ww50DataSignature = ww50DataSignature;
   };
   window.ww63AddRecurIncome = function () {
     try { if (typeof isObserver === "function" && isObserver()) return; } catch (e) {}
-    try { openRecurModal(null); } catch (err) {}
-    setTimeout(function () {
-      var t = document.getElementById("rc-type");
-      if (t && t.value !== "income") {
-        t.value = "income";
-        try { t.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) { if (typeof recurCatOptions === "function") recurCatOptions(); }
-      }
-    }, 60);
+    /* v4.07: раньше форма открывалась с выбором «Расход/Доход», и тип
+       переставлялся костылём через setTimeout — пользователь успевал увидеть
+       бессмысленный выбор. Теперь тип задаётся сразу и не редактируется. */
+    try { openRecurModal(null, "income"); } catch (err) {}
   };
 
   /* ---------- синхронизация с остальным приложением ---------- */
