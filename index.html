@@ -3105,9 +3105,13 @@ function wwAlert(message, opts) {
 }
 function wwConfirm(message, opts) {
   opts = opts || {};
+  /* v4.12: opts.html — сообщение уже является готовой разметкой (список
+     похожих операций). Вызывающий код обязан сам экранировать пользовательские
+     данные через esc(); по умолчанию, как и раньше, экранируем здесь. */
+  const body = opts.html ? String(message) : esc(String(message));
   return _dlgOpen(
     `<h3>${esc(opts.title || "Подтвердите действие")}</h3>
-     <div class="dlg-msg">${esc(String(message))}</div>
+     <div class="dlg-msg">${body}</div>
      <div class="dlg-actions">
        <button class="btn btn-ghost" id="ww-dlg-cancel">${esc(opts.cancelText || "Отмена")}</button>
        <button class="btn ${opts.danger ? "btn-danger" : "btn-primary"}" id="ww-dlg-ok">${esc(opts.okText || "Подтвердить")}</button>
@@ -3584,7 +3588,48 @@ function ww318CatFreq() {
   }
   return f;
 }
-function saveTx() {
+/* ===================== v4.12: поиск похожих операций при вводе =====================
+   Просьба: при внесении новой операции подсказывать, не заводил ли я такую же
+   раньше. Критерий импорта (ww23IsDup) для этого не годится: он требует
+   точного совпадения даты, суммы И описания, а при ручном вводе комментарий
+   почти всегда другой или пустой — и настоящий повтор проходил бы незамеченным.
+   Здесь сравниваем то, что человек действительно повторяет: тип, сумма,
+   категория и близкая дата. Комментарий не учитываем совсем.
+   Это ПОДСКАЗКА, а не запрет: регулярные одинаковые траты (обед, проезд,
+   кофе) — норма, поэтому окно всегда позволяет сохранить. */
+const WW412_DAYS = 3;
+function ww412DayDiff(a, b) {
+  var d = (ymdToUTC(a) - ymdToUTC(b)) / 86400000;
+  return Math.abs(Math.round(d));
+}
+function ww412FindSimilar(cand) {
+  if (!cand || !cand.categoryId || !(cand.amount > 0)) return [];
+  return S.transactions.filter(function (t) {
+    if (t.id === window._txEditId) return false;      /* саму себя при правке не показываем */
+    if (t.type !== cand.type) return false;
+    if (t.categoryId !== cand.categoryId) return false;
+    if (Math.abs(+t.amount - cand.amount) >= 0.01) return false;
+    if (!t.date || !cand.date) return false;
+    return ww412DayDiff(t.date, cand.date) <= WW412_DAYS;
+  }).sort(function (a, b) { return b.date.localeCompare(a.date); }).slice(0, 5);
+}
+/* Возвращает true, если пользователь всё же хочет сохранить. */
+async function ww412ConfirmSimilar(list, cand) {
+  var c = cat(cand.categoryId) || { icon: "📌", name: "—" };
+  var rows = list.map(function (t) {
+    var same = t.date === cand.date;
+    return '<div class="row" style="padding:8px 0">' +
+      '<div class="rmain"><div class="rt">' + esc(fmtDay(t.date)) + (same ? ' <span class="badge amber">в тот же день</span>' : "") + '</div>' +
+      '<div class="rs">' + esc((acc(t.accountId) || {}).name || "") + (t.note ? " · " + esc(t.note) : "") + '</div></div>' +
+      '<div class="ramt' + (t.type === "income" ? " pos" : "") + '">' + moneySign(t.amount, t.type) + '</div></div>';
+  }).join("");
+  return await wwConfirm(
+    '<div class="sub" style="margin-bottom:8px">Такая операция уже есть: ' + esc(c.icon + " " + c.name) + " · " + money(cand.amount) +
+    '. Если это отдельная трата — сохраняйте, ничего страшного.</div>' + rows,
+    { title: list.length > 1 ? "Похожие операции уже есть" : "Похожая операция уже есть", okText: "Всё равно сохранить", cancelText: "Не сохранять", html: true }
+  );
+}
+async function saveTx() {
   /* v4.03: сумма может быть выражением («450+120»), поэтому сначала считаем.
      Если пользователь сохранил, не уходя из поля, onblur мог не сработать. */
   const _amtEl = document.getElementById("tx-amount");
@@ -3641,6 +3686,14 @@ function saveTx() {
     return;
   }
   const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
+  /* v4.12: перед сохранением НОВОЙ операции ищем похожие — вдруг уже заводили.
+     Проверка только для новых: при правке существующей она мешала бы (там
+     совпадение с собой же и с намеренными повторами уже принято).
+     Если похожих нет, до await дело не доходит и всё работает синхронно. */
+  if (!window._txEditId) {
+    const _similar = ww412FindSimilar(_txData);
+    if (_similar.length && !await ww412ConfirmSimilar(_similar, _txData)) return;
+  }
   let _undoFn = null;
   if (window._txEditId) { const _ex = S.transactions.find((x) => x.id === window._txEditId); if (_ex) { const _old = { ..._ex }; Object.assign(_ex, _txData); _undoFn = () => { const _c = S.transactions.find((x) => x.id === _old.id); if (_c) Object.assign(_c, _old); }; } window._txEditId = null; }
   else { const _newId = uid(); S.transactions.push({ id: _newId, ..._txData, createdAt: Date.now() }); _undoFn = () => { S.transactions = S.transactions.filter((x) => x.id !== _newId); }; }
@@ -5597,7 +5650,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.11";
+const WW_VERSION = "4.14";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6705,8 +6758,10 @@ function ww23PdfPick(file) {
           wwAlert("Не удалось распознать операции в этом PDF. Если банк умеет выгружать CSV или Excel — с ними надёжнее.", { title: "Ничего не найдено" });
           return;
         }
-        // Отдаём в общий разбор: заголовок добавляем сами, колонки уже в нужном порядке
-        ww23Csv = { rows: [["Дата", "Описание", "Сумма"]].concat(rows), hasHeader: true };
+        // Отдаём в общий разбор: заголовок добавляем сами, колонки уже в нужном порядке.
+        // src:"pdf" — признак того, что сопоставлять нечего: разбор сам разложил
+        // строки, и окно спрячет селекторы колонок (v4.14).
+        ww23Csv = { rows: [["Дата", "Описание", "Сумма"]].concat(rows), hasHeader: true, src: "pdf" };
         ww23CsvModal();
       }).catch(function (e) {
         wwAlert("Файл не читается: " + (e && e.message ? e.message : "неизвестная ошибка"), { title: "Не удалось открыть PDF" });
@@ -6834,6 +6889,15 @@ function ww23GuessCat(desc, type) {
   const other = S.categories.find((c) => c.type === type && /проч|друго|разн|кладовк/.test(c.name.toLowerCase()));
   return (other || S.categories.find((c) => c.type === type) || {}).id;
 }
+/* v4.14: раскрыть/свернуть селекторы колонок (нужно только для PDF, где они
+   по умолчанию спрятаны). */
+function ww23ToggleCols() {
+  var w = document.getElementById("ww23-cols-wrap"), b = document.getElementById("ww23-cols-btn");
+  if (!w) return;
+  var open = w.style.display === "none";
+  w.style.display = open ? "" : "none";
+  if (b) b.textContent = open ? "Скрыть настройку колонок" : "Настроить колонки";
+}
 function ww23CsvModal() {
   const { rows, hasHeader } = ww23Csv;
   const g = ww23GuessCols();
@@ -6847,13 +6911,27 @@ function ww23CsvModal() {
     }
     return h;
   };
-  showModal(`<div class="mhead"><h3>${WWI.bank} Импорт выписки</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <div class="sub" style="margin-bottom:10px">Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.</div>
+  /* v4.14: для PDF сопоставлять нечего — разбор сам разложил строки в порядке
+     «Дата · Описание · Сумма» и подставил заголовок. Три селектора с
+     единственным верным вариантом выглядели лишним шагом, поэтому прячем их
+     под «Настроить колонки»: если PDF разобрался криво, их можно раскрыть и
+     поправить. Для CSV и Excel всё как было — там колонки правда угадываются
+     и ошибка вероятна. */
+  const isPdf = ww23Csv.src === "pdf";
+  const colsBlock = `
     <div class="fg-row">
       <div class="fg"><label>Дата</label><select id="csv-date" onchange="ww23CsvPreview()">${opts(g.date)}</select></div>
       <div class="fg"><label>Сумма</label><select id="csv-amt" onchange="ww23CsvPreview()">${opts(g.amt)}</select></div>
     </div>
-    <div class="fg"><label>Описание (для автокатегорий)</label><select id="csv-desc" onchange="ww23CsvPreview()">${opts(g.desc)}</select></div>
+    <div class="fg"><label>Описание (для автокатегорий)</label><select id="csv-desc" onchange="ww23CsvPreview()">${opts(g.desc)}</select></div>`;
+  showModal(`<div class="mhead"><h3>${WWI.bank} Импорт выписки</h3><button class="x" onclick="closeModal()">✕</button></div>
+    <div class="sub" style="margin-bottom:10px">${isPdf
+      ? `Распознано строк: ${rows.length - (hasHeader ? 1 : 0)}. Колонки разобраны из PDF — укажите счёт и проверьте список ниже.`
+      : `Строк в файле: ${rows.length - (hasHeader ? 1 : 0)}. Колонки угаданы автоматически — проверьте и поправьте при необходимости.`}</div>
+    ${isPdf
+      ? `<div id="ww23-cols-wrap" style="display:none">${colsBlock}</div>
+         <button type="button" class="btn btn-ghost btn-sm" id="ww23-cols-btn" style="margin-bottom:10px" onclick="ww23ToggleCols()">Настроить колонки</button>`
+      : colsBlock}
     <div class="fg-row">
       <div class="fg"><label>Счёт</label><select id="csv-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>
       <div class="fg"><label>Тип операций</label><select id="csv-sign" onchange="ww23CsvPreview()"><option value="neg">по знаку: минус = расход</option><option value="exp">все строки — расходы</option><option value="inc">все строки — доходы</option></select></div>
@@ -6954,18 +7032,43 @@ function ww23RevFoot() {
   var el = document.getElementById("ww23-rev-foot");
   if (el) {
     var edited = take.filter(function (x) { return x.edited; }).length;
+    /* v4.13: при нуле отмеченных строк «всё заполнено ✓» вводило в заблуждение —
+       заполнять нечего, потому что ничего и не выбрано. */
+    if (!take.length) {
+      el.innerHTML = '<span style="color:var(--amber)">Ни одна строка не отмечена</span> — отметьте те, что нужно импортировать';
+      ww23RevGo();
+      return;
+    }
     el.innerHTML = "К импорту: <b>" + take.length + "</b> из " + r.items.length +
       (edited ? ' · <span style="color:var(--blue)">сумм изменено: ' + edited + "</span>" : "") +
       (need ? ' · <span style="color:var(--amber)">без категории: ' + need + "</span>" : "") +
       (needWhose ? ' · <span style="color:var(--amber)">не указано «чей»: ' + needWhose + "</span>" : "") +
       (!need && !needWhose ? ' · <span style="color:var(--green)">всё заполнено ✓</span>' : ' — такие строки не импортируем');
   }
+  ww23RevGo();
+}
+/* v4.13: настройка кнопки импорта вынесена отдельно — её нужно обновлять и
+   при раннем возврате из ww23RevFoot (когда ничего не отмечено). */
+function ww23RevGo() {
+  var r = ww23Review; if (!r) return;
+  var take = r.items.filter(function (x) { return !x.skip; });
   var go = document.getElementById("ww23-rev-go");
   if (go) {
+    /* v4.13: на кнопке — число ВЫДЕЛЕННЫХ строк, а не только полностью
+       заполненных. Раньше показывалось второе, и это сбивало с толку:
+       отметив все 93 операции, человек видел «Импортировать (9)», а отметив
+       три незаполненные — вовсе неактивную кнопку «Нечего импортировать»,
+       хотя галочки стояли. Незаполненные строки по-прежнему не попадут в
+       приложение, но об этом честно спрашивает отдельное окно при нажатии,
+       а не молча выключенная кнопка. */
+    var sel = take.length;
     var ready = take.filter(function (x) { return x.categoryId && (x.type !== "expense" || x.whose); }).length;
-    go.textContent = ready > 0 ? "Импортировать (" + ready + ")" : "Нечего импортировать";
-    go.disabled = ready <= 0;
-    go.style.opacity = ready > 0 ? "" : ".5";
+    go.textContent = sel > 0 ? "Импортировать (" + sel + ")" : "Нечего импортировать";
+    go.disabled = sel <= 0;
+    go.style.opacity = sel > 0 ? "" : ".5";
+    go.title = sel > 0 && ready < sel
+      ? "Готовы к импорту: " + ready + " из " + sel + ". Остальным не хватает категории или «чей расход»"
+      : "";
   }
 }
 function ww23RevAmt(i, val) {
@@ -7038,7 +7141,13 @@ function ww23ReviewImport() {
   if (isObserver()) return;
   var r = ww23Review; if (!r) return;
   var take = r.items.filter(function (x) { return !x.skip && x.categoryId && (x.type !== "expense" || x.whose); });
-  if (!take.length) { toast("Заполните категорию и «чей расход»"); return; }
+  if (!take.length) {
+    /* v4.13: подсказываем, чем именно заполнить — кнопки массового
+       проставления «чей расход» стоят прямо над таблицей, но их легко
+       не заметить среди 93 строк. */
+    toast("Ни одна строка не готова: заполните категорию и «чей расход» — можно сразу всем кнопками «Всем расходам»");
+    return;
+  }
   var noCat = r.items.filter(function (x) { return !x.skip && !x.categoryId; }).length;
   var noWhose = r.items.filter(function (x) { return !x.skip && x.categoryId && x.type === "expense" && !x.whose; }).length;
   /* Часть строк не готова — импорт закроет экран, и незаполненные потеряются.
