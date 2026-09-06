@@ -822,6 +822,53 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 /* ===== v3.78: экран разбора выписки перед импортом ===== */
 .ww23-rev-wrap{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-s)}
 .ww23-rev-table{width:100%;border-collapse:collapse;font-size:13px}
+/* v4.11: в таблице проверки импорта шесть колонок, включая поле суммы и два
+   выпадающих списка. В стандартные 520 px они не помещались — приходилось
+   листать таблицу вбок, теряя из виду то дату, то «чей расход». На экране,
+   где есть место, окно раскрывается во всю доступную ширину. */
+.modal.modal-wide{max-width:min(1180px,96vw)}
+.modal-wide .ww23-rev-wrap{max-height:56vh}
+.modal-wide .ww23-rev-table{table-layout:auto}
+.modal-wide .ww23-rev-table td:nth-child(3){min-width:230px}
+@media(max-width:900px){
+  /* места нет — оставляем горизонтальную прокрутку, но подсказываем это
+     тенью у края, чтобы скрытые колонки не выглядели отсутствующими */
+  .modal-wide .ww23-rev-wrap{overflow-x:auto}
+}
+/* На телефоне шесть колонок с полями и списками не помещаются ни при какой
+   ширине окна: нужно ~660 px при доступных ~330. Поэтому строка таблицы
+   разворачивается в карточку — все поля видны сразу, без прокрутки вбок. */
+@media(max-width:620px){
+  .modal-wide .ww23-rev-wrap{overflow-x:hidden}
+  .modal-wide .ww23-rev-table,
+  .modal-wide .ww23-rev-table tbody,
+  .modal-wide .ww23-rev-table tr,
+  .modal-wide .ww23-rev-table td{display:block;width:auto}
+  .modal-wide .ww23-rev-table thead{display:none}
+  .modal-wide .ww23-rev-table tr{
+    position:relative;border-bottom:1px solid var(--border);
+    padding:10px 10px 10px 40px;display:grid;
+    grid-template-columns:auto 1fr;gap:6px 8px;align-items:center}
+  .modal-wide .ww23-rev-table tr:last-child{border-bottom:none}
+  /* элементы grid по умолчанию не сжимаются уже своего содержимого
+     (min-width:auto), из-за чего на 360 px карточка вылезала на 12 px */
+  .modal-wide .ww23-rev-table td{border:none;padding:0;min-width:0}
+  .modal-wide .ww23-rev-chk{position:absolute;left:10px;top:12px}
+  .modal-wide .ww23-rev-date{grid-column:1;color:var(--t2);font-size:12px;white-space:nowrap}
+  .modal-wide .ww23-rev-note{grid-column:2;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+  .modal-wide .ww23-rev-amt{grid-column:1/-1;display:flex;align-items:center;gap:6px}
+  .modal-wide .ww23-rev-amt input{flex:1 1 auto;min-width:0;text-align:right}
+  .modal-wide .ww23-rev-cat{grid-column:1/-1}
+  .modal-wide .ww23-rev-whose{grid-column:1/-1}
+  .modal-wide .ww23-rev-cat select,
+  .modal-wide .ww23-rev-whose select{width:100%}
+  /* подписи, которых на телефоне лишила скрытая шапка */
+  .modal-wide .ww23-rev-cat::before{content:"Категория";display:block;font-size:11px;color:var(--t2);margin-bottom:2px}
+  /* у доходов «чей расход» не спрашивают — там просто прочерк, и подпись
+     над ним выглядела бы ошибкой. Показываем её только при наличии списка. */
+  .modal-wide .ww23-rev-whose:has(select)::before{content:"Чей расход";display:block;font-size:11px;color:var(--t2);margin-bottom:2px}
+  .modal-wide .ww23-rev-whose:not(:has(select)){display:none}
+}
 .ww23-rev-table thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:7px 8px;text-align:left;font-size:12px;color:var(--t2);font-weight:600;z-index:1}
 .ww23-rev-table th.r{text-align:right}
 .ww23-rev-table td{padding:6px 8px;border-bottom:1px solid var(--border)}
@@ -2988,7 +3035,19 @@ function wwFocus(id, select) {
   if (go()) return;
   requestAnimationFrame(() => { if (!go()) setTimeout(go, 60); });
 }
-function showModal(html, opts) { document.getElementById("modal").innerHTML = html; const ov = document.getElementById("overlay"); const wasOpen = ov.classList.contains("open"); ov.classList.toggle("center", !!(opts && opts.center)); ov.classList.add("open"); if (!wasOpen) wwScrollLock(); }
+function showModal(html, opts) {
+  const m = document.getElementById("modal");
+  m.innerHTML = html;
+  /* v4.11: opts.wide — окно под широкое содержимое (таблица импорта).
+     Класс переустанавливается на каждом вызове, иначе ширина «залипала» бы
+     на следующем, обычном окне. */
+  m.classList.toggle("modal-wide", !!(opts && opts.wide));
+  const ov = document.getElementById("overlay");
+  const wasOpen = ov.classList.contains("open");
+  ov.classList.toggle("center", !!(opts && opts.center));
+  ov.classList.add("open");
+  if (!wasOpen) wwScrollLock();
+}
 
 /* ===================== собственные диалоги (вместо alert/confirm/prompt) =====================
    Возвращают Promise, поэтому вызывающий код должен быть async + await.
@@ -5538,7 +5597,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.10";
+const WW_VERSION = "4.11";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6881,7 +6940,7 @@ function ww23ReviewModal() {
       r.items.map(ww23ReviewRow).join("") +
     "</tbody></table></div>" +
     '<div id="ww23-rev-foot" class="sub" style="margin:10px 0 6px"></div>' +
-    '<button class="btn btn-primary" id="ww23-rev-go" style="width:100%" onclick="ww23ReviewImport()">Импортировать</button>');
+    '<button class="btn btn-primary" id="ww23-rev-go" style="width:100%" onclick="ww23ReviewImport()">Импортировать</button>', { wide: true });
   ww23RevFoot();
 }
 
