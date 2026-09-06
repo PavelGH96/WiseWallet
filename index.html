@@ -5650,7 +5650,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.14";
+const WW_VERSION = "4.15";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -8176,8 +8176,20 @@ try {
     if (!supported()) { el.innerHTML = "<div class='sub'>Web Push не поддерживается этим браузером" + (standaloneNeeded() ? " (на iPhone сначала добавьте приложение на экран Домой)" : "") + "</div>"; return; }
     var on = false;
     try { var reg = await navigator.serviceWorker.ready; var sub = await reg.pushManager.getSubscription(); on = !!sub; } catch (e) {}
-    if (on) el.innerHTML = "<div class='sub' style='margin-bottom:8px'>Включены на этом устройстве ✓</div><button class='btn btn-danger btn-sm' onclick='ww39Disable()'>Выключить</button>";
+    /* v4.15: помимо утренних напоминаний о платежах есть вечернее — «внесите
+       расходы за сегодня» в 22:00 по местному времени. Даём его выключить
+       отдельно: кому-то нужны только платежи. */
+    var evOn = !(S.settings && S.settings.eveningReminder === false);
+    var evening = "<label style='display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer'>" +
+      "<input type='checkbox' " + (evOn ? "checked" : "") + " onchange='ww39Evening(this.checked)'>" +
+      "<span>Вечернее напоминание внести расходы <span class='sub'>· каждый день в 22:00</span></span></label>";
+    if (on) el.innerHTML = "<div class='sub' style='margin-bottom:8px'>Включены на этом устройстве ✓</div><button class='btn btn-danger btn-sm' onclick='ww39Disable()'>Выключить</button>" + evening;
     else el.innerHTML = "<div class='sub' style='margin-bottom:8px'>" + (Notification.permission === "denied" ? "Уведомления заблокированы в настройках браузера" : "Выключены") + "</div><button class='btn btn-primary btn-sm' onclick='ww39Enable()'>Включить фоновые push</button>";
+  };
+  window.ww39Evening = function (on) {
+    S.settings.eveningReminder = !!on;
+    save();
+    toast(on ? "Вечернее напоминание включено" : "Вечернее напоминание выключено");
   };
 
   function addCard() {
