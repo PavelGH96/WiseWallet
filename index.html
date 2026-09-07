@@ -337,7 +337,25 @@ body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior
 .fg label{display:block;font-size:12.5px;font-weight:600;color:var(--t2);margin-bottom:5px}
 .fg input,.fg select,.fg textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);min-height:42px}
 .fg input:focus,.fg select:focus{outline:3px solid rgba(0,125,250,.3);outline-offset:0;border-color:var(--blue)}
+/* v4.19: пара полей в строке. Было grid-template-columns:1fr 1fr — жёстко две
+   колонки, а элементы grid по умолчанию имеют min-width:auto и не сжимаются
+   уже собственного содержимого. Нативное поле даты в Safari на iPhone
+   отрисовывает «7 сент. 2026 г.» заметно шире, чем в Chrome, вылезало за свою
+   колонку и наезжало на «Счёт».
+   Теперь: колонки сжимаются (min-width:0), а если пара по 170 px уже не
+   помещается — строка сама переносится в один столбец. Порог 170 подобран
+   так, чтобы на 390 px (iPhone 12–15) «Дата» и «Счёт» вставали друг под
+   друга: там на две колонки оставалось всего по 165 px, и запаса на более
+   широкую нативную отрисовку даты в Safari не было. На 430 px (Pro Max)
+   пара по-прежнему помещается в строку. */
 .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* Перенос в столбик включаем ТОЧЕЧНО — только там, где в паре стоит поле
+   даты. Сначала я сделал это для всех .fg-row, и формы стали заметно выше:
+   в окне задачи поле «Сфера» уехало за нижний край экрана. Остальным парам
+   (тип+сумма, категория+день) двух колонок хватает всегда. */
+.fg-row.fg-row-wrap{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.fg-row>.fg{min-width:0}
+.fg-row>.fg input,.fg-row>.fg select{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .overlay.center{align-items:center}
 .overlay.center .modal{border-radius:20px;width:calc(100% - 32px);max-width:420px}
 .ww32-info{font-size:13.5px;color:var(--t2);line-height:1.55;margin-bottom:14px}
@@ -3187,6 +3205,11 @@ var WW80_WHOSE = [
   { id: "pasha", name: "Паша" },
   { id: "katya", name: "Катя" },
   { id: "sonya", name: "Соня" },
+  /* v4.19: «Семья» — общие траты, которые нельзя записать на одного человека.
+     Стоит перед «Другое»: «Другое» остаётся замыкающим вариантом «ни один из
+     перечисленных». Порядок задаётся здесь и подхватывается везде — кнопки в
+     форме, выпадающий список при импорте, разбор по людям в аналитике. */
+  { id: "family", name: "Семья" },
   { id: "other", name: "Другое" },
 ];
 function ww80WhoseName(id) {
@@ -3224,7 +3247,7 @@ function openTxModal(pre) {
     <button type="button" class="btn btn-ghost btn-sm" id="tx-split-btn" style="margin:-4px 0 10px" onclick="ww403SplitToggle()">Разделить по категориям</button>`}
     ${(pre.type || txType) === "expense" || txType === "expense" ? `<div class="fg" id="tx-whose-fg"><label>Чей расход <span style="color:var(--red)">*</span></label>
       <div class="seg ww80-whose" id="tx-whose">${WW80_WHOSE.map((w) => `<button type="button" data-whose="${w.id}" class="${pre.whose === w.id ? "active" : ""}" onclick="ww80PickWhose('${w.id}',this)">${w.name}</button>`).join("")}</div></div>` : ""}
-    <div class="fg-row">
+    <div class="fg-row fg-row-wrap">
       <div class="fg"><label>Дата</label><input type="date" id="tx-date" value="${wwDefaultTxDate()}">${wwDefaultTxDate() !== todayStr() ? `<div class="sub" style="margin-top:4px;color:var(--amber)">Дата подставлена по выбранному периоду — вы смотрите не текущий месяц</div>` : ""}</div>
       <div class="fg"><label>Счёт</label><select id="tx-acc">${S.accounts.filter((a) => !a.archived).map((a) => `<option value="${a.id}"${pre.accountId === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
     </div>
@@ -5650,7 +5673,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.18";
+const WW_VERSION = "4.19";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
