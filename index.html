@@ -5650,7 +5650,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.17";
+const WW_VERSION = "4.18";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -12117,77 +12117,51 @@ function wwReportSummaryLines(d) {
 
 </script>
 <script>
-/* ===================== v3.48: нижняя навигация всегда закреплена ===================== */
-(function () {
-  var raf = 0;
-  var vv = window.visualViewport;
+/* ===================== v3.48 → v4.18: нижняя навигация всегда закреплена =====================
+   ЧТО БЫЛО. Этот модуль пересчитывал положение панели НА КАЖДОМ СОБЫТИИ
+   ПРОКРУТКИ: измерял getBoundingClientRect() панели, сравнивал с
+   visualViewport.offsetTop + height и компенсировал разницу через
+   transform: translate3d(0, --ww48-shift, 0).
 
+   ПОЧЕМУ ЭТО ЛОМАЛО ПАНЕЛЬ НА iPHONE. В Safari position:fixed и так привязан
+   к видимой области — браузер сам удерживает такие элементы. А во время
+   прокрутки на iOS сворачивается и разворачивается адресная строка, поэтому
+   visualViewport.offsetTop/height меняются прямо посреди жеста, да и rect
+   фиксированного элемента при инерционной прокрутке отдаёт промежуточное
+   значение. Разница выходила ненулевой на пустом месте и тут же
+   применялась как сдвиг — панель уезжала вслед за пальцем.
+
+   Вдобавок этим же занимался более поздний модуль ww62 (см. ниже): он гасил
+   --ww48-shift и ставил transform:none!important. Двое управляли одним
+   элементом, причём один из них — на каждый кадр прокрутки.
+
+   ЧТО СТАЛО. Компенсацию убрали совсем, за панель отвечает только ww62.
+   Здесь остаётся единственное: CSS-закрепление без каких-либо transform.
+   Переменная --ww48-shift сохранена и жёстко равна 0 — на неё мог ссылаться
+   сторонний стиль, и её исчезновение дало бы пустое значение в calc(). */
+(function () {
   var st = document.createElement("style");
   st.id = "ww48-css";
   st.textContent =
     "@media(max-width:820px){" +
-    ".bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;margin:0!important;isolation:isolate;will-change:transform;transform:translate3d(0,var(--ww48-shift,0px),0)!important}" +
+    ".bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;top:auto!important;margin:0!important;transform:none!important}" +
     ".bottom-nav .bn-item:active{transform:scale(.94)}" +
     "}";
   document.head.appendChild(st);
+  document.documentElement.style.setProperty("--ww48-shift", "0px");
 
-  function apply() {
-    raf = 0;
+  /* Функцию оставляем: её вызывали из других мест. Теперь она лишь следит,
+     что панель закреплена, и никогда ничего не сдвигает. */
+  window.ww48PinBottomNav = function () {
     var nav = document.querySelector(".bottom-nav");
-    if (!nav || window.innerWidth > 820) {
-      document.documentElement.style.removeProperty("--ww48-shift");
-      return;
-    }
-
-    /* Сначала измеряем чистое положение fixed без прежней компенсации. */
+    if (!nav) return;
     document.documentElement.style.setProperty("--ww48-shift", "0px");
-    nav.style.setProperty("position", "fixed", "important");
-    nav.style.setProperty("left", "0", "important");
-    nav.style.setProperty("right", "0", "important");
-    nav.style.setProperty("bottom", "0", "important");
-    nav.style.setProperty("top", "auto", "important");
-
-    var rect = nav.getBoundingClientRect();
-    /* В iOS visual viewport может быть короче layout viewport из-за панелей
-       браузера или клавиатуры. getBoundingClientRect использует ту же систему
-       координат, поэтому целевой низ = offsetTop + height. */
-    var target = vv ? vv.offsetTop + vv.height : window.innerHeight;
-    var delta = Math.round(target - rect.bottom);
-    /* Мелкую субпиксельную погрешность не компенсируем. */
-    if (Math.abs(delta) < 1) delta = 0;
-    document.documentElement.style.setProperty("--ww48-shift", delta + "px");
+    if (nav.style.transform && nav.style.transform !== "none") nav.style.setProperty("transform", "none", "important");
     nav.dataset.ww48Pinned = "1";
-    nav.dataset.ww48Delta = String(delta);
-  }
-
-  function schedule() {
-    if (raf) return;
-    raf = requestAnimationFrame(apply);
-  }
-
-  window.addEventListener("scroll", schedule, { passive: true });
-  window.addEventListener("resize", schedule, { passive: true });
-  window.addEventListener("orientationchange", function () { setTimeout(apply, 120); });
-  if (vv) {
-    vv.addEventListener("scroll", schedule, { passive: true });
-    vv.addEventListener("resize", schedule, { passive: true });
-  }
-
-  /* Нижняя панель динамически перестраивается настройкой порядка разделов,
-     но сам nav остаётся тем же. MutationObserver страхует редкие случаи,
-     когда WebView пересчитывает его положение после замены кнопок. */
-  var obs = new MutationObserver(schedule);
-  function boot() {
-    var nav = document.querySelector(".bottom-nav");
-    if (nav) obs.observe(nav, { childList: true, subtree: true });
-    apply();
-    setTimeout(apply, 120);
-    setTimeout(apply, 500);
-  }
-
-  window.ww48PinBottomNav = apply;
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-  else boot();
+    nav.dataset.ww48Delta = "0";
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", window.ww48PinBottomNav);
+  else window.ww48PinBottomNav();
 })();
 
 </script>
