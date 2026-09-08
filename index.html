@@ -5684,7 +5684,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.20";
+const WW_VERSION = "4.22";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -7513,10 +7513,19 @@ const WW28_ICONS = {
   receipt: ww28Svg('<path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>'),
   bolt: ww28Svg('<path d="M13 2.5L5.5 13H11l-1 8.5L18.5 11H13z"/>'),
   gift: ww28Svg('<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M4 10h16M12 10v10"/><path d="M12 10c-4 0-5.5-1.5-5.5-3S8 4.5 9.5 5 12 8 12 10zm0 0c4 0 5.5-1.5 5.5-3S16 4.5 14.5 5 12 8 12 10z"/>'),
+  /* v4.21: футболка и гаечный ключ. Раньше у категорий «Одежда» и «Дом и
+     ремонт» векторных значков не было, и ww28Icon возвращал сам эмодзи —
+     цветной, объёмный, рядом с линейными иконками он бросался в глаза. */
+  /* v4.22: чашка — чтобы «Кафе и рестораны» отличались от «Обедов»/еды.
+     Раньше ☕ вело на food (вилка с ножом), и обе категории выглядели
+     одинаково. */
+  cup: ww28Svg('<path d="M4 8h13v5.5a4.5 4.5 0 01-4.5 4.5h-4A4.5 4.5 0 014 13.5z"/><path d="M17 9.5h1.6a2.4 2.4 0 010 4.8H17"/><path d="M6.5 3.2c-.7.9-.7 1.7 0 2.6M10 3.2c-.7.9-.7 1.7 0 2.6M13.5 3.2c-.7.9-.7 1.7 0 2.6"/>'),
+  shirt: ww28Svg('<path d="M8.5 3.5L12 6l3.5-2.5L20 6l-1.5 4-2 -0.8V20.5h-9V9.2l-2 .8L4 6z"/>'),
+  tool: ww28Svg('<path d="M14.7 6.3a3.9 3.9 0 015.1 5.1l-1.6-1.6-2 .4-.4-2z"/><path d="M15.3 10.9L5.6 20.6a1.9 1.9 0 01-2.7-2.7l9.7-9.7"/>'),
   card: ww28Svg('<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 9.5h18"/><path d="M6.5 14.5h4"/>'),
 };
-const WW28_EMOJI = { "🛒": "cart", "🛍": "cart", "🏠": "house", "🏡": "house", "⛽": "fuel", "📦": "box", "🌐": "globe", "🌍": "globe", "🌎": "globe", "📱": "phone", "☎": "phone", "📞": "phone", "🍱": "food", "🍽": "food", "🍔": "food", "🍕": "food", "☕": "food", "🥗": "food", "🚗": "car", "🚙": "car", "🚕": "car", "🚘": "car", "💊": "pill", "🏥": "pill", "❤": "heart", "💛": "heart", "🧡": "heart", "💚": "heart", "💙": "heart", "💜": "heart", "💖": "heart", "💕": "heart", "🏛": "bank", "🏦": "bank", "📌": "pin", "📍": "pin", "🔄": "transfer", "🔁": "transfer", "💱": "transfer", "💼": "briefcase", "💵": "banknote", "💰": "banknote", "💸": "banknote", "🪙": "banknote", "🧾": "receipt", "📄": "receipt", "⚡": "bolt", "💡": "bolt", "🎁": "gift", "💳": "card" };
-const WW28_BY_NAME = [[/зарплат|заработ/, "briefcase"], [/бензин|топлив|азс/, "fuel"], [/коммунал|жкх|кварт/, "house"], [/интернет/, "globe"], [/связ|телефон|мобил/, "phone"], [/обед|еда|продукт|питан/, "food"], [/авто|машин|такси/, "car"], [/здоров|аптек|лекарств|медиц/, "pill"], [/кредит|банк|ипотек/, "bank"], [/перевод/, "transfer"], [/бытов|покупк|магазин/, "cart"], [/кладов|склад/, "box"], [/доход/, "banknote"], [/подар/, "gift"], [/проч/, "pin"]];
+const WW28_EMOJI = { "🛒": "cart", "🛍": "cart", "🏠": "house", "🏡": "house", "⛽": "fuel", "📦": "box", "🌐": "globe", "🌍": "globe", "🌎": "globe", "📱": "phone", "☎": "phone", "📞": "phone", "🍱": "food", "🍽": "food", "🍔": "food", "🍕": "food", "☕": "cup", "🍵": "cup", "🥗": "food", "🚗": "car", "🚙": "car", "🚕": "car", "🚘": "car", "💊": "pill", "🏥": "pill", "❤": "heart", "💛": "heart", "🧡": "heart", "💚": "heart", "💙": "heart", "💜": "heart", "💖": "heart", "💕": "heart", "🏛": "bank", "🏦": "bank", "📌": "pin", "📍": "pin", "🔄": "transfer", "🔁": "transfer", "💱": "transfer", "💼": "briefcase", "💵": "banknote", "💰": "banknote", "💸": "banknote", "🪙": "banknote", "🧾": "receipt", "📄": "receipt", "⚡": "bolt", "💡": "bolt", "🎁": "gift", "💳": "card", "👕": "shirt", "👔": "shirt", "🧥": "shirt", "👗": "shirt", "👖": "shirt", "🔧": "tool", "🛠": "tool", "🔨": "tool" };
+const WW28_BY_NAME = [[/зарплат|заработ/, "briefcase"], [/бензин|топлив|азс/, "fuel"], [/коммунал|жкх|кварт/, "house"], [/интернет/, "globe"], [/связ|телефон|мобил/, "phone"], [/кафе|ресторан|кофе/, "cup"], [/обед|еда|продукт|питан/, "food"], [/авто|машин|такси/, "car"], [/здоров|аптек|лекарств|медиц/, "pill"], [/кредит|банк|ипотек/, "bank"], [/перевод/, "transfer"], [/бытов/, "receipt"], [/покупк|магазин/, "cart"], [/кладов|склад/, "box"], [/доход/, "banknote"], [/подар|развлеч|досуг/, "gift"], [/одежд|обув|гардероб/, "shirt"], [/ремонт|инструмент|дом и/, "tool"], [/проч/, "pin"]];
 function ww28Icon(ic, name) {
   const key = (ic || "").replace(/[\uFE0F\u20E3]/g, "").trim();
   let k = WW28_EMOJI[key];
