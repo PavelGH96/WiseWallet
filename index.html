@@ -2355,7 +2355,19 @@ function drawDonut(cv, entries, total, subLabel) {
         ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2);
         ctx.fillStyle = cardBg; ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = PALETTE[i % PALETTE.length]; ctx.stroke();
-        if (e[2]) { ctx.font = Math.round(br * 1.05) + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = cssVar("--text"); ctx.fillText(e[2], bx, by + 1); }
+        if (e[2]) {
+          /* v4.27: рисуем тот же линейный значок, что и в списке под кольцом.
+             Если его нет в наборе (например, «•••» у «Остального») или картинка
+             ещё не догрузилась — показываем эмодзи, как раньше. */
+          const img = ww427IconImg(e[2], e[0], cssVar("--text"), () => { if (!cv._donutAnim && !cv._ww405raf) decorations(); });
+          if (img && img.__ready) {
+            const sz = br * 1.25;
+            ctx.drawImage(img, bx - sz / 2, by - sz / 2, sz, sz);
+          } else {
+            ctx.font = Math.round(br * 1.05) + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = cssVar("--text"); ctx.fillText(e[2], bx, by + 1);
+          }
+        }
         /* v4.26: процент показываем у КАЖДОЙ дольки, у которой нарисован
            значок. Раньше пороги расходились — значок с 4,5%, процент с 6%, —
            и долька вроде «Продуктов» на 5% оставалась без подписи: значок
@@ -4521,6 +4533,37 @@ function openMore() {
 }
 
 /* ===================== v1.14: drag-reorder + keyboard nav ===================== */
+/* ===================== v4.28: внутри дня — новые операции сверху =====================
+   Раньше строки внутри дня шли в том порядке, в каком лежат в массиве, то есть
+   в порядке добавления: расход, внесённый позже, оказывался НИЖЕ. На дашборде
+   («Операции в сентябре») сортировка по времени уже была, а в разделе
+   «Операции» — нет, отсюда и расхождение.
+
+   Сложность в том, что строки внутри дня можно переставлять перетаскиванием.
+   Если просто сортировать по createdAt, перетаскивание перестало бы работать:
+   строка возвращалась бы на место. Поэтому ручная перестановка ПЕРЕПИСЫВАЕТ
+   метки времени у переставленных строк — порядок сохраняется, а ключ
+   сортировки остаётся один. Метки делаем строго убывающими, иначе одинаковые
+   значения (например, у импортированных одной пачкой) дали бы ничью и
+   произвольный порядок. */
+function ww428DayStamp(t, i) {
+  return (t && t.createdAt) || Date.parse((t && t.date) || "") || i;
+}
+function ww428SortDay(rows) {
+  return rows
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => ww428DayStamp(b.t, 0) - ww428DayStamp(a.t, 0) || a.i - b.i)
+    .map((x) => x.t);
+}
+function ww428ReorderDay(ids) {
+  const items = ids.map((id) => S.transactions.find((t) => t.id === id)).filter(Boolean);
+  if (items.length > 1) {
+    const stamps = items.map((t, i) => ww428DayStamp(t, i)).sort((a, b) => b - a);
+    for (let i = 1; i < stamps.length; i++) if (stamps[i] >= stamps[i - 1]) stamps[i] = stamps[i - 1] - 1;
+    items.forEach((t, i) => { t.createdAt = stamps[i]; });
+  }
+  reorderById(S.transactions, ids);
+}
 function reorderById(arr, ids) {
   if (!Array.isArray(arr) || !ids || !ids.length) return;
   const idset = new Set(ids);
@@ -5712,11 +5755,11 @@ function renderOps() {
     const byDay = {};
     tx.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
     listEl.innerHTML = Object.keys(byDay).sort().reverse().map((d) => {
-      const rows = byDay[d];
+      const rows = ww428SortDay(byDay[d]);   /* v4.28: новые операции сверху */
       const dayTotal = rows.reduce((s, t) => s + (t.transfer ? 0 : (t.type === "income" ? +t.amount : -t.amount)), 0);
       return `<div class="day-head"><span>${fmtDay(d)}</span><span>${dayTotal >= 0 ? "+" : "−"}${money(Math.abs(dayTotal))}</span></div><div class="ops-day">` + rows.map(txRow).join("") + `</div>`;
     }).join("");
-    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { reorderById(S.transactions, ids); save(); renderOps(); }; });
+    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { ww428ReorderDay(ids); save(); renderOps(); }; });
   } else {
     listEl.className = "grid grid-2";
     listEl.innerHTML = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).map(txCard).join("");
@@ -5851,7 +5894,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.26";
+const WW_VERSION = "4.28";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6502,11 +6545,11 @@ renderOps = function () {
     const byDay = {};
     tx.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
     listEl.innerHTML = Object.keys(byDay).sort().reverse().map((d) => {
-      const rows = byDay[d];
+      const rows = ww428SortDay(byDay[d]);   /* v4.28: новые операции сверху */
       const dayTotal = rows.reduce((s, t) => s + (t.transfer ? 0 : (t.type === "income" ? +t.amount : -t.amount)), 0);
       return `<div class="day-head"><span>${fmtDay(d)}</span><span>${dayTotal >= 0 ? "+" : "−"}${money(Math.abs(dayTotal))}</span></div><div class="ops-day">` + rows.map(txRow).join("") + `</div>`;
     }).join("");
-    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { reorderById(S.transactions, ids); save(); renderOps(); }; });
+    listEl.querySelectorAll(".ops-day").forEach((el) => { el._sortCb = (ids) => { ww428ReorderDay(ids); save(); renderOps(); }; });
   } else {
     listEl.className = "grid grid-2";
     listEl.innerHTML = [...tx].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0)).map(txCard).join("");
@@ -7693,6 +7736,38 @@ const WW28_ICONS = {
 };
 const WW28_EMOJI = { "🛒": "cart", "🛍": "cart", "🏠": "house", "🏡": "house", "⛽": "fuel", "📦": "box", "🌐": "globe", "🌍": "globe", "🌎": "globe", "📱": "phone", "☎": "phone", "📞": "phone", "🍱": "food", "🍽": "food", "🍔": "food", "🍕": "food", "☕": "cup", "🍵": "cup", "🥗": "food", "🚗": "car", "🚙": "car", "🚕": "car", "🚘": "car", "💊": "pill", "🏥": "pill", "❤": "heart", "💛": "heart", "🧡": "heart", "💚": "heart", "💙": "heart", "💜": "heart", "💖": "heart", "💕": "heart", "🏛": "bank", "🏦": "bank", "📌": "pin", "📍": "pin", "🔄": "transfer", "🔁": "transfer", "💱": "transfer", "💼": "briefcase", "💵": "banknote", "💰": "banknote", "💸": "banknote", "🪙": "banknote", "🧾": "receipt", "📄": "receipt", "⚡": "bolt", "💡": "bolt", "🎁": "gift", "💳": "card", "👕": "shirt", "👔": "shirt", "🧥": "shirt", "👗": "shirt", "👖": "shirt", "🔧": "tool", "🛠": "tool", "🔨": "tool" };
 const WW28_BY_NAME = [[/зарплат|заработ/, "briefcase"], [/бензин|топлив|азс/, "fuel"], [/коммунал|жкх|кварт/, "house"], [/интернет/, "globe"], [/связ|телефон|мобил/, "phone"], [/кафе|ресторан|кофе/, "cup"], [/обед|еда|продукт|питан/, "food"], [/авто|машин|такси/, "car"], [/здоров|аптек|лекарств|медиц/, "pill"], [/кредит|банк|ипотек/, "bank"], [/перевод/, "transfer"], [/бытов/, "receipt"], [/покупк|магазин/, "cart"], [/кладов|склад/, "box"], [/доход/, "banknote"], [/подар|развлеч|досуг/, "gift"], [/одежд|обув|гардероб/, "shirt"], [/ремонт|инструмент|дом и/, "tool"], [/проч/, "pin"]];
+/* ===================== v4.27: те же значки внутри кольца =====================
+   Кружки на кольце рисуются на canvas и подставляли туда сам эмодзи — цветной
+   и объёмный, тогда как в списке под диаграммой те же категории показаны
+   линейными значками. Получался разнобой в пределах одной карточки.
+   Здесь берём ту же SVG-разметку, что и в списке, подменяем currentColor на
+   конкретный цвет (внутри <img> currentColor не работает) и растрируем в
+   картинку. Картинки кэшируются по ключу «значок+цвет», поэтому при
+   перерисовке заново ничего не грузится.
+   Если значка в наборе нет или картинка ещё не готова — рисуем эмодзи, как
+   раньше: лучше показать хоть что-то, чем пустой кружок. */
+const _ww427Cache = new Map();
+function ww427IconImg(ic, name, color, onReady) {
+  const svg = ww28Icon(ic, name);
+  if (!/^<svg/.test(svg)) return null;                 /* в наборе нет — останется эмодзи */
+  const key = (ic || "") + "|" + (name || "") + "|" + color;
+  let img = _ww427Cache.get(key);
+  if (img) return img;
+  img = new Image();
+  img.__ready = false;
+  img.onload = () => { img.__ready = true; if (typeof onReady === "function") onReady(); };
+  img.onerror = () => { img.__ready = false; };
+  /* В data: URL картинка — самостоятельный SVG-документ, поэтому нужны xmlns
+     и явные размеры: без них Chrome не может определить размер и картинка
+     просто не грузится (complete = true, но naturalWidth = 0). В разметке на
+     странице этого не требовалось — там SVG живёт внутри HTML. */
+  const src = svg
+    .replace("<svg ", '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" ')
+    .replace('stroke="currentColor"', 'stroke="' + color + '"');
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(src);
+  _ww427Cache.set(key, img);
+  return img;
+}
 function ww28Icon(ic, name) {
   const key = (ic || "").replace(/[\uFE0F\u20E3]/g, "").trim();
   let k = WW28_EMOJI[key];
