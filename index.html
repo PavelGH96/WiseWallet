@@ -4764,7 +4764,15 @@ setInterval(() => { if (!document.hidden && S.settings.sbUrl && S.settings.sbKey
 .ww-lock-card{width:min(320px,86vw);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.18)}
 #ww-lock-in{width:100%;text-align:center;font-size:22px;letter-spacing:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-family:var(--font-d)}
 #ww-net{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));background:var(--amber-bg);border:1px solid var(--amber);color:var(--text);padding:7px 14px;border-radius:999px;font-size:12.5px;z-index:var(--z-net);align-items:center;gap:6px;box-shadow:0 6px 20px rgba(0,0,0,.15)}
-#toast{pointer-events:auto}
+/* v4.29: тост принимает нажатия ТОЛЬКО когда показан.
+   Правило #toast{pointer-events:auto} добавляли ради кнопки «Отменить»
+   внутри тоста, но селектор по id перебивал pointer-events:none из класса,
+   и невидимый тост (opacity:0, position:fixed, z-index:200, ~36×20 px внизу
+   по центру) продолжал перехватывать нажатия. Он накрывал центр кнопки
+   «Сохранить» — по зелёному полю сбоку кнопка срабатывала, а по надписи
+   посередине нет. */
+#toast{pointer-events:none}
+#toast.show{pointer-events:auto}
 .cs-table{width:100%;border-collapse:collapse;font-size:12px}
 .cs-table th,.cs-table td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--border);font-family:var(--font-d);white-space:nowrap}
 .cs-table th:first-child,.cs-table td:first-child{text-align:left;font-family:inherit}
@@ -5894,7 +5902,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.28";
+const WW_VERSION = "4.29";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
