@@ -106,6 +106,12 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 h1{font-family:var(--font-d);font-size:28px;font-weight:700;letter-spacing:-.022em}
 h2{font-family:var(--font-d);font-size:17px;font-weight:600;letter-spacing:-.014em;margin-bottom:12px}
 .sub{color:var(--t2);font-size:13px}
+/* v4.24: строка категории кликабельна — даём это понять курсором и откликом */
+.ww424-row{cursor:pointer;border-radius:10px;transition:background .12s ease}
+.ww424-row:hover{background:var(--bg)}
+.ww424-row:active{background:var(--border)}
+.ww424-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+@media(prefers-reduced-motion:reduce){.ww424-row{transition:none}}
 /* v4.04: было var(--t3) — замер контраста на активной теме дал 2,54 при норме
    4,5. Этим цветом набраны даты операций, подписи под суммами и большая часть
    пояснений, то есть читать приходилось почти вслепую. --t2 проходит по всем
@@ -1173,14 +1179,17 @@ body.observer .task-card,.observer .credit-card{cursor:default}
       </div>
       <div class="card"><h2>Данные</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="exportJson()">Экспорт JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="exportCsv()">Экспорт CSV</button>
           <button class="btn btn-ghost btn-sm" onclick="exportXlsx()">Экспорт XLSX</button>
           <button class="btn btn-ghost btn-sm" onclick="exportPdf()" title="Отчёт за выбранный на дашборде период"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h8.5L18.5 8v12.5H6z"/><path d="M14 3.6V8h4.4"/><path d="M8.8 12.5h6.4M8.8 15.8h4.4"/></svg> PDF-отчёт</button>
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">Импорт JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-xlsx-file').click()">Импорт XLSX</button>
           <button class="btn btn-danger btn-sm" onclick="resetAll()">Сбросить всё</button>
         </div>
+        <!-- v4.25: кнопки «Экспорт JSON» и «Импорт JSON» убраны из этого блока по
+             просьбе. Поле оставлено намеренно: через него восстанавливается
+             копия, которую предлагает скачать блок «Резервные копии»
+             (кнопка «Скачать JSON»). Без него восстановить файл было бы
+             нечем. Вызывается из wwRestoreJson(). -->
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJson(this)">
         <input type="file" id="import-xlsx-file" accept=".xlsx,.xls" style="display:none" onchange="importXlsx(this)">
         <div class="sub" style="margin-top:10px" id="xlsx-status"></div>
@@ -1797,17 +1806,32 @@ function renderDash() {
      Чиним так же, как задумана «Аналитика», но не теряя точную сумму:
      остаток сверх топ-6 идёт в кольцо отдельной долькой «Остальное». */
   const catRest = catTotal - catRows.reduce((s, [, v]) => s + v, 0);
+  /* v4.24: «Остальное» — это категории за пределами топ-6. На кольце долька
+     подписывалась «•••», и понять, что за ней стоит, было невозможно.
+     Теперь запоминаем её состав и весь контекст периода: по клику показываем
+     либо траты одной категории, либо разбор «Остального». */
+  const restRows = isFuturePeriod ? [] : Object.entries(
+      tx.filter((t) => t.type === "expense").reduce((a, t) => { a[t.categoryId] = (a[t.categoryId] || 0) + +t.amount; return a; }, {})
+    ).sort((a, b) => b[1] - a[1]).slice(6);
+  window._ww424 = { range, phrase, isFuturePeriod, rows: catRows.map(([cid, sum]) => [cid, sum]), rest: restRows, restSum: catRest };
   const donutEntries = catRows.map(([cid, sum]) => { const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" }); return [c.name, sum, c.icon]; });
   if (catRest > 0.01) donutEntries.push(["Остальное", catRest, "•••"]);
-  drawDonut(document.getElementById("dash-donut"), donutEntries, catTotal, donutLabel);
+  const donutCv = document.getElementById("dash-donut");
+  drawDonut(donutCv, donutEntries, catTotal, donutLabel);
+  /* соответствие долек и категорий для попадания по клику */
+  if (donutCv) {
+    donutCv._ww424 = catRows.map(([cid]) => cid).concat(catRest > 0.01 ? ["__rest__"] : []);
+    ww424BindDonut(donutCv);
+  }
   document.getElementById("dash-cats").innerHTML = catRows.length ? catRows.map(([cid, sum]) => {
     const c = cid === "c_credit" ? { icon: "🏦", name: "Платежи по кредитам" } : (cat(cid) || { icon: "📌", name: "—" });
     const pct = catTotal ? Math.round((sum / catTotal) * 100) : 0;
     const prevSum = (!isFuturePeriod && isMonthPeriod) ? catSpentMonth(cid, ymShift((range.from || today).slice(0, 7), -1)) : 0;
     const dl = prevSum ? Math.round((sum - prevSum) / prevSum * 100) : null;
     const dlTxt = dl === null ? "" : ` <span class="sub">${dl > 0 ? "↑" : dl < 0 ? "↓" : "="}${Math.abs(dl)}%</span>`;
-    return `<div class="row"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
-  }).join("") : (isFuturePeriod ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>Расходов в этом периоде ещё нет.<br>Добавьте операцию кнопкой «+»</div>');
+    return `<div class="row ww424-row" role="button" tabindex="0" title="Показать траты категории" onclick="ww424Cat('${cid}')"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${dlTxt}</div><div class="progress" style="margin-top:4px"><i style="width:${pct}%;background:var(--red)"></i></div></div><div class="ramt">${money(sum)}</div></div>`;
+  }).join("") + (catRest > 0.01 ? `<div class="row ww424-row" role="button" tabindex="0" title="Что входит в «Остальное»" onclick="ww424Rest()"><div class="ic">•••</div><div class="rmain"><div class="rt">Остальное <span class="sub">${restRows.length} кат.</span></div><div class="progress" style="margin-top:4px"><i style="width:${catTotal ? Math.round((catRest / catTotal) * 100) : 0}%;background:var(--t3)"></i></div></div><div class="ramt">${money(catRest)}</div></div>` : "") : (isFuturePeriod ? '<div class="empty"><div class="big">' + WWI.calendar + '</div>Нет регулярных платежей и кредитов для плана</div>' : '<div class="empty"><div class="big">📝</div>Расходов в этом периоде ещё нет.<br>Добавьте операцию кнопкой «+»</div>');
+  try { ww423Bars(document.getElementById("dash-cats")); } catch (e) {}
 
   // ---- операции за период ----
   const recH2 = document.getElementById("dash-recent-h2");
@@ -2332,7 +2356,11 @@ function drawDonut(cv, entries, total, subLabel) {
         ctx.fillStyle = cardBg; ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = PALETTE[i % PALETTE.length]; ctx.stroke();
         if (e[2]) { ctx.font = Math.round(br * 1.05) + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = cssVar("--text"); ctx.fillText(e[2], bx, by + 1); }
-        if (fr[i] >= 0.06) {
+        /* v4.26: процент показываем у КАЖДОЙ дольки, у которой нарисован
+           значок. Раньше пороги расходились — значок с 4,5%, процент с 6%, —
+           и долька вроде «Продуктов» на 5% оставалась без подписи: значок
+           есть, а сколько это, непонятно. */
+        {
           const px = cx + (R + 9) * Math.cos(mid), py = cy + (R + 9) * Math.sin(mid);
           ctx.font = "700 10px Inter, sans-serif"; ctx.fillStyle = cssVar("--t2"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillText(Math.round(fr[i] * 100) + "%", px, py);
@@ -2426,6 +2454,139 @@ function ww405Reduced() {
   try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
 }
 /* draw(progress) должна отрисовать кадр: 0 — пусто, 1 — итоговый вид. */
+/* ===================== v4.23: лёгкая анимация полосок по категориям =====================
+   Полоски и так имеют переход ширины (.progress i, .45s), но при отрисовке
+   они появляются сразу в конечном виде — переходу нечего анимировать.
+   Отдаём их с нулевой шириной и возвращаем целевую, когда блок реально попал
+   в поле зрения: на дашборде список категорий лежит ниже сгиба, и анимация
+   «на отрисовку» проигралась бы вхолостую — ровно та же ошибка, что была
+   с кольцевой диаграммой до v4.05.
+   Наблюдатель отцепляется после первого срабатывания, никаких таймеров не
+   остаётся. При prefers-reduced-motion и в фоновой вкладке просто оставляем
+   конечный вид. */
+let _ww423IO = null;
+/* ===================== v4.24: раскрытие категории по клику =====================
+   Долька «•••» на кольце не говорила ничего, а по строке категории нельзя было
+   провалиться внутрь. Теперь и строка, и долька открывают список трат за тот
+   же период, что показан на дашборде, а «Остальное» — свой состав. */
+function ww424Ctx() { return window._ww424 || null; }
+function ww424CatName(cid) {
+  if (cid === "c_credit") return "Платежи по кредитам";
+  const c = cat(cid);
+  return c ? c.name : "Без категории";
+}
+function ww424CatIcon(cid) {
+  if (cid === "c_credit") return ww28Icon("🏦", "Платежи по кредитам");
+  const c = cat(cid) || { icon: "📌", name: "—" };
+  return ww28Icon(c.icon, c.name);
+}
+/* Операции категории за период дашборда. Платежи по кредитам операциями не
+   являются — это расчётная величина, поэтому для них показываем пояснение. */
+function ww424Tx(cid) {
+  const ctx = ww424Ctx(); if (!ctx) return [];
+  const r = ctx.range || {};
+  return S.transactions.filter((t) =>
+    t.type === "expense" && t.categoryId === cid &&
+    (!r.from || t.date >= r.from) && (!r.to || t.date <= r.to)
+  ).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+}
+function ww424Cat(cid) {
+  const ctx = ww424Ctx(); if (!ctx) return;
+  const name = ww424CatName(cid);
+  const head = '<div class="mhead"><h3>' + ww424CatIcon(cid) + " " + esc(name) + '</h3><button class="x" onclick="closeModal()">✕</button></div>';
+  if (ctx.isFuturePeriod || cid === "c_credit") {
+    const row = (ctx.rows.find((x) => x[0] === cid) || [null, 0])[1];
+    showModal(head +
+      '<div class="sub" style="margin-bottom:10px">' + esc(ctx.phrase) + '</div>' +
+      '<div class="row"><div class="rmain"><div class="rt">' + (cid === "c_credit" ? "Платежи по кредитам" : "Плановая сумма") + '</div>' +
+      '<div class="rs">' + (cid === "c_credit"
+          ? "Считается из графика активных кредитов, а не из операций"
+          : "План по регулярным платежам — отдельных операций ещё нет") + '</div></div>' +
+      '<div class="ramt">' + money(row) + '</div></div>');
+    return;
+  }
+  const list = ww424Tx(cid);
+  const total = list.reduce((a, t) => a + +t.amount, 0);
+  showModal(head +
+    '<div class="sub" style="margin-bottom:10px">' + esc(ctx.phrase) + ' · ' + list.length + ' ' +
+      (list.length % 10 === 1 && list.length % 100 !== 11 ? "операция" : (list.length % 10 >= 2 && list.length % 10 <= 4 && (list.length % 100 < 10 || list.length % 100 >= 20) ? "операции" : "операций")) +
+      ' на <b>' + money(total) + '</b></div>' +
+    (list.length
+      ? '<div style="max-height:56vh;overflow:auto">' + list.map(txRow).join("") + '</div>'
+      : '<div class="empty"><div class="big">📝</div>Операций в этом периоде нет</div>'));
+}
+function ww424Rest() {
+  const ctx = ww424Ctx(); if (!ctx) return;
+  const rows = ctx.rest || [];
+  showModal('<div class="mhead"><h3>Остальные категории</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div class="sub" style="margin-bottom:10px">' + esc(ctx.phrase) + ' · ' + rows.length +
+      ' кат. на <b>' + money(ctx.restSum || 0) + '</b>. На кольце они сведены в одну дольку, чтобы не рисовать десятки неразличимых цветов.</div>' +
+    (rows.length
+      ? rows.map(([cid, sum]) =>
+          '<div class="row ww424-row" role="button" tabindex="0" onclick="ww424Cat(\'' + cid + '\')">' +
+          '<div class="ic">' + ww424CatIcon(cid) + '</div>' +
+          '<div class="rmain"><div class="rt">' + esc(ww424CatName(cid)) + '</div>' +
+          '<div class="rs">нажмите, чтобы посмотреть траты</div></div>' +
+          '<div class="ramt">' + money(sum) + '</div></div>').join("")
+      : '<div class="empty">Здесь пусто</div>'));
+}
+/* Попадание по кольцу: считаем угол от центра и ищем дольку. Порядок долек
+   совпадает с порядком, в котором их рисует drawDonut. */
+function ww424BindDonut(cv) {
+  if (!cv || cv._ww424bound) return;
+  cv._ww424bound = true;
+  cv.style.cursor = "pointer";
+  cv.addEventListener("click", (e) => {
+    const ids = cv._ww424 || []; const ctx = ww424Ctx();
+    if (!ids.length || !ctx) return;
+    const r = cv.getBoundingClientRect();
+    const x = e.clientX - r.left - r.width / 2;
+    const y = e.clientY - r.top - r.height / 2;
+    const rad = Math.sqrt(x * x + y * y);
+    const R = Math.min(r.width, r.height) / 2 - 16;
+    const thick = Math.max(24, Math.round(R * 0.34));
+    if (rad < R - thick - 6 || rad > R + 6) return;      /* мимо кольца — в центр не считаем */
+    let a = Math.atan2(y, x) + Math.PI / 2;               /* отсчёт от 12 часов, как рисуется */
+    if (a < 0) a += Math.PI * 2;
+    const sums = ids.map((id) => id === "__rest__" ? (ctx.restSum || 0) : ((ctx.rows.find((q) => q[0] === id) || [null, 0])[1]));
+    const total = sums.reduce((s2, v) => s2 + v, 0);
+    if (!total) return;
+    let acc = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const next = acc + (sums[i] / total) * Math.PI * 2;
+      if (a >= acc && a < next) { ids[i] === "__rest__" ? ww424Rest() : ww424Cat(ids[i]); return; }
+      acc = next;
+    }
+  });
+}
+function ww423Bars(root) {
+  if (!root) return;
+  const bars = Array.prototype.slice.call(root.querySelectorAll(".progress > i, .ww63-bar > i"));
+  if (!bars.length) return;
+  if (ww405Reduced() || document.hidden) return;          /* конечный кадр как есть */
+  bars.forEach((b) => { b.dataset.ww423w = b.style.width || "0%"; b.style.width = "0%"; });
+  const run = () => {
+    /* два кадра: первый — чтобы браузер зафиксировал нулевую ширину как
+       исходную, иначе переход не запустится и полоски просто «моргнут» */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bars.forEach((b) => { b.style.width = b.dataset.ww423w || "0%"; delete b.dataset.ww423w; });
+    }));
+  };
+  const r = root.getBoundingClientRect();
+  if (r.width > 0 && r.bottom > 0 && r.top < (window.innerHeight || 0)) { run(); return; }
+  if (!("IntersectionObserver" in window)) { run(); return; }
+  if (!_ww423IO) {
+    _ww423IO = new IntersectionObserver((ents) => {
+      ents.forEach((e) => {
+        if (!e.isIntersecting) return;
+        _ww423IO.unobserve(e.target);
+        if (typeof e.target._ww423run === "function") { e.target._ww423run(); e.target._ww423run = null; }
+      });
+    }, { threshold: 0.15 });
+  }
+  root._ww423run = run;
+  _ww423IO.observe(root);
+}
 function ww405Animate(cv, draw) {
   if (!cv) return;
   if (cv._ww405raf) { cancelAnimationFrame(cv._ww405raf); cv._ww405raf = 0; }
@@ -5465,8 +5626,14 @@ function drawFlow() {
     const last = (s.length - 1) * k;
     ctx.beginPath();
     s.forEach((p, i) => { if (i > last) return; i ? ctx.lineTo(X(i), Y(p.v)) : ctx.moveTo(X(i), Y(p.v)); });
+    /* v4.23: индекс жёстко зажимаем в границах массива. Раньше проверялось
+       только `i0 < s.length - 1`, и на отдельных кадрах (округление last при
+       разных значениях easeOutCubic) обращение к s[i0 + 1] уходило за конец
+       массива — в консоль падало «Cannot read properties of undefined».
+       На картинку это не влияло, но ошибка была настоящая и всплывала
+       примерно в трети прогонов. */
     const i0 = Math.floor(last);
-    if (i0 < s.length - 1) {
+    if (i0 >= 0 && i0 + 1 < s.length && s[i0] && s[i0 + 1]) {
       const f = last - i0;
       ctx.lineTo(X(i0) + (X(i0 + 1) - X(i0)) * f, Y(s[i0].v) + (Y(s[i0 + 1].v) - Y(s[i0].v)) * f);
     }
@@ -5684,7 +5851,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.22";
+const WW_VERSION = "4.26";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -8409,6 +8576,14 @@ async function wwCloudRestore(id, when) {
    на своём диске — единственная копия, не зависящая ни от устройства, ни от
    сервиса, поэтому раз в месяц мягко напоминаем его сделать. */
 const WW_EXPORT_LAST = "ww_export_last_v1";
+/* v4.25: восстановление из скачанного файла. Кнопки «Импорт JSON» в блоке
+   «Данные» больше нет, но копию, которую предлагает скачать этот же блок,
+   должно быть чем вернуть — иначе резервное копирование становится
+   односторонним. */
+function wwRestoreJson() {
+  const inp = document.getElementById("import-file");
+  if (inp) inp.click();
+}
 function wwExportDone() { try { localStorage.setItem(WW_EXPORT_LAST, String(Date.now())); } catch (e) {} wwExportNudge(); }
 function wwExportNudge() {
   const el = document.getElementById("ww-export-nudge"); if (!el) return;
@@ -8425,6 +8600,7 @@ function wwExportNudge() {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="exportJson();wwExportDone()">Скачать JSON</button>
       <button class="btn btn-ghost btn-sm" onclick="exportXlsx();wwExportDone()">Скачать XLSX</button>
+      <button class="btn btn-ghost btn-sm" onclick="wwRestoreJson()" title="Загрузить ранее скачанный файл JSON">Восстановить из файла</button>
       <button class="btn btn-ghost btn-sm" onclick="wwExportDone()">Уже сделал</button>
     </div></div>`;
 }
@@ -15175,7 +15351,8 @@ window.ww50DataSignature = ww50DataSignature;
       ".ww63-catrow .amt{font-weight:800;font-size:14px;color:var(--green);white-space:nowrap}" +
       ".ww63-catrow .shr{font-size:12px;color:var(--t2);min-width:42px;text-align:right}" +
       ".ww63-bar{height:6px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:6px}" +
-      ".ww63-bar i{display:block;height:100%;background:var(--green);border-radius:999px}" +
+      ".ww63-bar i{display:block;height:100%;background:var(--green);border-radius:999px;transition:width .45s cubic-bezier(.2,.8,.25,1)}" +
+      "@media(prefers-reduced-motion:reduce){.ww63-bar i{transition:none}}" +
       ".ww63-catwrap{padding:2px 0}" +
       "@media(max-width:720px){.ww63-catrow .shr{min-width:38px}}";
     document.head.appendChild(s);
@@ -15418,6 +15595,8 @@ window.ww50DataSignature = ww50DataSignature;
     if (!el) return;
     if (curTab() !== "inc") { el.innerHTML = ""; return; }
     el.innerHTML = paneHtml();
+    /* v4.23: та же лёгкая анимация полосок, что и на дашборде */
+    try { if (typeof ww423Bars === "function") ww423Bars(document.getElementById("ww63-cats")); } catch (e) {}
   }
 
   function apply() {
