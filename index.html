@@ -99,6 +99,28 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .rail-item.active{background:var(--blue-bg);color:var(--accent)}
 /* ---- main ---- */
 .main{flex:1;min-width:0;margin-left:250px;padding:28px 44px 96px;transition:margin-left .16s ease}
+/* v4.30: горизонтальное меню. Включается классом на <html>, чтобы одним
+   переключением менялись и панель, и отступы содержимого. */
+.topnav{position:fixed;left:0;right:0;top:0;z-index:var(--z-nav);background:var(--glass);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-bottom:1px solid var(--border);padding:10px 24px 0}
+.topnav-row1{display:flex;align-items:center;gap:14px;min-height:38px}
+.topnav-brand{display:flex;align-items:center;gap:10px;font-family:var(--font-d);font-weight:700;font-size:17px;letter-spacing:-.02em}
+.topnav-logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(145deg,#02858f,#01313d);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(1,78,88,.35)}
+.topnav-spacer{flex:1 1 auto}
+.topnav-row2{display:flex;align-items:center;gap:10px}
+.topnav-items{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;padding:6px 0}
+.topnav-items::-webkit-scrollbar{display:none}
+.topnav-items .rail-item{width:auto;white-space:nowrap;padding:8px 14px;border-radius:10px 10px 0 0;border-bottom:2px solid transparent}
+.topnav-items .rail-item.active{background:var(--card);border-bottom-color:var(--accent)}
+.topnav-items .rail-item svg{display:none}          /* в строке важнее подписи */
+.ww430-switch{display:inline-flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px}
+.ww430-switch .btn{border-radius:999px;padding:5px 12px}
+.ww430-switch .ww430-on{background:var(--card);box-shadow:var(--sh-s);color:var(--accent);font-weight:600}
+@media(max-width:820px){.ww430-switch{display:none}}   /* на телефоне меню внизу, выбирать нечего */
+/* дата уже стоит в верхней панели — в заголовке дашборда она была бы дублем */
+html.ww430-top #dash-date{display:none}
+html.ww430-top .rail{display:none}
+html.ww430-top .main{margin-left:0;padding-top:calc(var(--ww430-h,104px) + 18px)}
+@media(max-width:820px){ .topnav{display:none!important} html.ww430-top .main{padding-top:calc(10px + env(safe-area-inset-top,0px))} }
 .page{display:none}
 .page.active{display:block;animation:fadein .18s ease}
 @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -999,6 +1021,19 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 <div id="ww-splash"><div class="ws-logo"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.2" y="6.5" width="17.6" height="12.5" rx="2.2"/><path d="M15.6 12.8h5.2"/><circle cx="17.3" cy="12.8" r="1"/></svg></div><div class="ws-name">WiseWallet</div><div class="ws-spin"></div></div><style>#ww-splash{position:fixed;inset:0;z-index:var(--z-splash);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg,#f6f7f9);transition:opacity .35s ease}#ww-splash .ws-logo{font-size:52px;animation:wsPulse 1.2s ease-in-out infinite}#ww-splash .ws-name{font-weight:800;font-size:20px;color:var(--text,#1c2733);letter-spacing:.02em;font-family:-apple-system,system-ui,sans-serif}#ww-splash .ws-spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(127,127,127,.25);border-top-color:var(--accent,#0f9d76);animation:wsRot .8s linear infinite}#ww-splash.hide{opacity:0;pointer-events:none}@media(prefers-color-scheme:dark){body:not([data-theme]) #ww-splash{background:#10151c}body:not([data-theme]) #ww-splash .ws-name{color:#e8edf2}}@keyframes wsRot{to{transform:rotate(360deg)}}@keyframes wsPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}</style>
 <script>try{var _ws=JSON.parse(localStorage.getItem("ww_state_v1")||"{}");var _wt=(_ws.settings&&_ws.settings.theme)||"";if(_wt)document.body.dataset.theme=_wt;}catch(e){}</script>
 <div class="app">
+<!-- v4.30: второй режим меню — горизонтальный, как в WiseBase.
+     Пункты сюда не дублируются руками: они копируются из бокового меню при
+     переключении, поэтому список разделов и их порядок (настройка «Порядок
+     разделов») всегда совпадают в обоих режимах. -->
+<header class="topnav" id="topnav" hidden>
+  <div class="topnav-row1">
+    <div class="topnav-brand"><span class="topnav-logo">W</span><span class="topnav-name">WiseWallet</span></div>
+    <div class="sub topnav-date" id="topnav-date"></div>
+    <div class="topnav-spacer"></div>
+    <button class="btn btn-ghost btn-sm" onclick="ww430SetMenu('left')" title="Меню слева">☰ Меню слева</button>
+  </div>
+  <div class="topnav-row2"><nav class="topnav-items" id="topnav-items"></nav></div>
+</header>
 <aside class="rail" id="rail">
   <div class="logo-row"><div class="logo"><span>WiseWallet</span></div><button class="rail-pin" id="rail-pin-btn" onclick="toggleRailCollapse()" title="Свернуть меню до иконок"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6 9 12l5.5 6"/></svg></button></div>
   <div id="observer-badge" style="display:none;align-items:center;gap:6px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:999px;margin:-6px 0 12px"><svg class="wwi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg> <span>Только просмотр</span></div>
@@ -1024,7 +1059,10 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page active" id="page-dashboard">
     <div class="page-head">
       <div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
-      <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span id="ww430-switch" class="ww430-switch" title="Где показывать меню"></span>
+        <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button>
+      </div>
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:14px">
       <span class="ww319-per"><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий период">◀</button><button id="ww26-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период дашборда — управляет всем дашбордом">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий период">▶</button></span>
@@ -1548,9 +1586,15 @@ function nav(page) {
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + page));
   document.querySelectorAll("[data-nav]").forEach((b) => b.classList.toggle("active", b.dataset.nav === page));
   render(page);
+  /* v4.30: подсветка активного пункта и состав верхнего меню обновляются
+     здесь же — пункты копируются из бокового, значит должны переехать
+     вместе с ним при любой перерисовке навигации. */
+  try { ww430SyncTop(); ww430PaintSwitch(); } catch (e) {}
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("[data-nav]").forEach((b) => b.addEventListener("click", () => nav(b.dataset.nav)));
+/* режим меню применяем сразу при запуске, до первой отрисовки страницы */
+try { ww430SyncTop(); } catch (e) {}
 
 function render(page) {
   ({ dashboard: renderDash, ops: renderOps, budgets: renderBudgets, goals: renderGoals, credits: renderCredits, calendar: renderCal, planner: renderPlanner, links: renderLinks, passwords: renderPasswords, analytics: renderAnalytics, settings: renderSettings }[page] || renderDash)();
@@ -1981,6 +2025,73 @@ function ww404OpsFiltersCount() {
   const n = [v("ops-type"), v("ops-cat"), v("ops-q").trim()].filter(Boolean).length;
   el.textContent = n ? String(n) : "";
 }
+/* ===================== v4.30: меню слева или сверху =====================
+   Пункты верхнего меню не прописаны отдельно, а КОПИРУЮТСЯ из бокового при
+   каждом переключении и при каждой перерисовке навигации. Иначе список
+   разделов пришлось бы поддерживать в двух местах, и настройка «Порядок
+   разделов» (а также скрытие ненужных разделов) разошлась бы между режимами.
+   Заголовки групп в строку не переносим — там они только мешают. */
+function ww430Mode() {
+  const m = S.settings && S.settings.menuMode;
+  return m === "top" ? "top" : "left";
+}
+function ww430SyncTop() {
+  const bar = document.getElementById("topnav"), box = document.getElementById("topnav-items");
+  const rail = document.getElementById("rail");
+  if (!bar || !box || !rail) return;
+  const top = ww430Mode() === "top";
+  bar.hidden = !top;
+  document.documentElement.classList.toggle("ww430-top", top);
+  if (!top) return;
+  box.innerHTML = "";
+  rail.querySelectorAll(".rail-item[data-nav]").forEach((src) => {
+    /* Скрытые разделы копировать нельзя. offsetParent тут не годится: боковое
+       меню position:fixed, и у его детей offsetParent всегда null. Смотрим
+       фактически вычисленный display. */
+    if (getComputedStyle(src).display === "none") return;
+    const b = src.cloneNode(true);
+    b.classList.toggle("active", src.classList.contains("active"));
+    b.onclick = () => nav(src.dataset.nav);
+    box.appendChild(b);
+  });
+  const d = document.getElementById("topnav-date");
+  const src = document.getElementById("dash-date");
+  if (d && src) d.textContent = src.textContent;
+  /* высота панели меняется от числа разделов и ширины окна — отдаём её в CSS,
+     чтобы содержимое не пряталось под меню */
+  document.documentElement.style.setProperty("--ww430-h", Math.round(bar.getBoundingClientRect().height) + "px");
+}
+function ww430SetMenu(mode) {
+  S.settings.menuMode = mode === "top" ? "top" : "left";
+  save();
+  ww430SyncTop();
+  ww430PaintSwitch();
+  toast(S.settings.menuMode === "top" ? "Меню сверху" : "Меню слева");
+}
+/* Переключатель живёт на дашборде, рядом с кнопкой «+ Операция». */
+function ww430PaintSwitch() {
+  const el = document.getElementById("ww430-switch");
+  if (!el) return;
+  const top = ww430Mode() === "top";
+  el.innerHTML =
+    '<button class="btn btn-ghost btn-sm' + (top ? "" : " ww430-on") + '" onclick="ww430SetMenu(\'left\')" title="Меню слева">▤ Слева</button>' +
+    '<button class="btn btn-ghost btn-sm' + (top ? " ww430-on" : "") + '" onclick="ww430SetMenu(\'top\')" title="Меню сверху">▤ Сверху</button>';
+}
+window.addEventListener("resize", () => { if (ww430Mode() === "top") ww430SyncTop(); });
+/* Состав разделов задаётся отдельным модулем («Порядок разделов») уже ПОСЛЕ
+   запуска: он прячет ненужные пункты и меняет их порядок. Без наблюдателя
+   верхнее меню сохраняло бы копию, снятую слишком рано, — при перезагрузке
+   в нём оказывалось 10 пунктов вместо 8. */
+(function () {
+  const rail = document.getElementById("rail");
+  if (!rail || !("MutationObserver" in window)) return;
+  let t = null;
+  new MutationObserver(() => {
+    if (ww430Mode() !== "top") return;
+    clearTimeout(t);
+    t = setTimeout(() => { try { ww430SyncTop(); } catch (e) {} }, 60);
+  }).observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+})();
 function activePage() { return (document.querySelector(".page.active") || {}).id?.replace("page-", "") || "dashboard"; }
 /* v4.04: убираем правую плавающую панель за край на время прокрутки — см.
    комментарий к .ww404-away в стилях. Возвращаем через 550 мс после остановки. */
@@ -5902,7 +6013,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.29";
+const WW_VERSION = "4.30";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
