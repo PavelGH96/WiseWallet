@@ -80,6 +80,21 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .rail.collapsed{width:76px}
 .rail.collapsed .rail-item{justify-content:center}
 .rail.collapsed .rail-item span,.rail.collapsed .rail-grp,.rail.collapsed .logo span,.rail.collapsed #observer-badge span{max-width:0;opacity:0}
+/* v4.31: в свёрнутом виде подпись схлопывалась до нулевой ширины, но
+   ПРОМЕЖУТОК между значком и подписью оставался. Он сдвигал содержимое
+   вправо, а overflow:hidden срезал у значков правый край — то же самое
+   происходило с кружком логотипа. Пока меню свёрнуто и на него не навели,
+   подпись убираем совсем и обнуляем промежуток. */
+.rail.collapsed:not(:hover) .rail-item{gap:0;padding-left:0;padding-right:0;overflow:visible}
+.rail.collapsed:not(:hover) .rail-item span{display:none}
+.rail.collapsed:not(:hover) .logo{gap:0;overflow:visible}
+.rail.collapsed:not(:hover) .logo span{display:none}
+.rail.collapsed:not(:hover) #observer-badge span{display:none}
+/* Кнопка сворачивания и логотип не помещаются рядом в 48 px и налезали друг
+   на друга. Пока меню свёрнуто, показываем только логотип; при наведении
+   меню раскрывается и кнопка возвращается на место. */
+.rail.collapsed:not(:hover) .rail-pin{display:none}
+.rail.collapsed:not(:hover) .logo-row{justify-content:center}
 .rail.collapsed .logo::before{margin:0 auto}
 .rail.collapsed .rail-pin svg{transform:rotate(180deg)}
 .rail.collapsed:not(:hover) .logo-row{justify-content:center}
@@ -112,9 +127,9 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .topnav-items .rail-item{width:auto;white-space:nowrap;padding:8px 14px;border-radius:10px 10px 0 0;border-bottom:2px solid transparent}
 .topnav-items .rail-item.active{background:var(--card);border-bottom-color:var(--accent)}
 .topnav-items .rail-item svg{display:none}          /* в строке важнее подписи */
-.ww430-switch{display:inline-flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px}
-.ww430-switch .btn{border-radius:999px;padding:5px 12px}
-.ww430-switch .ww430-on{background:var(--card);box-shadow:var(--sh-s);color:var(--accent);font-weight:600}
+.ww430-switch{display:inline-flex}
+/* подпись «Меню сверху» переносилась на две строки и раздувала ползунок */
+.ww431-sw .swlbl{white-space:nowrap}
 @media(max-width:820px){.ww430-switch{display:none}}   /* на телефоне меню внизу, выбирать нечего */
 /* дата уже стоит в верхней панели — в заголовке дашборда она была бы дублем */
 html.ww430-top #dash-date{display:none}
@@ -1030,7 +1045,6 @@ body.observer .task-card,.observer .credit-card{cursor:default}
     <div class="topnav-brand"><span class="topnav-logo">W</span><span class="topnav-name">WiseWallet</span></div>
     <div class="sub topnav-date" id="topnav-date"></div>
     <div class="topnav-spacer"></div>
-    <button class="btn btn-ghost btn-sm" onclick="ww430SetMenu('left')" title="Меню слева">☰ Меню слева</button>
   </div>
   <div class="topnav-row2"><nav class="topnav-items" id="topnav-items"></nav></div>
 </header>
@@ -1593,8 +1607,10 @@ function nav(page) {
   window.scrollTo(0, 0);
 }
 document.querySelectorAll("[data-nav]").forEach((b) => b.addEventListener("click", () => nav(b.dataset.nav)));
-/* режим меню применяем сразу при запуске, до первой отрисовки страницы */
-try { ww430SyncTop(); } catch (e) {}
+/* Режим меню и сам переключатель применяем сразу при запуске: первая страница
+   рисуется не через nav(), поэтому без этого вызова переключатель на дашборде
+   оставался пустым до первого перехода между разделами. */
+try { ww430SyncTop(); ww430PaintSwitch(); } catch (e) {}
 
 function render(page) {
   ({ dashboard: renderDash, ops: renderOps, budgets: renderBudgets, goals: renderGoals, credits: renderCredits, calendar: renderCal, planner: renderPlanner, links: renderLinks, passwords: renderPasswords, analytics: renderAnalytics, settings: renderSettings }[page] || renderDash)();
@@ -2073,9 +2089,13 @@ function ww430PaintSwitch() {
   const el = document.getElementById("ww430-switch");
   if (!el) return;
   const top = ww430Mode() === "top";
+  /* v4.31: тот же ползунок, что у «Оплатить» (.ww30-sw) — один орган
+     управления вместо двух кнопок. Выключен — меню слева, включён — сверху. */
   el.innerHTML =
-    '<button class="btn btn-ghost btn-sm' + (top ? "" : " ww430-on") + '" onclick="ww430SetMenu(\'left\')" title="Меню слева">▤ Слева</button>' +
-    '<button class="btn btn-ghost btn-sm' + (top ? " ww430-on" : "") + '" onclick="ww430SetMenu(\'top\')" title="Меню сверху">▤ Сверху</button>';
+    '<button class="ww30-sw ww431-sw' + (top ? " on" : "") + '" role="switch" aria-checked="' + top + '"' +
+    ' onclick="ww430SetMenu(\'' + (top ? "left" : "top") + '\')"' +
+    ' title="' + (top ? "Переключить меню влево" : "Переключить меню наверх") + '">' +
+    '<span class="knob"></span><span class="swlbl">Меню ' + (top ? "сверху" : "слева") + '</span></button>';
 }
 window.addEventListener("resize", () => { if (ww430Mode() === "top") ww430SyncTop(); });
 /* Состав разделов задаётся отдельным модулем («Порядок разделов») уже ПОСЛЕ
@@ -6013,7 +6033,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.30";
+const WW_VERSION = "4.31";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
