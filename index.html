@@ -130,7 +130,19 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--text)}
 .ww430-switch{display:inline-flex}
 /* подпись «Меню сверху» переносилась на две строки и раздувала ползунок */
 .ww431-sw .swlbl{white-space:nowrap}
-@media(max-width:820px){.ww430-switch{display:none}}   /* на телефоне меню внизу, выбирать нечего */
+/* v4.33: на телефоне переключатель ВИДЕН — он лежит в настройках, и прятать
+   его там незачем. Сам режим на телефон по-прежнему не влияет: внизу своя
+   панель. Раньше он скрывался, потому что стоял в шапке дашборда. */
+.topnav .ww430-switch{flex:0 0 auto}
+/* ползунок с короткой подписью: ширина фиксирована, поэтому при переключении
+   он остаётся ровно на том же месте */
+.ww431-sw{width:104px}
+/* пояснение нужно только там, где режим ни на что не влияет */
+.ww433-note{display:none}
+@media(max-width:820px){.ww433-note{display:inline}}
+/* v4.33: переключатель один и живёт в «Настройки → Тема», поэтому прятать
+   его в каком-либо режиме больше не нужно. */
+.ww431-sw .swlbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* дата уже стоит в верхней панели — в заголовке дашборда она была бы дублем */
 html.ww430-top #dash-date{display:none}
 html.ww430-top .rail{display:none}
@@ -1073,10 +1085,7 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page active" id="page-dashboard">
     <div class="page-head">
       <div><h1 id="dash-hello">Дашборд</h1><div class="sub" id="dash-date"></div></div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span id="ww430-switch" class="ww430-switch" title="Где показывать меню"></span>
-        <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button>
-      </div>
+      <button class="btn btn-primary" onclick="openTxModal()">+ Операция</button>
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:14px">
       <span class="ww319-per"><button class="ww31-navm" onclick="ww26ShiftMonth(-1)" title="Предыдущий период">◀</button><button id="ww26-period-btn" class="ww319-pill" onclick="ww26PeriodSheet()" title="Период дашборда — управляет всем дашбордом">Месяц ▾</button><button class="ww31-navm" onclick="ww26ShiftMonth(1)" title="Следующий период">▶</button></span>
@@ -1205,7 +1214,10 @@ body.observer .task-card,.observer .credit-card{cursor:default}
   <section class="page" id="page-settings">
     <div class="page-head"><h1>Настройки</h1></div>
     <div class="grid grid-2">
-      <div class="card"><h2>Тема</h2><div class="theme-grid" id="theme-grid"></div><div class="sub" style="margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px">Акцентный цвет — кнопки и активные элементы</div><div class="theme-grid" id="ww38-accent-grid"></div></div>
+      <div class="card"><h2>Тема</h2><div class="theme-grid" id="theme-grid"></div><div class="sub" style="margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px">Акцентный цвет — кнопки и активные элементы</div><div class="theme-grid" id="ww38-accent-grid"></div>
+        <!-- v4.33: расположение меню переехало сюда из дашборда и верхней панели -->
+        <div class="sub" style="margin:14px 0 8px;border-top:1px solid var(--border);padding-top:12px">Расположение меню — слева или сверху<span class="ww433-note"> · на телефоне меню всегда внизу, настройка действует на компьютере</span></div>
+        <span id="ww430-switch" class="ww430-switch" title="Расположение меню"></span></div>
       <div class="card"><h2>Счета</h2><div id="acc-list"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addAccount()">+ Счёт</button></div>
       <div class="card"><h2>Категории</h2><div id="cat-list" style="max-height:300px;overflow:auto"></div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="addCategory()">+ Категория</button></div>
       <div class="card"><h2>Напоминания о платежах</h2>
@@ -2086,16 +2098,24 @@ function ww430SetMenu(mode) {
 }
 /* Переключатель живёт на дашборде, рядом с кнопкой «+ Операция». */
 function ww430PaintSwitch() {
-  const el = document.getElementById("ww430-switch");
-  if (!el) return;
+  /* v4.32: переключателей два — на дашборде и в верхней панели. Второй нужен,
+     чтобы вернуться к боковому меню из любого раздела, а не только с главной.
+     Рисуем во все сразу, чтобы они не разъезжались по состоянию. */
+  const list = document.querySelectorAll(".ww430-switch");
+  if (!list.length) return;
   const top = ww430Mode() === "top";
   /* v4.31: тот же ползунок, что у «Оплатить» (.ww30-sw) — один орган
      управления вместо двух кнопок. Выключен — меню слева, включён — сверху. */
-  el.innerHTML =
+  /* v4.32: подпись короткая — «Слева» / «Сверху». Длинная («Меню сверху») не
+     помещалась в фиксированные 106 px, вылезала за край и визуально сдвигала
+     ползунок при переключении. Пояснение переехало в подсказку при наведении,
+     она одна для обоих состояний, поэтому тоже ничего не «прыгает». */
+  const html =
     '<button class="ww30-sw ww431-sw' + (top ? " on" : "") + '" role="switch" aria-checked="' + top + '"' +
     ' onclick="ww430SetMenu(\'' + (top ? "left" : "top") + '\')"' +
-    ' title="' + (top ? "Переключить меню влево" : "Переключить меню наверх") + '">' +
-    '<span class="knob"></span><span class="swlbl">Меню ' + (top ? "сверху" : "слева") + '</span></button>';
+    ' title="Расположение меню">' +
+    '<span class="knob"></span><span class="swlbl">' + (top ? "Сверху" : "Слева") + '</span></button>';
+  list.forEach((el) => { el.innerHTML = html; });
 }
 window.addEventListener("resize", () => { if (ww430Mode() === "top") ww430SyncTop(); });
 /* Состав разделов задаётся отдельным модулем («Порядок разделов») уже ПОСЛЕ
@@ -6033,7 +6053,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.31";
+const WW_VERSION = "4.33";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
