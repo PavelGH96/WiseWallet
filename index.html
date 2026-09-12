@@ -312,6 +312,14 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
 .chip{padding:6px 14px;border-radius:999px;border:1px solid transparent;background:var(--fill);font-size:13px;font-weight:500;color:var(--t2);min-height:32px;transition:background .15s}
 .chip:hover{background:var(--fill-h)}
 .chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+/* v4.35: подкатегории — строка чипов в форме операции и метка в списке.
+   .chip-add визуально отличает «+ своя» от уже сохранённых вариантов;
+   .tag-sub — тот же чип, что у пользовательских #меток, но нейтрального
+   цвета, чтобы подкатегорию не путали с меткой в списке операций. */
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip-add{border:1px dashed var(--border);background:transparent;color:var(--t2)}
+.tag-sub{background:var(--fill);color:var(--t2)}
+.linklike{background:none;border:none;padding:0;color:var(--accent);cursor:pointer;text-decoration:underline}
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .toolbar select,.toolbar input{padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-s);background:var(--card);min-height:38px}
 /* ---- credits ---- */
@@ -1494,6 +1502,30 @@ const fmtM = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
 const money = (n) => fmtM.format(Math.round(n)) + "\u00a0₽";
 const moneySign = (n, type) => (type === "income" ? "+" : "−") + money(Math.abs(n));
 const cat = (id) => S.categories.find((c) => c.id === id);
+/* ===================== v4.35: подкатегории =====================
+   Хранятся прямо на категории — c.subs: string[] — а не отдельной
+   коллекцией с собственными id: подкатегория осмысленна только в паре со
+   своей категорией («ТО» у «Авто» и «ТО» у чего-то ещё — разные вещи по
+   смыслу), заводить для этого отдельную сущность и ссылки — лишний уровень
+   ради того же результата. Удаление категории само по себе убирает и её
+   подкатегории, отдельно чистить нечего.
+   Сравнение без учёта регистра («ТО» / «то» — одно и то же), но хранится
+   и показывается ровно так, как ввёл пользователь. */
+function ww35Subs(categoryId) {
+  const c = cat(categoryId);
+  return (c && Array.isArray(c.subs)) ? c.subs : [];
+}
+function ww35AddSub(categoryId, name) {
+  const c = cat(categoryId);
+  name = (name || "").trim();
+  if (!c || !name) return null;
+  if (!Array.isArray(c.subs)) c.subs = [];
+  const hit = c.subs.find((s) => s.toLowerCase() === name.toLowerCase());
+  if (hit) return hit;             /* уже есть такая — используем существующее написание */
+  c.subs.push(name);
+  save();
+  return name;
+}
 const acc = (id) => S.accounts.find((a) => a.id === id);
 /* ===================== системные SVG-иконки =====================
    Эмодзи остаются там, где иконку выбирает пользователь (категории, счета,
@@ -1914,7 +1946,8 @@ function renderDash() {
 function txRow(t) {
   const c = cat(t.categoryId) || { icon: t.type === "income" ? "💵" : "📌", name: "Без категории" };
   const tagsHtml = (t.tags && t.tags.length) ? " " + t.tags.map((tg) => `<span class="tag">#${esc(tg)}</span>`).join("") : "";
-  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}${t.splitId ? ' <span class="tag" title="Часть разделённого чека">часть чека</span>' : ""}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><span class="ww404-acts"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();dupTx('${t.id}')" title="Повторить операцию">⧉</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button></span><button class="btn btn-ghost btn-sm ww404-more" onclick="event.stopPropagation();ww404RowMenu('${t.id}')" aria-label="Действия с операцией" title="Действия">⋮</button></div>`;
+  const subHtml = t.sub ? ' <span class="tag tag-sub">' + esc(t.sub) + "</span>" : "";
+  return `<div class="row" data-sid="${t.id}"><div class="ic">${ww28Icon(c.icon, c.name)}</div><div class="rmain"><div class="rt">${esc(c.name)}${subHtml}${t.note ? ' <span class="sub">· ' + esc(t.note) + "</span>" : ""}${tagsHtml}${t.splitId ? ' <span class="tag" title="Часть разделённого чека">часть чека</span>' : ""}</div><div class="rs">${fmtDay(t.date)} · ${esc((acc(t.accountId) || {}).name || "")}</div></div><div class="ramt ${t.type === "income" ? "pos" : ""}">${moneySign(t.amount, t.type)}</div><span class="ww404-acts"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();dupTx('${t.id}')" title="Повторить операцию">⧉</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editTx('${t.id}')" title="Изменить">${WWI.pencil}</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();delTx('${t.id}')" title="Удалить">✕</button></span><button class="btn btn-ghost btn-sm ww404-more" onclick="event.stopPropagation();ww404RowMenu('${t.id}')" aria-label="Действия с операцией" title="Действия">⋮</button></div>`;
 }
 /* ===================== v4.03: разделение чека по категориям =====================
    Классика: в супермаркете 3000 ₽, из них 2200 — еда, 800 — бытовая химия.
@@ -1962,9 +1995,11 @@ function ww403SplitRender() {
   const box = document.getElementById("tx-split-box");
   const btn = document.getElementById("tx-split-btn");
   const catFg = document.getElementById("tx-cat-fg");
+  const subFg = document.getElementById("tx-sub-fg");
   if (!box) return;
   if (btn) btn.textContent = _txSplit ? "Отменить разделение" : "Разделить по категориям";
   if (catFg) catFg.style.display = _txSplit ? "none" : "";   /* одиночная категория в этом режиме не нужна */
+  if (subFg) subFg.style.display = _txSplit ? "none" : "";   /* у каждой части своя категория, общая подкатегория теряет смысл */
   if (!_txSplit) { box.innerHTML = ""; return; }
   const cats = S.categories.filter((c) => c.type === txType);
   const opts = (sel) => cats.map((c) => `<option value="${c.id}"${c.id === sel ? " selected" : ""}>${esc(c.icon + " " + c.name)}</option>`).join("");
@@ -2028,6 +2063,7 @@ function dupTx(id) {
     type: t.type,
     amount: t.amount,
     categoryId: t.categoryId,
+    sub: t.sub || "",
     accountId: t.accountId,
     whose: t.whose || "",
     note: t.note || "",
@@ -3511,7 +3547,7 @@ function wwPrompt(message, opts) {
     }
   );
 }
-let txType = "expense", txCat = null;
+let txType = "expense", txCat = null, txSub = null;
 /* Дата по умолчанию для новой операции. Если на дашборде открыт не текущий
    месяц, операция с сегодняшней датой туда просто не попадёт — человек её
    не увидит и решит, что «не добавляется». Поэтому подставляем дату внутри
@@ -3569,9 +3605,9 @@ function openTxModal(pre) {
   if (!pre._edit) window._txEditId = null;
   _txSplit = null;   /* v4.03: режим разделения не должен протекать из прошлой формы */
   txType = pre.type || "expense"; txCat = pre.categoryId || (S.settings.lastCat && S.settings.lastCat[txType]) || null;
+  txSub = pre.sub || null;
   const lockedCat = pre.lockCategory ? cat(txCat) : null;
   showModal(`<div class="mhead"><h3>Новая операция</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <div class="quick-add"><input id="tx-quick" placeholder="Быстро: 450 обед #работа" onkeydown="if(event.key==='Enter')parseQuick()"><button class="btn btn-ghost btn-sm" onclick="parseQuick()">→</button></div>
     ${lockedCat ? `<div class="fg"><div class="tx-locked-cat"><div class="disc">${ww28Icon(lockedCat.icon, lockedCat.name)}</div><div><b>${esc(lockedCat.name)}</b><div class="sub">${txType === "income" ? "Доход" : "Расход"} — категория выбрана иконкой</div></div></div></div>` : `
     <div class="fg"><div class="seg" id="tx-seg">
       <button class="${txType === "expense" ? "active exp" : ""}" onclick="setTxType('expense',this)">Расход</button>
@@ -3580,6 +3616,7 @@ function openTxModal(pre) {
     ${lockedCat ? "" : `<div class="fg" id="tx-cat-fg"><label>Категория</label><input type="search" id="tx-cat-q" placeholder="Поиск категории…" oninput="renderTxCats()" autocomplete="off"><div class="cat-grid" id="tx-cats"></div></div>
     <div class="fg" id="tx-split-box"></div>
     <button type="button" class="btn btn-ghost btn-sm" id="tx-split-btn" style="margin:-4px 0 10px" onclick="ww403SplitToggle()">Разделить по категориям</button>`}
+    <div class="fg" id="tx-sub-fg"></div>
     ${(pre.type || txType) === "expense" || txType === "expense" ? `<div class="fg" id="tx-whose-fg"><label>Чей расход <span style="color:var(--red)">*</span></label>
       <div class="seg ww80-whose" id="tx-whose">${WW80_WHOSE.map((w) => `<button type="button" data-whose="${w.id}" class="${pre.whose === w.id ? "active" : ""}" onclick="ww80PickWhose('${w.id}',this)">${w.name}</button>`).join("")}</div></div>` : ""}
     <div class="fg-row fg-row-wrap">
@@ -3590,13 +3627,14 @@ function openTxModal(pre) {
     <div class="fg"><label>Комментарий</label><input id="tx-note" placeholder="Необязательно" value="${esc(pre.note || "")}" oninput="ww317Suggest()" autocomplete="off"><div id="ww317-sugg"></div></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveTx()">Сохранить</button>`);
   if (!lockedCat) renderTxCats();
+  ww35RenderSub();
   /* v4.03: у повтора всё уже заполнено — ставим курсор в сумму и выделяем её,
      потому что сумма как раз почти всегда отличается от образца. */
   if (pre._dup) {
     const a = document.getElementById("tx-amount");
     if (a) { a.focus(); try { a.select(); } catch (e) {} }
   } else {
-    wwFocus(pre.amount ? "tx-amount" : "tx-quick");
+    wwFocus("tx-amount");
   }
 }
 /* ===================== v4.03: арифметика в поле суммы =====================
@@ -3698,8 +3736,13 @@ function wwApplyCalc(el) {
   const v = wwCalcExpr(raw);
   if (v !== null && v > 0) el.value = String(v);
 }
-function parseQuick() {
-  const raw = (document.getElementById("tx-quick").value || "").trim();
+/* v4.36: строку «Быстро: …» убрали из формы — разбор текста в сумму,
+   категорию, метки и комментарий остался, но теперь это чистая функция от
+   переданной строки, а не чтение поля, которого больше нет в разметке.
+   Используется только голосовой ввод целой операции (клавиша V): диктовка
+   передаёт сюда распознанный текст напрямую. */
+function parseQuick(raw) {
+  raw = (raw || "").trim();
   if (!raw) return;
   /* v4.03: в быстром вводе тоже понимаем выражение — «450+120 обед» */
   const expr = raw.match(/^[\s0-9.,+\-*/()]+/);
@@ -3721,16 +3764,17 @@ function parseQuick() {
       const words = rest.toLowerCase().split(/\s+/);
       const cats = S.categories.filter((c) => c.type === txType);
       const found = cats.find((c) => words.some((w) => c.name.toLowerCase().includes(w) || w.includes(c.name.toLowerCase().split(" ")[0])));
-      if (found) { txCat = found.id; renderTxCats(); }
+      if (found) { txCat = found.id; txSub = null; renderTxCats(); ww35RenderSub(); }
     }
     document.getElementById("tx-note").value = rest; ww317Suggest();
   }
 }
 function setTxType(t, btn) {
-  txType = t; txCat = (S.settings.lastCat && S.settings.lastCat[t]) || null;
+  txType = t; txCat = (S.settings.lastCat && S.settings.lastCat[t]) || null; txSub = null;
   document.querySelectorAll("#tx-seg button").forEach((b) => b.classList.remove("active", "exp", "inc"));
   btn.classList.add("active", t === "expense" ? "exp" : "inc");
   renderTxCats();
+  ww35RenderSub();
   ww80SyncWhose();
 }
 /* Поле «чей расход» нужно только для расходов. Форма строится один раз, поэтому
@@ -3748,6 +3792,127 @@ function ww80SyncWhose() {
     "</div></div>";
   anchor.insertAdjacentHTML("beforebegin", html);
 }
+/* v4.35: строка подкатегорий в форме операции. Показывается для любой
+   выбранной категории (расход или доход) — уже готовые варианты чипами,
+   плюс «+ своя» для нового. Необязательное поле: раз выбранное можно
+   снять повторным нажатием той же кнопки. */
+function ww35RenderSub() {
+  const box = document.getElementById("tx-sub-fg");
+  if (!box) return;
+  if (!txCat) { box.innerHTML = ""; return; }
+  const subs = ww35Subs(txCat);
+  box.innerHTML = '<label>Подкатегория <span class="sub">— необязательно</span>' +
+    (subs.length ? ' <button type="button" class="linklike" onclick="ww35ManageSubs()" style="font-weight:400;font-size:12.5px">Управлять</button>' : "") +
+    '</label>' +
+    '<div class="chip-row" id="tx-sub-row">' +
+    subs.map((s) => '<button type="button" class="chip' + (txSub === s ? " active" : "") + '" data-sub="' + esc(s) + '">' + esc(s) + '</button>').join("") +
+    '<button type="button" class="chip chip-add" data-sub-add="1">+ своя</button>' +
+    '</div>';
+}
+/* Клики по чипам — через делегирование на весь документ, а не инлайн-onclick
+   с именем подкатегории в атрибуте: это пользовательский текст, и в нём
+   может быть что угодно вплоть до кавычек — экранировать для onclick
+   надёжно сложнее, чем просто прочитать значение из data-атрибута. */
+document.addEventListener("click", (e) => {
+  const row = e.target.closest("#tx-sub-row");
+  if (!row) return;
+  if (e.target.closest("[data-sub-add]")) { ww35PromptAddSub(); return; }
+  const chip = e.target.closest("[data-sub]");
+  if (!chip) return;
+  const name = chip.dataset.sub;
+  txSub = (txSub === name) ? null : name;   /* повторное нажатие снимает выбор */
+  ww35RenderSub();
+});
+async function ww35PromptAddSub() {
+  if (!txCat) return;
+  const name = await wwPrompt("Например: ТО, автомойка, страховка. Появится в списке для этой категории и в следующий раз.", { title: "Новая подкатегория", placeholder: "Название" });
+  if (!name) return;
+  const saved = ww35AddSub(txCat, name);
+  if (saved) { txSub = saved; ww35RenderSub(); }
+}
+/* v4.36: переименование и удаление подкатегорий — список открывается по
+   ссылке «Управлять» рядом со строкой чипов и доступен, только если у
+   категории уже есть хотя бы одна подкатегория (управлять пустым списком
+   нечем). _ww35ManageCat запоминает, какую категорию открыли: сам список
+   строится без categoryId в разметке — это пользовательский текст, класть
+   его в onclick-атрибут небезопасно, поэтому клики разбираются через
+   делегирование по data-атрибутам, как и выбор чипов. */
+let _ww35ManageCat = null;
+function ww35ManageSubs() {
+  if (!txCat || !ww35Subs(txCat).length) return;
+  _ww35ManageCat = txCat;
+  const c = cat(txCat);
+  showModal('<div class="mhead"><h3>Подкатегории «' + esc(c ? c.name : "") + '»</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div id="ww35-manage-list">' + ww35ManageListHtml(txCat) + '</div>' +
+    '<button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" onclick="closeModal()">Готово</button>');
+}
+function ww35ManageListHtml(categoryId) {
+  const subs = ww35Subs(categoryId);
+  if (!subs.length) return '<div class="empty">Подкатегорий не осталось</div>';
+  return subs.map((s) =>
+    '<div class="row" data-sub-manage="' + esc(s) + '"><div class="rmain"><div class="rt">' + esc(s) + '</div></div>' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-sub-rename title="Переименовать">' + WWI.pencil + '</button>' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-sub-del title="Удалить">✕</button></div>'
+  ).join("");
+}
+document.addEventListener("click", (e) => {
+  const row = e.target.closest("#ww35-manage-list [data-sub-manage]");
+  if (!row) return;
+  const name = row.dataset.subManage;
+  if (e.target.closest("[data-sub-rename]")) { ww35RenameSub(name); return; }
+  if (e.target.closest("[data-sub-del]")) { ww35DeleteSub(name); return; }
+});
+function ww35RefreshManage() {
+  const box = document.getElementById("ww35-manage-list");
+  if (box) box.innerHTML = ww35ManageListHtml(_ww35ManageCat);
+  if (_ww35ManageCat && !ww35Subs(_ww35ManageCat).length) closeModal();   /* последнюю удалили — закрывать нечего */
+}
+/* простое склонение по правилам русского — «1 операция / 2 операции / 5 операций» */
+function ww35Ru3(n, one, few, many) {
+  const n10 = n % 10, n100 = n % 100;
+  if (n10 === 1 && n100 !== 11) return one;
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return few;
+  return many;
+}
+async function ww35RenameSub(oldName) {
+  const categoryId = _ww35ManageCat; if (!categoryId) return;
+  const newName = await wwPrompt("", { title: "Переименовать подкатегорию", defaultValue: oldName, okText: "Сохранить" });
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed === oldName) return;
+  const c = cat(categoryId);
+  if (!c || !Array.isArray(c.subs)) return;
+  const idx = c.subs.findIndex((s) => s === oldName);
+  if (idx < 0) return;
+  /* новое имя совпало (без учёта регистра) с уже существующим другим —
+     сливаем в него, а не заводим дубль под другим написанием */
+  const dupIdx = c.subs.findIndex((s, i) => i !== idx && s.toLowerCase() === trimmed.toLowerCase());
+  const finalName = dupIdx >= 0 ? c.subs[dupIdx] : trimmed;
+  if (dupIdx >= 0) c.subs.splice(idx, 1); else c.subs[idx] = trimmed;
+  S.transactions.forEach((t) => { if (t.categoryId === categoryId && t.sub === oldName) t.sub = finalName; });
+  if (txCat === categoryId && txSub === oldName) txSub = finalName;
+  save();
+  ww35RefreshManage();
+  ww35RenderSub();
+  toast("Подкатегория переименована");
+}
+async function ww35DeleteSub(name) {
+  const categoryId = _ww35ManageCat; if (!categoryId) return;
+  const count = S.transactions.filter((t) => t.categoryId === categoryId && t.sub === name).length;
+  const msg = count
+    ? "У " + count + " " + ww35Ru3(count, "операции", "операций", "операций") + " пропадёт эта пометка. Сами операции никуда не денутся."
+    : "Эта подкатегория пока ни в одной операции не использована.";
+  const ok = await wwConfirm(msg, { title: "Удалить «" + name + "»?", okText: "Удалить", danger: true });
+  if (!ok) return;
+  const c = cat(categoryId);
+  if (c && Array.isArray(c.subs)) c.subs = c.subs.filter((s) => s !== name);
+  S.transactions.forEach((t) => { if (t.categoryId === categoryId && t.sub === name) t.sub = ""; });
+  if (txCat === categoryId && txSub === name) txSub = null;
+  save();
+  ww35RefreshManage();
+  ww35RenderSub();
+  toast("Подкатегория удалена");
+}
 function renderTxCats() {
   const box = document.getElementById("tx-cats"); if (!box) return;
   const freq = (typeof ww318CatFreq === "function") ? ww318CatFreq() : {};
@@ -3757,7 +3922,7 @@ function renderTxCats() {
   const q = ((qEl && qEl.value) || "").trim().toLowerCase();
   const shown = q ? cats.filter((c) => c.name.toLowerCase().includes(q)) : cats;
   box.innerHTML = shown.length
-    ? shown.map((c) => `<button class="cat-opt${txCat === c.id ? " active" : ""}" onclick="txCat='${c.id}';renderTxCats()"><em>${c.icon}</em>${esc(c.name.length > 13 ? c.name.slice(0, 12) + "…" : c.name)}</button>`).join("")
+    ? shown.map((c) => `<button class="cat-opt${txCat === c.id ? " active" : ""}" onclick="txCat='${c.id}';txSub=null;renderTxCats();ww35RenderSub()"><em>${c.icon}</em>${esc(c.name.length > 13 ? c.name.slice(0, 12) + "…" : c.name)}</button>`).join("")
     : `<div class="sub" style="grid-column:1/-1;padding:6px 2px">Ничего не найдено</div>`;
 }
 let _ww317 = [];
@@ -3779,7 +3944,7 @@ function ww317Suggest() {
 }
 function ww317Apply(i) {
   const t = _ww317[i]; if (!t) return;
-  if (t.categoryId) { txCat = t.categoryId; renderTxCats(); }
+  if (t.categoryId) { txCat = t.categoryId; txSub = t.sub || null; renderTxCats(); ww35RenderSub(); }
   const amt = document.getElementById("tx-amount");
   if (amt && !parseFloat(amt.value)) amt.value = t.amount;
   document.getElementById("tx-note").value = t.note;
@@ -4043,7 +4208,7 @@ async function saveTx() {
       () => { S.transactions = S.transactions.filter((x) => ids.indexOf(x.id) < 0); save(); render(activePage()); }, "Отменено");
     return;
   }
-  const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
+  const _txData = { date: document.getElementById("tx-date").value || todayStr(), type: txType, amount, accountId: document.getElementById("tx-acc").value, categoryId: txCat, sub: txSub || "", whose: (txType === "expense" ? whose : ""), note: document.getElementById("tx-note").value.trim(), tags };
   /* v4.12: перед сохранением НОВОЙ операции ищем похожие — вдруг уже заводили.
      Проверка только для новых: при правке существующей она мешала бы (там
      совпадение с собой же и с намеренными повторами уже принято).
@@ -6053,7 +6218,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.33";
+const WW_VERSION = "4.36";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -8365,7 +8530,7 @@ try {
     if (!t) return;
     if (typeof isObserver === "function" && isObserver()) { toast("Режим просмотра: редактирование недоступно"); return; }
     window._txEditId = id;
-    openTxModal({ _edit: true, type: t.type, categoryId: t.categoryId, amount: t.amount, accountId: t.accountId });
+    openTxModal({ _edit: true, type: t.type, categoryId: t.categoryId, amount: t.amount, accountId: t.accountId, sub: t.sub || "" });
     // Заполняем сразу: showModal вставляет разметку синхронно, поля уже есть.
     // Повтор через кадр — страховка на случай, если модалку кто-то перерисует.
     var fill = function () {
@@ -9647,11 +9812,15 @@ function ww331Voice(targetId, onDone, btn) {
 function ww331VoiceTx() {
   if (isObserver()) return;
   const ov = document.getElementById("overlay");
-  const open = ov && ov.classList.contains("open") && document.getElementById("tx-quick");
+  /* v4.36: строки «Быстро: …» в форме больше нет, поэтому «форма уже открыта»
+     проверяем по полю суммы — оно остаётся в разметке всегда. */
+  const open = ov && ov.classList.contains("open") && document.getElementById("tx-amount");
   if (!open) openTxModal();
   setTimeout(() => {
-    const btn = document.getElementById("ww331-txmic");
-    ww331Voice("tx-quick", () => { try { parseQuick(); } catch (e) {} }, btn);
+    /* targetId ведёт на несуществующий элемент — это нормально: ww331Voice
+       всё равно вызывает onDone(text) с распознанной строкой, а сам текст
+       разбирает parseQuick(text), которому DOM-поле для чтения не нужен. */
+    ww331Voice("tx-quick", (text) => { try { parseQuick(text); } catch (e) {} }, null);
   }, open ? 0 : 220);
 }
 
@@ -9691,10 +9860,6 @@ const _ww331OpenTx = openTxModal;
 openTxModal = function () {
   _ww331OpenTx.apply(this, arguments);
   try {
-    const q = document.getElementById("tx-quick");
-    if (q && !document.getElementById("ww331-txmic")) {
-      q.insertAdjacentHTML("afterend", `<button id="ww331-txmic" class="ww331-mic" title="Продиктовать операцию" onclick="ww331Voice('tx-quick',function(){try{parseQuick()}catch(e){}},this)">🎤</button>`);
-    }
     const tg = document.getElementById("tx-tags");
     if (tg && !document.getElementById("ww331-txtags")) {
       const tags = ww331AllTags();
