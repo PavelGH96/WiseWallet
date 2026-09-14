@@ -6218,7 +6218,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.36";
+const WW_VERSION = "4.37";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -7167,9 +7167,131 @@ wwOnSettings("v2.3: кнопка импорта CSV", 30, function () {
       const html = '<button class="btn btn-ghost btn-sm" id="ww23-csv-btn" onclick="document.getElementById(&quot;ww23-csv-file&quot;).click()">' + WWI.bank + ' Импорт выписки (CSV, Excel, PDF)</button>';
       if (nearBtn) nearBtn.insertAdjacentHTML("afterend", " " + html); else card.insertAdjacentHTML("beforeend", html);
       if (!document.getElementById("ww23-csv-file")) document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww23-csv-file" accept=".csv,.txt,.xlsx,.xls,.pdf,text/csv,application/pdf" style="display:none" onchange="ww23CsvPick(this)">');
+      /* v4.37: импорт по скриншоту — рядом с импортом выписки, это соседние
+         по смыслу способы занести операции пачкой. */
+      if (!document.getElementById("ww37-shot-btn")) {
+        const csvBtn = document.getElementById("ww23-csv-btn");
+        const shotHtml = '<button class="btn btn-ghost btn-sm" id="ww37-shot-btn" title="Нужен интернет" onclick="document.getElementById(&quot;ww37-shot-file&quot;).click()">📷 Импорт по скриншоту</button>';
+        if (csvBtn) csvBtn.insertAdjacentHTML("afterend", " " + shotHtml); else card.insertAdjacentHTML("beforeend", shotHtml);
+        document.body.insertAdjacentHTML("beforeend", '<input type="file" id="ww37-shot-file" accept="image/png,image/jpeg,image/webp,image/heic" multiple style="display:none" onchange="ww37Pick(this)">');
+      }
     }
   }
 });
+/* ===================== v4.37: импорт по скриншоту =====================
+   Снимок истории из банковского приложения распознаётся в список операций и
+   попадает в ТО ЖЕ окно проверки, что и выписка из CSV/PDF — с галочками,
+   правкой сумм, выбором категории и пометкой «чей расход». Ни одна операция
+   не заводится молча: человек всегда видит, что именно будет добавлено.
+
+   Распознаёт не браузер, а серверная функция ww-shot: ключ к модели нельзя
+   класть в index.html, иначе его увидит любой, кто откроет исходник.
+
+   Важно: в отличие от остального приложения, это ЕДИНСТВЕННАЯ функция,
+   которой нужен интернет — о чём честно сказано в подписи кнопки. */
+const WW37_URL = "https://tribgnfjiiwmiktzjeyy.supabase.co/functions/v1/ww-shot";
+
+/* Снимки с телефона бывают по 2-4 МБ, а это лишний трафик и лишние секунды
+   ожидания. Ужимаем до 1400 px по длинной стороне: текст в истории операций
+   крупный, для распознавания этого с запасом, а вес падает в разы. */
+function ww37Shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const max = 1400;
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(img.width * k);
+      cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      resolve(cv.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Не удалось открыть снимок")); };
+    img.src = url;
+  });
+}
+
+async function ww37Pick(inp) {
+  const files = Array.prototype.slice.call(inp.files || []);
+  inp.value = "";
+  if (!files.length) return;
+  if (files.length > 4) { toast("За один раз не больше 4 снимков"); return; }
+  if (isObserver()) { toast("Режим просмотра: импорт недоступен"); return; }
+
+  toast("Распознаю снимок…");
+  let images;
+  try {
+    images = await Promise.all(files.map(ww37Shrink));
+  } catch (e) {
+    toast("Не удалось прочитать снимок");
+    return;
+  }
+
+  let data;
+  try {
+    const resp = await fetch(WW37_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ images }),
+    });
+    data = await resp.json();
+  } catch (e) {
+    /* Самая вероятная причина — нет сети. Говорим прямо, а не «ошибка сети». */
+    toast("Нет связи с сервисом распознавания — нужен интернет");
+    return;
+  }
+
+  if (!data || !data.ok) {
+    toast((data && data.error) || "Не удалось распознать снимок");
+    return;
+  }
+  if (!data.rows || !data.rows.length) {
+    toast((data.warnings && data.warnings[0]) || "На снимке не найдено операций");
+    return;
+  }
+
+  ww37ToReview(data.rows, data.warnings || []);
+}
+
+/* Собираем ww23Review напрямую, минуя разбор CSV: у нас уже готовые строки.
+   Дальше работает весь прежний конвейер — окно проверки, дубли, категории. */
+function ww37ToReview(rows, warnings) {
+  const accSel = (S.accounts.find((a) => !a.archived) || S.accounts[0] || {}).id || "";
+  ww23Review = {
+    acc: accSel,
+    skipped: 0,
+    fromShot: true,                       /* пригодится, если понадобится отличать источник */
+    items: rows.map((r, i) => {
+      /* Даты может не быть в кадре — тогда ставим сегодняшнюю, но ОБЯЗАТЕЛЬНО
+         предупреждаем: подставленная незаметно неверная дата хуже пропуска. */
+      const date = r.date || todayStr();
+      const type = r.kind === "income" ? "income" : "expense";
+      const x = { date, amount: +r.amount, type, note: r.description || "" };
+      const guess = ww23GuessCat(x.note, type);
+      return {
+        i, date, amount: x.amount, type, note: x.note,
+        categoryId: guess || "",
+        guessed: !!guess,
+        orig: x.amount,
+        edited: false,
+        whose: "",
+        noDate: !r.date,                  /* пометка для подсказки в окне */
+        dup: ww23IsDup(x),
+        skip: ww23IsDup(x),
+      };
+    }),
+  };
+  ww23ReviewModal();
+  /* Предупреждения показываем ПОСЛЕ открытия окна, чтобы они не потерялись
+     за модальным окном. */
+  const noDate = ww23Review.items.filter((it) => it.noDate).length;
+  const msgs = warnings.slice();
+  if (noDate) msgs.push("У " + noDate + " операций даты не было на снимке — поставлена сегодняшняя, проверьте");
+  if (msgs.length) setTimeout(() => toast(msgs.join(". ")), 400);
+}
+
 /* ===================== v3.82: импорт выписки из PDF =====================
    Тинькофф выгружает выписку только в PDF, поэтому читаем и его. PDF — формат
    вёрстки, а не данных: текст в нём лежит кусками с координатами, таблиц как
