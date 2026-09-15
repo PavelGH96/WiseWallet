@@ -920,6 +920,12 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 
 /* ===== v3.78: экран разбора выписки перед импортом ===== */
 .ww23-rev-wrap{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-s)}
+/* v4.40: панель выбора даты над списком импорта */
+.ww23-rev-datebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:var(--radius-s)}
+.ww23-rev-datebar label{font-size:13px;font-weight:600;color:var(--t2)}
+.ww23-rev-datebar input[type=date]{min-width:0;width:auto;padding:6px 10px;font-size:13px}
+/* Дата, которой не было на снимке, помечена — чтобы её не приняли за прочитанную */
+.ww23-rev-nodate{color:var(--amber);font-weight:600}
 .ww23-rev-table{width:100%;border-collapse:collapse;font-size:13px}
 /* v4.11: в таблице проверки импорта шесть колонок, включая поле суммы и два
    выпадающих списка. В стандартные 520 px они не помещались — приходилось
@@ -6230,7 +6236,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.39";
+const WW_VERSION = "4.41";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -7685,7 +7691,11 @@ function ww23ReviewRow(it) {
   var d = it.date.split("-");
   return '<tr class="ww23-rev-row' + (it.skip ? " skipped" : "") + '" data-i="' + it.i + '">' +
     '<td class="ww23-rev-chk"><input type="checkbox"' + (it.skip ? "" : " checked") + ' onchange="ww23RevToggle(' + it.i + ',this.checked)" title="Импортировать эту строку"></td>' +
-    '<td class="ww23-rev-date">' + d[2] + "." + d[1] + "</td>" +
+    /* v4.40: дату, которой не было на снимке, помечаем — иначе её не отличить
+       от прочитанной, и подставленная сегодняшняя уедет в отчёты незаметно. */
+    '<td class="ww23-rev-date' + (it.noDate ? " ww23-rev-nodate" : "") + '"' +
+      (it.noDate ? ' title="Даты не было на снимке — подставлена. Проверьте или задайте дату сверху"' : "") + ">" +
+      d[2] + "." + d[1] + (it.noDate ? " ?" : "") + "</td>" +
     '<td class="ww23-rev-note" title="' + esc(it.note) + '">' + esc(it.note || "—") + (it.dup ? ' <span class="badge amber">дубль</span>' : "") + "</td>" +
     '<td class="ww23-rev-amt"><span class="ww23-sign" onclick="ww23RevType(' + it.i + ')" title="Переключить доход/расход" style="color:var(--' + (it.type === "income" ? "green" : "red") + ')">' + (it.type === "income" ? "+" : "−") + '</span>' +
       '<input type="text" inputmode="decimal" value="' + it.amount + '" onchange="ww23RevAmt(' + it.i + ',this.value)" title="Сумму можно изменить"' + (it.edited ? ' class="edited"' : '') + '></td>' +
@@ -7699,6 +7709,47 @@ function ww23ReviewRow(it) {
     "</tr>";
 }
 
+/* v4.40: выбор даты для импортируемых операций.
+   Зачем: снимок истории часто обрезан так, что шапки «Сегодня / 15 сентября»
+   в кадре нет, и распознавание честно возвращает «даты не видно». Раньше
+   таким строкам молча ставилась сегодняшняя — а расходы могут заноситься
+   задним числом, и подменённая дата тихо искажала бы отчёты.
+   Теперь дата видна и меняется до импорта: всем строкам разом или только
+   тем, где её не было на экране. */
+function ww23RevDateBar() {
+  var r = ww23Review;
+  if (!r || !r.items.length) return "";
+  var noDate = r.items.filter(function (x) { return x.noDate; }).length;
+  return '<div class="ww23-rev-datebar">' +
+    '<label for="ww23-rev-date">Дата операций</label>' +
+    '<input type="date" id="ww23-rev-date" value="' + esc(r.bulkDate || todayStr()) + '" onchange="ww23RevDateKeep(this.value)">' +
+    '<button class="btn btn-ghost btn-sm" onclick="ww23RevDateApply(false)">Проставить всем</button>' +
+    (noDate
+      ? '<button class="btn btn-ghost btn-sm" onclick="ww23RevDateApply(true)">Только без даты (' + noDate + ')</button>'
+      : "") +
+    (noDate
+      ? '<span class="sub">У ' + noDate + ' ' + (noDate === 1 ? "строки дата не видна" : "строк даты не видно") + ' на снимке — проверьте</span>'
+      : '<span class="sub">Даты взяты из файла</span>') +
+    "</div>";
+}
+/* Запоминаем выбор, чтобы он пережил перерисовку списка. */
+function ww23RevDateKeep(v) { if (ww23Review) ww23Review.bulkDate = v; }
+function ww23RevDateApply(onlyMissing) {
+  var r = ww23Review;
+  var inp = document.getElementById("ww23-rev-date");
+  var d = (inp && inp.value) || todayStr();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { toast("Выберите дату"); return; }
+  r.bulkDate = d;
+  var n = 0;
+  r.items.forEach(function (x) {
+    if (onlyMissing && !x.noDate) return;
+    x.date = d;
+    x.noDate = false;        /* дата теперь задана человеком, а не выдумана */
+    n++;
+  });
+  ww23ReviewModal();
+  toast(n ? "Дата проставлена: " + n + " " + (n === 1 ? "строке" : "строкам") : "Нечего менять");
+}
 function ww23ReviewModal() {
   var r = ww23Review;
   var need = r.items.filter(function (x) { return !x.skip && !x.categoryId; }).length;
@@ -7716,6 +7767,11 @@ function ww23ReviewModal() {
         WW80_WHOSE.map(function (w) { return '<button class="btn btn-ghost btn-sm" onclick="ww23RevWhoseAll(\'' + w.id + '\')">' + esc(w.name) + "</button>"; }).join("") +
       "</span>" +
     "</div>" +
+    /* v4.40: дата пачкой. Скриншот часто снимают без шапки с датой, а выписку
+       могут заносить задним числом — проставлять каждой строке вручную
+       мучительно. Показываем, у скольких строк даты не было видно: если таких
+       нет, кнопка «без даты» не нужна и не показывается. */
+    ww23RevDateBar() +
     '<div class="ww23-rev-wrap"><table class="ww23-rev-table"><thead><tr><th></th><th>Дата</th><th>Описание</th><th class="r">Сумма</th><th>Категория</th><th>Чей расход</th></tr></thead><tbody id="ww23-rev-body">' +
       r.items.map(ww23ReviewRow).join("") +
     "</tbody></table></div>" +
@@ -9706,6 +9762,7 @@ function ww331BulkBar() {
   bar.innerHTML = `<b>Выбрано: ${n}</b><span class="sub">${sum >= 0 ? "+" : "−"}${money(Math.abs(sum))}</span>
     <button class="btn btn-ghost btn-sm" onclick="ww331SelectAllVisible()">Все</button>
     <button class="btn btn-ghost btn-sm" onclick="ww331BulkCat()">Категория</button>
+    <button class="btn btn-ghost btn-sm" onclick="ww331BulkDate()">Дата</button>
     <button class="btn btn-ghost btn-sm" onclick="ww331BulkTag()">Метка</button>
     <button class="btn btn-ghost btn-sm" onclick="ww331BulkExport()">Экспорт</button>
     <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="ww331BulkDelete()">Удалить</button>
@@ -9751,6 +9808,35 @@ function ww331BulkCatApply() {
   let n = 0;
   S.transactions.forEach((t) => { if (_ww331Sel.has(t.id)) { t.categoryId = cid; t.type = c.type; n++; } });
   save(); closeModal(); render(activePage()); toast(`Категория изменена у ${n} операций`);
+}
+/* v4.41: массовая смена даты у выделенных операций.
+   Зачем: расходы нередко заносят задним числом пачкой — например, разобрав
+   чеки за прошлую неделю, — и править дату в каждой операции по отдельности
+   мучительно. Тот же приём, что уже есть для категории и меток.
+
+   Показываем текущий разброс дат: если у выделенных даты разные, человек
+   должен понимать, что одним нажатием сведёт их к одной. */
+function ww331BulkDate() {
+  if (isObserver() || !_ww331Sel.size) return;
+  const sel = S.transactions.filter((t) => _ww331Sel.has(t.id));
+  const dates = Array.from(new Set(sel.map((t) => t.date))).sort();
+  const spread = dates.length === 1
+    ? "Сейчас у всех: " + fmtDay(dates[0])
+    : "Сейчас разные даты: с " + fmtDay(dates[0]) + " по " + fmtDay(dates[dates.length - 1]);
+  showModal('<div class="mhead"><h3>Дата для ' + sel.length + ' ' +
+      (sel.length === 1 ? "операции" : "операций") + '</h3><button class="x" onclick="closeModal()">✕</button></div>' +
+    '<div class="sub" style="margin-bottom:10px">' + esc(spread) + "</div>" +
+    '<div class="fg"><label>Новая дата</label><input type="date" id="ww331-bulkdate" value="' + esc(dates[0] || todayStr()) + '"></div>' +
+    '<button class="btn btn-primary" style="width:100%" onclick="ww331BulkDateApply()">Применить</button>');
+}
+function ww331BulkDateApply() {
+  const inp = document.getElementById("ww331-bulkdate");
+  const d = inp && inp.value;
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) { toast("Выберите дату"); return; }
+  let n = 0;
+  S.transactions.forEach((t) => { if (_ww331Sel.has(t.id)) { t.date = d; n++; } });
+  save(); closeModal(); render(activePage());
+  toast("Дата изменена у " + n + " " + (n === 1 ? "операции" : "операций"));
 }
 function ww331BulkTag() {
   if (isObserver() || !_ww331Sel.size) return;
