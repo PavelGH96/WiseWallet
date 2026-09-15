@@ -358,6 +358,18 @@ body[data-theme="t4"] :where(button,a,input,select,textarea,[tabindex]):focus-vi
 html.no-scroll{overflow:hidden;touch-action:none;overscroll-behavior:none}
 body.no-scroll{position:fixed;inset:0;overflow:hidden;touch-action:none;overscroll-behavior:none}
 body.no-scroll .modal,body.no-scroll .dlg{touch-action:pan-y;overscroll-behavior:contain}
+/* v4.39: исключение нужно и ВЛОЖЕННЫМ прокручиваемым областям внутри окна.
+   Когда окно открыто, на html висит touch-action:none (чтобы фон не ёрзал под
+   пальцем). Модалка получала своё исключение строкой выше, а список внутри
+   неё — нет: палец над таблицей проверки импорта не прокручивал её, хотя в
+   остальных частях окна прокрутка работала. Колесом мыши при этом всё было
+   в порядке — touch-action на мышь не влияет, потому баг и не замечался на
+   компьютере.
+   overscroll-behavior:contain — чтобы, докрутив список до конца, не начать
+   тянуть само окно. */
+body.no-scroll .modal .ww23-rev-wrap,
+body.no-scroll .modal .ww-scrollable,
+body.no-scroll .dlg .ww-scrollable{touch-action:pan-y;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 /* ---- экран входа для «Просмотра» (доступ по коду) ---- */
 #ww-viewer{position:fixed;inset:0;z-index:var(--z-lock);background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px}
 #ww-viewer.on{display:flex}
@@ -2711,7 +2723,7 @@ function ww424Cat(cid) {
       (list.length % 10 === 1 && list.length % 100 !== 11 ? "операция" : (list.length % 10 >= 2 && list.length % 10 <= 4 && (list.length % 100 < 10 || list.length % 100 >= 20) ? "операции" : "операций")) +
       ' на <b>' + money(total) + '</b></div>' +
     (list.length
-      ? '<div style="max-height:56vh;overflow:auto">' + list.map(txRow).join("") + '</div>'
+      ? '<div class="ww-scrollable" style="max-height:56vh;overflow:auto">' + list.map(txRow).join("") + '</div>'
       : '<div class="empty"><div class="big">📝</div>Операций в этом периоде нет</div>'));
 }
 function ww424Rest() {
@@ -6218,7 +6230,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.37";
+const WW_VERSION = "4.39";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -9569,7 +9581,7 @@ function ww331OpenNotifs() {
   const list = ww331Notifs();
   const unread = list.filter((n) => !ww331IsRead(n.key)).length;
   showModal(`<div class="mhead"><h3>🔔 Уведомления${unread ? ` <span class="badge red">${unread}</span>` : ""}</h3><button class="x" onclick="closeModal()">✕</button></div>
-    <div id="ww331-notif-scroll" style="max-height:56vh;overflow:auto">${list.length ? list.map((n) => {
+    <div id="ww331-notif-scroll" class="ww-scrollable" style="max-height:56vh;overflow:auto">${list.length ? list.map((n) => {
       const read = ww331IsRead(n.key);
       return `<div class="ww331-row${read ? "" : " ww331-unread"}" data-ww47-key="${esc(n.key)}">
         <div class="ww331-ic">${n.icon}</div>
@@ -9650,7 +9662,7 @@ function ww331TagReport() {
       <button class="${_ww331TagScope === "month" ? "active" : ""}" onclick="_ww331TagScope='month';ww331TagReport()">Текущий месяц</button>
       <button class="${_ww331TagScope === "all" ? "active" : ""}" onclick="_ww331TagScope='all';ww331TagReport()">За всё время</button>
     </div></div>
-    <div style="max-height:56vh;overflow:auto">${ww331TagTable(_ww331TagScope)}</div>`);
+    <div class="ww-scrollable" style="max-height:56vh;overflow:auto">${ww331TagTable(_ww331TagScope)}</div>`);
 }
 function ww331RenderTagReport() {
   const page = document.getElementById("page-analytics"); if (!page) return;
