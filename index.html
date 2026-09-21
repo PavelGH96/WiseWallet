@@ -921,6 +921,14 @@ body.observer .task-card,.observer .credit-card{cursor:default}
 /* ===== v3.78: экран разбора выписки перед импортом ===== */
 .ww23-rev-wrap{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-s)}
 /* v4.40: панель выбора даты над списком импорта */
+/* v4.43: карточка динамики доходов и расходов */
+.ww43-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ww43-seg{display:inline-flex;background:var(--fill);border-radius:999px;padding:3px}
+.ww43-seg button{padding:5px 14px;border:0;background:none;border-radius:999px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer}
+.ww43-seg button.active{background:var(--card);color:var(--accent);box-shadow:var(--sh-s)}
+.ww43-legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:13px}
+.ww43-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.ww43-legend b{font-variant-numeric:tabular-nums}
 .ww23-rev-datebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:var(--radius-s)}
 .ww23-rev-datebar label{font-size:13px;font-weight:600;color:var(--t2)}
 .ww23-rev-datebar input[type=date]{min-width:0;width:auto;padding:6px 10px;font-size:13px}
@@ -1142,6 +1150,15 @@ body.observer .task-card,.observer .credit-card{cursor:default}
         <span class="sub" id="plan-mnav"></span>
       </div>
       <div class="grid grid-4" id="plan-stats"></div>
+    </div>
+    <!-- v4.43: динамика доходов и расходов с выбором масштаба -->
+    <div class="section card" id="ww43-card">
+      <div class="ww43-head">
+        <h2 style="margin:0">Доходы и расходы</h2>
+        <div class="seg ww43-seg" id="ww43-scale"></div>
+      </div>
+      <canvas id="ww43-chart" height="210" style="max-width:100%"></canvas>
+      <div class="ww43-legend" id="ww43-legend"></div>
     </div>
     <div class="section grid grid-2">
       <div class="card"><h2 id="dash-upcoming-h2">Платежи в периоде</h2><div id="dash-upcoming"></div></div>
@@ -1832,6 +1849,9 @@ function paymentsInRange(from, to) {
 }
 function renderDash() {
   renderReminders();
+  /* v4.43: график динамики. Через try — если карточки нет (старый кэш
+     страницы), дашборд не должен упасть целиком из-за одного блока. */
+  try { ww43Render(); } catch (e) {}
   const now = new Date();
   document.getElementById("dash-date").textContent = now.getDate() + " " + MONTHS_GEN[now.getMonth()] + " " + now.getFullYear() + " · " + ["воскресенье","понедельник","вторник","среда","четверг","пятница","суббота"][now.getDay()];
 
@@ -2837,6 +2857,102 @@ function ww405Animate(cv, draw) {
   cv._ww405run = run;
   cv._ww405io = 1;
   _ww405IO.observe(cv);
+}
+/* ===================== v4.43: динамика доходов и расходов =====================
+   На дашборде был только бублик «по категориям» — он отвечает на вопрос
+   «на что ушло», но не на «больше или меньше, чем раньше». В аналитике есть
+   похожий график, но жёстко по месяцам и без выбора масштаба.
+
+   Здесь три масштаба:
+     дни    — последние 30 дней, видно всплески трат;
+     месяцы — 12 месяцев, основной режим для личных финансов;
+     годы   — все годы, где есть операции.
+
+   Переводы между своими счетами исключены намеренно: они не доход и не
+   расход, а перекладывание своих же денег — иначе перевод 50 000 ₽ с карты
+   на вклад задрал бы оба столбца и исказил картину.
+
+   Рисуем через существующий drawBars: он уже умеет анимацию появления и
+   берёт цвета из темы. Незачем плодить второй рисовальщик. */
+const WW43_SCALES = [
+  { id: "days", name: "Дни" },
+  { id: "months", name: "Месяцы" },
+  { id: "years", name: "Годы" },
+];
+function ww43Scale() {
+  const v = S.settings && S.settings.dashScale;
+  return WW43_SCALES.some((x) => x.id === v) ? v : "months";
+}
+/* Доход/расход за период, без переводов между своими счетами. */
+function ww43Sum(list) {
+  let inc = 0, exp = 0;
+  list.forEach((t) => {
+    if (t.transfer) return;
+    if (t.type === "income") inc += +t.amount || 0;
+    else if (t.type === "expense") exp += +t.amount || 0;
+  });
+  return { inc, exp };
+}
+function ww43Series() {
+  const scale = ww43Scale();
+  const tx = S.transactions || [];
+  const out = [];
+  const now = new Date();
+
+  if (scale === "days") {
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = ymdLocal(d);
+      const { inc, exp } = ww43Sum(tx.filter((t) => t.date === key));
+      /* Подписываем не каждый день — иначе на узком экране каша.
+         Показываем число раз в пять дней и обязательно последний столбец. */
+      out.push({ label: (i % 5 === 0 || i === 0) ? String(d.getDate()) : "", a: inc, b: exp, full: fmtDay(key) });
+    }
+  } else if (scale === "years") {
+    const years = Array.from(new Set(tx.map((t) => (t.date || "").slice(0, 4)).filter(Boolean))).sort();
+    /* Данных может не быть вовсе — показываем текущий год, чтобы не рисовать пустоту. */
+    (years.length ? years : [String(now.getFullYear())]).forEach((y) => {
+      const { inc, exp } = ww43Sum(tx.filter((t) => (t.date || "").startsWith(y)));
+      out.push({ label: y, a: inc, b: exp, full: y + " год" });
+    });
+  } else {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const ym = ymdLocal(d).slice(0, 7);
+      const { inc, exp } = ww43Sum(monthTx(ym));
+      out.push({ label: MONTHS[d.getMonth()].slice(0, 3), a: inc, b: exp, full: MONTHS[d.getMonth()] + " " + d.getFullYear() });
+    }
+  }
+  return out;
+}
+function ww43SetScale(id) {
+  S.settings.dashScale = id;
+  save();
+  ww43Render();
+}
+function ww43Render() {
+  const seg = document.getElementById("ww43-scale");
+  const cv = document.getElementById("ww43-chart");
+  if (!seg || !cv) return;
+  const cur = ww43Scale();
+  seg.innerHTML = WW43_SCALES.map((x) =>
+    '<button type="button" class="' + (x.id === cur ? "active" : "") + '" onclick="ww43SetScale(\'' + x.id + '\')">' + x.name + "</button>").join("");
+
+  const series = ww43Series();
+  drawBars("ww43-chart", series, false);
+
+  /* Итоги за показанный период — иначе по столбцам можно только гадать. */
+  const inc = series.reduce((s, x) => s + x.a, 0);
+  const exp = series.reduce((s, x) => s + x.b, 0);
+  const diff = inc - exp;
+  const leg = document.getElementById("ww43-legend");
+  if (leg) {
+    leg.innerHTML =
+      '<span><i style="background:var(--green)"></i>Доходы <b>' + money(inc) + "</b></span>" +
+      '<span><i style="background:var(--red)"></i>Расходы <b>' + money(exp) + "</b></span>" +
+      '<span style="color:' + (diff >= 0 ? "var(--green)" : "var(--red)") + '">' +
+        (diff >= 0 ? "Отложено" : "Перерасход") + " <b>" + money(Math.abs(diff)) + "</b></span>";
+  }
 }
 function drawBars(id, series, planStyle) {
   const cv = document.getElementById(id);
@@ -6236,7 +6352,7 @@ ww2Notify();
 <script>
 "use strict";
 /* ===================== WiseWallet v2.1: раздел «Пароли» + бейдж версии ===================== */
-const WW_VERSION = "4.41";
+const WW_VERSION = "4.43";
 
 function ww21Migrate() { if (!Array.isArray(S.passwords)) S.passwords = []; }
 ww21Migrate();
@@ -6794,7 +6910,15 @@ function ww23FillToolbar() {
 }
 const _renderPasswords23 = renderPasswords;
 renderPasswords = function () {
-  const tb = document.querySelector("#page-passwords .toolbar");
+  /* v4.42: раздел «Пароли» с некоторых пор живёт вкладкой внутри «Хранилища»
+     (#ww40-panel-passwords), а не отдельной страницей #page-passwords — той
+     в DOM вообще нет. Старый поиск не находил панель, функция выходила на
+     первой строке (if (!el) return), и кнопка «Включить шифрование» просто
+     не появлялась. Механизм шифрования при этом был цел — недоступна была
+     единственная кнопка, которая его включает.
+     Ищем по обоим адресам: сначала новый, затем старый — на случай отката. */
+  const tb = document.querySelector("#ww40-panel-passwords .toolbar")
+          || document.querySelector("#page-passwords .toolbar");
   if (tb && !document.getElementById("ww23-enc-btns")) tb.insertAdjacentHTML("beforeend", '<span id="ww23-enc-btns" style="margin-left:auto;display:flex;gap:6px"></span>');
   ww23FillToolbar();
   if (ww23Enabled() && !WW23.key) {
