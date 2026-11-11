@@ -1,0 +1,15 @@
+name = "wisewallet-widget"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# Секреты не хранятся в этом файле — они задаются один раз командой
+# `npx wrangler secret put <ИМЯ>` и лежат на стороне Cloudflare:
+#
+#   SUPABASE_URL   https://xxxx.supabase.co
+#   SERVICE_KEY    service_role из Project Settings → API
+#   USER_ID        свой uuid из Authentication → Users
+#   READ_KEY       длинная случайная строка, её же подставляем в ссылку виджета
+#
+# SERVICE_KEY обходит RLS, поэтому в репозиторий он попасть не должен ни в
+# каком виде. Если ключ всё-таки куда-то утёк — Project Settings → API →
+# Rotate, и заново `wrangler secret put SERVICE_KEY`.
